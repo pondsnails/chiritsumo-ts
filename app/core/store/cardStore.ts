@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { localDB } from '../database/localStorage';
-import { calculateNextInterval } from '../fsrs/scheduler';
+import { cardsDB, ledgerDB } from '../database/db';
+import { createScheduler } from '../fsrs/scheduler';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
 
@@ -9,12 +9,8 @@ interface CardState {
   isLoading: boolean;
   error: string | null;
   fetchDueCards: (bookIds: string[]) => Promise<Card[]>;
-  updateCardReview: (
-    cardId: string,
-    bookId: string,
-    rating: 1 | 3,
-    mode: 0 | 1 | 2
-  ) => Promise<void>;
+  updateCardReview: (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => Promise<void>;
+  bulkUpdateCardReviews: (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => Promise<void>;
 }
 
 export const useCardStore = create<CardState>((set) => ({
@@ -24,7 +20,7 @@ export const useCardStore = create<CardState>((set) => ({
 
   fetchDueCards: async (bookIds: string[]) => {
     try {
-      const dueCards = await localDB.cards.getDue(bookIds);
+      const dueCards = await cardsDB.getDueCards(bookIds);
       return dueCards;
     } catch (error) {
       console.error('Failed to fetch due cards:', error);
@@ -32,48 +28,67 @@ export const useCardStore = create<CardState>((set) => ({
     }
   },
 
-  updateCardReview: async (
-    cardId: string,
-    bookId: string,
-    rating: 1 | 3,
-    mode: 0 | 1 | 2
-  ) => {
+  updateCardReview: async (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => {
     try {
-      const cards = await localDB.cards.getAll();
-      const card = cards.find(c => c.id === cardId);
+      const cards = await cardsDB.getByBookId(bookId);
+      const card = cards.find((c) => c.id === cardId);
       if (!card) throw new Error('Card not found');
 
-      const now = new Date();
-      const lastReview = card.lastReview ? new Date(card.lastReview) : now;
-      const daysElapsed = Math.max(1, Math.floor((now.getTime() - lastReview.getTime()) / (24 * 60 * 60 * 1000)));
+      const scheduler = createScheduler(mode);
+      const updatedCard = scheduler.review(card, rating);
 
-      const result = calculateNextInterval({
-        currentStability: card.stability,
-        currentDifficulty: card.difficulty,
-        currentState: card.state,
-        rating,
-        daysElapsed,
-        requestRetention: 0.9,
-      });
+      await cardsDB.upsert(updatedCard);
 
-      await localDB.cards.update(cardId, {
-        state: result.nextState,
-        stability: result.nextStability,
-        difficulty: result.nextDifficulty,
-        due: result.nextDue,
-        lastReview: now.toISOString(),
-        reps: card.reps + 1,
-      });
+      if (rating === 3 || rating === 4) {
+        const lexEarned = calculateLexPerCard(mode);
+        const ledgerEntries = await ledgerDB.getRecent(1);
+        const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
+        const currentEarned = today?.earnedLex || 0;
+        const currentTarget = today?.targetLex || 100;
+        const currentBalance = today?.balance || 0;
 
-      const lexEarned = calculateLexPerCard(mode);
-      const ledger = await localDB.ledger.getAll();
-      const today = ledger.find(e => e.date.startsWith(new Date().toISOString().split('T')[0]));
-      const currentEarned = today?.earnedLex || 0;
-      const currentTarget = today?.targetLex || 100;
-
-      await localDB.ledger.updateToday(currentEarned + lexEarned, currentTarget);
+        const todayDate = new Date().toISOString().split('T')[0];
+        await ledgerDB.upsert({
+          date: todayDate,
+          earnedLex: currentEarned + lexEarned,
+          targetLex: currentTarget,
+          balance: currentBalance + lexEarned,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update card';
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  bulkUpdateCardReviews: async (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => {
+    try {
+      const scheduler = createScheduler(mode);
+      const updatedCards = scheduler.bulkReview(cards, ratings);
+
+      await cardsDB.bulkUpsert(updatedCards);
+
+      const successfulReviews = ratings.filter((r) => r === 3 || r === 4).length;
+      const lexEarned = calculateLexPerCard(mode) * successfulReviews;
+
+      if (lexEarned > 0) {
+        const ledgerEntries = await ledgerDB.getRecent(1);
+        const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
+        const currentEarned = today?.earnedLex || 0;
+        const currentTarget = today?.targetLex || 100;
+        const currentBalance = today?.balance || 0;
+
+        const todayDate = new Date().toISOString().split('T')[0];
+        await ledgerDB.upsert({
+          date: todayDate,
+          earnedLex: currentEarned + lexEarned,
+          targetLex: currentTarget,
+          balance: currentBalance + lexEarned,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to bulk update cards';
       set({ error: message });
       throw error;
     }

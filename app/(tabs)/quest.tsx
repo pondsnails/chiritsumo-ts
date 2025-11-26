@@ -18,7 +18,7 @@ import { SolvencyCapsule } from '@/app/core/components/SolvencyCapsule';
 import { TaskCard } from '@/app/core/components/TaskCard';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
-import { localDB } from '@/app/core/database/localStorage';
+import { ledgerDB } from '@/app/core/database/db';
 import { calculateLex } from '@/app/core/logic/lexCalculator';
 import type { Book, Card } from '@/app/core/types';
 
@@ -45,7 +45,7 @@ export default function QuestScreen() {
 
   const loadLedgerData = async () => {
     try {
-      const entries = await localDB.ledger.getRecent(1);
+      const entries = await ledgerDB.getRecent(1);
       if (entries.length > 0) {
         const today = entries[0];
         setBalance(today.balance);
