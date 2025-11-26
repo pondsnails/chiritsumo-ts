@@ -9,7 +9,19 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "学習カードの復習時に、間違えた問題の写真メモを撮影するために使用します。",
+        "NSPhotoLibraryUsageDescription": "学習記録の写真を保存するために使用します。"
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "com.chiritsumo.app"
     },
     "web": {
       "bundler": "metro",

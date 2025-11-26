@@ -7,11 +7,13 @@ import {
   SafeAreaView,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
+import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import type { Book } from '@/app/core/types';
@@ -19,6 +21,7 @@ import type { Book } from '@/app/core/types';
 export default function AddBookScreen() {
   const router = useRouter();
   const { addBook, books, fetchBooks } = useBookStore();
+  const { isProUser } = useSubscriptionStore();
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
   const [chunkSize, setChunkSize] = useState('1');
@@ -33,6 +36,22 @@ export default function AddBookScreen() {
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim()) {
+      return;
+    }
+
+    // Free Planの制限チェック
+    if (!canAddBook(books.length, isProUser)) {
+      Alert.alert(
+        '登録制限',
+        'Free Planでは参考書を3冊まで登録できます。\nPro Planにアップグレードすると無制限に登録できます。',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: 'Pro Planを見る',
+            onPress: () => router.push('/paywall'),
+          },
+        ]
+      );
       return;
     }
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Zap, Route, Wallet, BookOpen } from 'lucide-react-native';
+import { Zap, Route, Wallet, BookOpen, Settings } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 
 export default function TabsLayout() {
@@ -72,6 +72,17 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
               <Wallet color={color} size={24} strokeWidth={2.5} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+              <Settings color={color} size={24} strokeWidth={2.5} />
             </View>
           ),
         }}
