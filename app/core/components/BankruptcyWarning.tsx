@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { AlertTriangle, X, Lock, BookOpen } from 'lucide-react-native';
+import { AlertTriangle, X, Zap, Gift, TrendingUp } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
 import type { BankruptcyResult } from '../logic/bankruptcyLogic';
@@ -9,12 +9,14 @@ interface BankruptcyWarningProps {
   visible: boolean;
   result: BankruptcyResult;
   onClose: () => void;
+  onApplyRescue?: (rescueType: string) => void;
 }
 
 export function BankruptcyWarning({
   visible,
   result,
   onClose,
+  onApplyRescue,
 }: BankruptcyWarningProps) {
   if (!result.isInDebt) return null;
 
@@ -29,9 +31,9 @@ export function BankruptcyWarning({
 
   const getDebtLevelText = () => {
     switch (result.debtLevel) {
-      case 3: return '重度の借金';
-      case 2: return '中程度の借金';
-      case 1: return '軽度の借金';
+      case 3: return '重度の借金（ボーナス3倍！）';
+      case 2: return '中程度の借金（ボーナス2倍！）';
+      case 1: return '軽度の借金（ボーナス1.5倍）';
       default: return '正常';
     }
   };
@@ -46,26 +48,22 @@ export function BankruptcyWarning({
       <View style={styles.overlay}>
         <View style={[glassEffect.containerLarge, styles.container]}>
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: getDebtLevelColor() + '20' }]}>
-              {result.debtLevel >= 2 ? (
-                <Lock color={getDebtLevelColor()} size={32} />
-              ) : (
-                <AlertTriangle color={getDebtLevelColor()} size={32} />
-              )}
+            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+              <Zap color={colors.primary} size={32} />
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X color={colors.text} size={24} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title}>借金状態</Text>
+          <Text style={styles.title}>返済チャンス！</Text>
           <Text style={styles.description}>
-            LEX残高がマイナスになっています。学習を続けて返済しましょう！
+            借金状態ですが、学習でボーナスLexを獲得できます！
           </Text>
 
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>借金レベル</Text>
+              <Text style={styles.detailLabel}>現在の状態</Text>
               <Text style={[styles.detailValue, { color: getDebtLevelColor() }]}>
                 {getDebtLevelText()}
               </Text>
@@ -79,22 +77,39 @@ export function BankruptcyWarning({
             </View>
           </View>
 
-          {result.restrictions.length > 0 && (
-            <View style={styles.restrictionsBox}>
-              <Text style={styles.restrictionsTitle}>機能制限</Text>
-              {result.restrictions.map((restriction, index) => (
-                <View key={index} style={styles.restrictionRow}>
-                  <Text style={styles.restrictionBullet}>•</Text>
-                  <Text style={styles.restrictionText}>{restriction}</Text>
+          {result.bonusQuests.length > 0 && (
+            <View style={styles.bonusBox}>
+              <View style={styles.bonusHeader}>
+                <TrendingUp color={colors.success} size={20} />
+                <Text style={styles.bonusTitle}>ボーナスクエスト</Text>
+              </View>
+              {result.bonusQuests.map((quest, index) => (
+                <View key={index} style={styles.bonusRow}>
+                  <Text style={styles.bonusBullet}>✨</Text>
+                  <Text style={styles.bonusText}>{quest}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {result.rescueOptions.length > 0 && (
+            <View style={styles.rescueBox}>
+              <View style={styles.rescueHeader}>
+                <Gift color={colors.primary} size={20} />
+                <Text style={styles.rescueTitle}>救済オプション</Text>
+              </View>
+              {result.rescueOptions.map((option, index) => (
+                <View key={index} style={styles.rescueRow}>
+                  <Text style={styles.rescueBullet}>🎁</Text>
+                  <Text style={styles.rescueText}>{option}</Text>
                 </View>
               ))}
             </View>
           )}
 
           <View style={styles.tipsBox}>
-            <BookOpen color={colors.primary} size={16} />
             <Text style={styles.tipsText}>
-              学習してLexを稼ぎ、借金を返済すると制限が解除されます
+              💡 学習を続けることで自動的に借金が減っていきます
             </Text>
           </View>
 
@@ -102,7 +117,7 @@ export function BankruptcyWarning({
             style={[styles.button, styles.confirmButton]}
             onPress={onClose}
           >
-            <Text style={styles.confirmButtonText}>学習を続ける</Text>
+            <Text style={styles.confirmButtonText}>学習で返済する！</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -173,48 +188,82 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  restrictionsBox: {
-    backgroundColor: colors.warning + '15',
+  bonusBox: {
+    backgroundColor: colors.success + '15',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
   },
-  restrictionsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.warning,
+  bonusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
   },
-  restrictionRow: {
+  bonusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  bonusRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  restrictionBullet: {
+  bonusBullet: {
     fontSize: 14,
-    color: colors.warning,
     marginRight: 8,
     lineHeight: 20,
   },
-  restrictionText: {
+  bonusText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  rescueBox: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  rescueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  rescueTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  rescueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  rescueBullet: {
+    fontSize: 14,
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  rescueText: {
     flex: 1,
     fontSize: 13,
     color: colors.text,
     lineHeight: 20,
   },
   tipsBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     padding: 12,
     backgroundColor: colors.primary + '20',
     borderRadius: 8,
     marginBottom: 24,
   },
   tipsText: {
-    flex: 1,
     fontSize: 12,
-    color: colors.primary,
+    color: colors.text,
+    textAlign: 'center',
   },
   button: {
     paddingVertical: 14,
@@ -222,7 +271,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.success,
   },
   confirmButtonText: {
     fontSize: 14,

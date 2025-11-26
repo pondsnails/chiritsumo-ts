@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
+  InteractionManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ export default function RouteScreen() {
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCalculating, setIsCalculating] = useState(false);
   const [hubModalVisible, setHubModalVisible] = useState(false);
   const [hubChildren, setHubChildren] = useState<Book[]>([]);
 
@@ -45,17 +47,30 @@ export default function RouteScreen() {
     fetchAllBooks();
   }, []);
 
-  // パフォーマンス最適化: MetroLayoutEngineの計算をメモ化
+  // パフォーマンス最適化: MetroLayoutEngineの計算を画面遷移後に実行
   const { nodes, edges } = useMemo(() => {
     if (books.length === 0) {
       return { nodes: [], edges: [] };
     }
 
-    const engine = new MetroLayoutEngine(books);
-    const positions = engine.getNodePositions();
-    const connections = engine.getEdges(positions);
+    // 計算開始を通知
+    setIsCalculating(true);
 
-    return { nodes: positions, edges: connections };
+    // 画面遷移アニメーション完了後に計算を開始
+    const task = InteractionManager.runAfterInteractions(() => {
+      try {
+        const engine = new MetroLayoutEngine(books);
+        const positions = engine.getNodePositions();
+        const connections = engine.getEdges(positions);
+        
+        return { nodes: positions, edges: connections };
+      } finally {
+        setIsCalculating(false);
+      }
+    });
+
+    // クリーンアップ
+    return () => task.cancel();
   }, [books]);
 
   const handleNodePress = (node: NodePosition) => {
@@ -93,6 +108,12 @@ export default function RouteScreen() {
         {isLoading ? (
           <View style={styles.centerContent}>
             <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={styles.loadingText}>読み込み中...</Text>
+          </View>
+        ) : isCalculating ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator color={colors.primary} size="large" />
+            <Text style={styles.loadingText}>路線図を計算中...</Text>
           </View>
         ) : books.length === 0 ? (
           <View style={styles.centerContent}>
@@ -206,6 +227,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginTop: 12,
   },
   emptyText: {
     fontSize: 14,

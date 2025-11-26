@@ -186,9 +186,34 @@ app/
 
 ## 🔐 Security Best Practices
 
-### API Key Protection
+### ⚠️ CRITICAL: API Key Security Issue
 
-**Gemini API Key制限設定（必須）**
+**現在の実装には重大なセキュリティリスクがあります。**
+
+Gemini APIキーが `EXPO_PUBLIC_` 環境変数としてクライアントアプリのバンドルに含まれています。
+これは開発・プロトタイプ段階では許容されますが、**本番リリース前に必ず修正が必要です。**
+
+**リスク:**
+- APK/IPAを解析すれば誰でもAPIキーを抽出可能
+- Google Cloud Consoleのアプリ制限（Bundle ID/SHA-1）も、curlなどで偽装可能
+- 特にWeb版は完全に脆弱（JavaScriptバンドルに平文で含まれる）
+
+**本番対応（必須）:**
+1. **バックエンドプロキシの実装:**
+   - Firebase Functions / Supabase Edge Functions / Cloudflare Workers のいずれかを使用
+   - クライアント → バックエンド → Gemini API の構成に変更
+   - APIキーはバックエンド環境変数に保存（Secret Manager推奨）
+
+2. **または、AI機能の無効化:**
+   - Web版ではAI機能を完全に無効化
+   - ネイティブアプリのみでAI機能を提供（アプリ制限と組み合わせ）
+
+3. **レート制限の実装:**
+   - バックエンドでユーザーごとのAPI呼び出し回数を制限
+
+**開発用の暫定対策:**
+
+**開発用の暫定対策:**
 
 1. Google Cloud Consoleにアクセス
 2. 「APIs & Services」→「認証情報」
@@ -241,6 +266,41 @@ EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
 ```
 
 ⚠️ **注意**: APIキーはGitにコミットしないでください！
+
+## 💾 Data Backup & Recovery
+
+### 現在の実装
+
+**手動バックアップ（実装済み）:**
+- Settings画面から JSON形式でエクスポート/インポート可能
+- 全データ（Books, Cards, Ledger）を含む完全バックアップ
+
+**⚠️ 重要な制限:**
+- ユーザーが手動で操作する必要があり、実際に使われない可能性が高い
+- スマホの紛失・故障時にデータが完全消失するリスク
+
+### 本番対応（推奨実装）
+
+**自動クラウドバックアップ（未実装）:**
+
+1. **iOS版:**
+   - iCloud Document Pickerを使用
+   - アプリ Documents ディレクトリの自動同期
+   - ユーザー認証不要（システムレベルで処理）
+
+2. **Android版:**
+   - Google Drive APIを使用
+   - 定期的な自動バックアップ（日次/週次）
+   - ユーザー認証が必要
+
+3. **Pro Plan機能として提供:**
+   - Free Plan: 手動バックアップのみ
+   - Pro Plan: 自動クラウドバックアップ
+   - 課金インセンティブとして最適
+
+**実装優先度: 高**
+- Local Firstアプリの最大の弱点はデータ消失リスク
+- ユーザーの学習履歴は貴重な資産であり、保護が不可欠
 
 ## 🗄️ Database Architecture
 
