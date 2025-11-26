@@ -17,6 +17,8 @@ import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBackupService } from '@/app/core/services/backupService';
 import { useBookStore } from '@/app/core/store/bookStore';
+import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@/app/core/database/db';
+import i18n from '@/app/core/i18n';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -29,10 +31,10 @@ export default function SettingsScreen() {
     try {
       setIsExporting(true);
       await exportBackup();
-      Alert.alert('成功', 'バックアップをエクスポートしました');
+      Alert.alert(i18n.t('common.success'), i18n.t('settings.exportSuccess'));
     } catch (error) {
       console.error('Export failed:', error);
-      Alert.alert('エラー', 'エクスポートに失敗しました');
+      Alert.alert(i18n.t('common.error'), i18n.t('settings.exportError'));
     } finally {
       setIsExporting(false);
     }
@@ -40,22 +42,22 @@ export default function SettingsScreen() {
 
   const handleImport = async () => {
     Alert.alert(
-      '確認',
-      '現在のデータは全て削除されます。本当にインポートしますか?',
+      i18n.t('settings.importConfirmTitle'),
+      i18n.t('settings.importConfirmMessage'),
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: 'インポート',
+          text: i18n.t('settings.import'),
           style: 'destructive',
           onPress: async () => {
             try {
               setIsImporting(true);
               await importBackup();
               await fetchBooks();
-              Alert.alert('成功', 'バックアップをインポートしました');
+              Alert.alert(i18n.t('common.success'), i18n.t('settings.importSuccess'));
             } catch (error) {
               console.error('Import failed:', error);
-              Alert.alert('エラー', 'インポートに失敗しました');
+              Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));
             } finally {
               setIsImporting(false);
             }
@@ -67,16 +69,34 @@ export default function SettingsScreen() {
 
   const handleResetData = () => {
     Alert.alert(
-      '警告',
-      '全てのデータを削除しますか？この操作は取り消せません。',
+      i18n.t('settings.deleteAllTitle'),
+      i18n.t('settings.deleteAllMessage'),
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: '削除',
+          text: i18n.t('common.delete'),
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement data reset
-            Alert.alert('未実装', 'この機能は準備中です');
+          onPress: async () => {
+            try {
+              // 全テーブルのデータを削除
+              const allBooks = await booksDB.getAll();
+              for (const book of allBooks) {
+                await booksDB.delete(book.id);
+              }
+              
+              const allPresets = await inventoryPresetsDB.getAll();
+              for (const preset of allPresets) {
+                await inventoryPresetsDB.delete(preset.id);
+              }
+
+              // 取得できない場合に備えてIndexedDB/SQLiteを直接クリア
+              await fetchBooks();
+              
+              Alert.alert(i18n.t('common.success'), i18n.t('settings.deleteAllSuccess'));
+            } catch (error) {
+              console.error('Failed to reset data:', error);
+              Alert.alert(i18n.t('common.error'), i18n.t('settings.deleteAllError'));
+            }
           },
         },
       ]
@@ -92,8 +112,8 @@ export default function SettingsScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.title}>Settings</Text>
-            <Text style={styles.subtitle}>設定</Text>
+            <Text style={styles.title}>{i18n.t('settings.title')}</Text>
+            <Text style={styles.subtitle}>{i18n.t('settings.subtitle')}</Text>
           </View>
 
           {/* データ管理セクション */}
