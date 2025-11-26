@@ -18,7 +18,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionStore';
 import { validateBookAddition } from '@/app/core/utils/circularReferenceDetector';
-import { getBookTitleFromBarcode } from '@/app/core/services/googleBooksService';
+import { getBookTitleFromBarcode } from '@/app/core/services/bookDataService';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import i18n from '@/app/core/i18n';
