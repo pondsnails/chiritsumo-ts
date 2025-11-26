@@ -157,7 +157,7 @@ app/
 │   ├── logic/           # ビジネスロジック
 │   ├── services/
 │   │   ├── BookService.ts
-│   │   ├── backupService.ts  # バックアップ（NEW）
+│   │   ├── backupService.ts  # 手動バックアップ
 │   │   └── aiAffiliate.ts
 │   ├── store/
 │   │   ├── bookStore.ts
@@ -196,12 +196,7 @@ app/
   - [ ] Entitlement設定
   - [ ] API Key差し替え
 
-- [ ] **Gemini API セキュリティ設定**
-  - [ ] Google Cloud Console > APIs & Services > Credentials
-  - [ ] API制限を「Android apps」「iOS apps」に設定
-  - [ ] Bundle ID: `com.chiritsumo.app` を登録
-  - [ ] SHA-1フィンガープリントを登録
-  - [ ] (参考: https://cloud.google.com/docs/authentication/api-keys)
+  
 
 - [ ] **プライバシーポリシーホスティング**
   - [ ] HTMLをデプロイ
