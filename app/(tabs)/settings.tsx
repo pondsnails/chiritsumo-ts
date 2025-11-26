@@ -221,7 +221,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
             
             <View style={[glassEffect.card, styles.lexProfileCard]}>
-              <Text style={styles.lexProfileTitle}>日次Lex目標: {dailyLexTarget} Lex</Text>
+              <Text style={styles.lexProfileTitle}>日次Lex目標: {dailyLexTarget} Lex（約{Math.round(dailyLexTarget / 10)}分）</Text>
               <Text style={styles.lexProfileHint}>または従来のプリセットから選択</Text>
               
               {/* プリセットプロファイル選択 */}
@@ -249,7 +249,7 @@ export default function SettingsScreen() {
                       )}
                     </View>
                     <Text style={styles.profileDescription}>{profile.description}</Text>
-                    <Text style={styles.profileTarget}>{profile.dailyLexTarget} Lex/日</Text>
+                    <Text style={styles.profileTarget}>{profile.dailyLexTarget} Lex/日（約{Math.round(profile.dailyLexTarget / 10)}分）</Text>
                   </View>
                   {selectedProfileId === profile.id && (
                     <View style={styles.checkmark}>
