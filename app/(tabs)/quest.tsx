@@ -10,13 +10,16 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Play } from 'lucide-react-native';
+import { Play, Settings } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useCardStore } from '@/app/core/store/cardStore';
 import { calculateLexPerCard } from '@/app/core/logic/lexCalculator';
-import type { Card } from '@/app/core/types';
+import { inventoryPresetsDB } from '@/app/core/database/db';
+import { InventoryFilterChip } from '@/app/core/components/InventoryFilterChip';
+import { InventoryFilterModal } from '@/app/core/components/InventoryFilterModal';
+import type { Card, InventoryPreset } from '@/app/core/types';
 
 export default function QuestScreen() {
   const router = useRouter();
@@ -24,24 +27,65 @@ export default function QuestScreen() {
   const { fetchDueCards } = useCardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
+  const [presets, setPresets] = useState<InventoryPreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<number | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (books.length > 0) {
+      loadDueCards();
+    }
+  }, [books, activePresetId]);
+
   const loadData = async () => {
     try {
       setIsLoading(true);
       await fetchBooks();
-      const activeBookIds = books.filter(b => b.status === 0).map(b => b.id);
-      if (activeBookIds.length > 0) {
-        const cards = await fetchDueCards(activeBookIds);
-        setDueCards(cards);
-      }
+      await loadPresets();
     } catch (error) {
       console.error('Failed to load quest data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadPresets = async () => {
+    try {
+      const loadedPresets = await inventoryPresetsDB.getAll();
+      setPresets(loadedPresets);
+      const defaultPreset = loadedPresets.find(p => p.isDefault);
+      if (defaultPreset) {
+        setActivePresetId(defaultPreset.id);
+      }
+    } catch (error) {
+      console.error('Failed to load presets:', error);
+    }
+  };
+
+  const loadDueCards = async () => {
+    try {
+      let bookIdsToQuery: string[];
+
+      if (activePresetId) {
+        const activePreset = presets.find(p => p.id === activePresetId);
+        bookIdsToQuery = activePreset?.bookIds || [];
+      } else {
+        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+      }
+
+      if (bookIdsToQuery.length > 0) {
+        const cards = await fetchDueCards(bookIdsToQuery);
+        setDueCards(cards);
+      } else {
+        setDueCards([]);
+      }
+    } catch (error) {
+      console.error('Failed to load due cards:', error);
+      setDueCards([]);
     }
   };
 
@@ -90,6 +134,19 @@ export default function QuestScreen() {
     router.push(`/study?bookId=${bookId}`);
   };
 
+  const handleFilterPress = (presetId: number) => {
+    setActivePresetId(activePresetId === presetId ? null : presetId);
+  };
+
+  const handleFilterLongPress = () => {
+    setShowFilterModal(true);
+  };
+
+  const handlePresetsChange = async () => {
+    await loadPresets();
+    await loadDueCards();
+  };
+
   if (isLoading) {
     return (
       <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
@@ -108,7 +165,38 @@ export default function QuestScreen() {
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Quest</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>Quest</Text>
+            <TouchableOpacity onPress={() => setShowFilterModal(true)} style={styles.settingsButton}>
+              <Settings color={colors.textSecondary} size={24} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+
+          {presets.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterChips}
+            >
+              <TouchableOpacity
+                style={[styles.allChip, !activePresetId && styles.allChipActive]}
+                onPress={() => setActivePresetId(null)}
+              >
+                <Text style={[styles.allChipText, !activePresetId && styles.allChipTextActive]}>
+                  すべて
+                </Text>
+              </TouchableOpacity>
+              {presets.map(preset => (
+                <InventoryFilterChip
+                  key={preset.id}
+                  preset={preset}
+                  isActive={activePresetId === preset.id}
+                  onPress={() => handleFilterPress(preset.id)}
+                  onLongPress={handleFilterLongPress}
+                />
+              ))}
+            </ScrollView>
+          )}
 
           <View style={styles.summaryContainer}>
             <View style={[glassEffect.card, styles.summaryCard]}>
@@ -124,7 +212,11 @@ export default function QuestScreen() {
           {groupedCards.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>学習待機中のカードはありません</Text>
-              <Text style={styles.emptySubtext}>Books画面から教材を追加してください</Text>
+              <Text style={styles.emptySubtext}>
+                {activePresetId
+                  ? 'このフィルターには期限切れカードがありません'
+                  : 'Books画面から教材を追加してください'}
+              </Text>
             </View>
           ) : (
             <View style={styles.taskList}>
@@ -157,6 +249,14 @@ export default function QuestScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <InventoryFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        books={books}
+        presets={presets}
+        onPresetsChange={handlePresetsChange}
+      />
     </LinearGradient>
   );
 }
@@ -173,13 +273,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
   title: {
     fontSize: 32,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
+  },
+  settingsButton: {
+    padding: 8,
+  },
+  filterChips: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  allChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  allChipActive: {
+    backgroundColor: `${colors.primary}20`,
+    borderColor: colors.primary,
+  },
+  allChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  allChipTextActive: {
+    color: colors.primary,
   },
   summaryContainer: {
     flexDirection: 'row',
