@@ -181,11 +181,6 @@ export default function RouteScreen() {
               <ActivityIndicator color={colors.primary} size="large" />
               <Text style={styles.loadingText}>{i18n.t('route.loading')}</Text>
             </View>
-          ) : isCalculating ? (
-            <View style={styles.centerContent}>
-              <ActivityIndicator color={colors.primary} size="large" />
-              <Text style={styles.loadingText}>{i18n.t('route.calculating')}</Text>
-            </View>
           ) : books.length === 0 ? (
             <View style={styles.centerContent}>
               <Text style={styles.emptyText}>{i18n.t('route.noBooks')}</Text>
@@ -197,32 +192,56 @@ export default function RouteScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={{ height: contentHeight }}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={{ height: contentHeight, width: '100%' }}>
-                <MetroLine edges={edges} width={360} height={contentHeight} />
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              <View style={styles.booksTimeline}>
+                {books
+                  .sort((a, b) => {
+                    // previousBookIdの関係で並び替え
+                    const aOrder = books.filter(x => x.previousBookId === a.id).length;
+                    const bOrder = books.filter(x => x.previousBookId === b.id).length;
+                    return bOrder - aOrder;
+                  })
+                  .map((book, index) => (
+                  <View key={book.id} style={styles.timelineItem}>
+                    {index > 0 && (
+                      <View style={styles.timelineConnector} />
+                    )}
+                    
+                    <TouchableOpacity
+                      style={[glassEffect.card, styles.presetBookCard]}
+                      onPress={() => router.push(`/books/edit?id=${book.id}`)}
+                    >
+                      <View style={styles.bookOrder}>
+                        <Text style={styles.bookOrderText}>{index + 1}</Text>
+                      </View>
+                      
+                      <View style={styles.presetBookInfo}>
+                        <Text style={styles.presetBookTitle}>{book.title}</Text>
+                        <Text style={styles.presetBookDescription}>
+                          {book.mode === 0 ? '読む' : book.mode === 1 ? '解く' : '暗記'}
+                        </Text>
+                        
+                        <View style={styles.presetBookMeta}>
+                          <Text style={styles.presetBookMetaText}>
+                            📖 {book.completedUnit || 0}/{book.totalUnit} {book.mode === 0 ? 'ページ' : '問'}
+                          </Text>
+                          <Text style={styles.presetBookMetaText}>
+                            📊 進捗: {Math.round(((book.completedUnit || 0) / book.totalUnit) * 100)}%
+                          </Text>
+                        </View>
 
-                {nodes.map((node) => (
-                  <View
-                    key={node.id}
-                    style={[
-                      styles.nodeWrapper,
-                      {
-                        left: node.x - 70,
-                        top: node.y,
-                      },
-                    ]}
-                  >
-                    <BookNode
-                      book={node.book}
-                      isHub={node.isHub}
-                      hubCount={node.children.length}
-                      onPress={() => handleNodePress(node)}
-                      onLongPress={() => router.push(`/books/edit?id=${node.book.id}`)}
-                    />
+                        {book.status === 1 && (
+                          <View style={[styles.difficultyBadge, { backgroundColor: colors.success + '20', marginTop: 8 }]}>
+                            <Text style={[styles.difficultyText, { color: colors.success }]}>完了</Text>
+                          </View>
+                        )}
+                        {book.status === 2 && (
+                          <View style={[styles.difficultyBadge, { backgroundColor: colors.textTertiary + '20', marginTop: 8 }]}>
+                            <Text style={[styles.difficultyText, { color: colors.textTertiary }]}>中断</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>

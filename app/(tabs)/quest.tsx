@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -33,9 +34,12 @@ export default function QuestScreen() {
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // 画面フォーカス時に自動更新
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => {
     if (books.length > 0) {
