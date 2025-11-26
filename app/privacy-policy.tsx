@@ -30,7 +30,7 @@ export default function PrivacyPolicyScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <Text style={styles.updateDate}>最終更新日: 2025年11月26日</Text>
+          <Text style={styles.updateDate}>最終更新日: 2025年11月27日</Text>
 
           <Text style={styles.sectionTitle}>1. はじめに</Text>
           <Text style={styles.paragraph}>
@@ -42,7 +42,7 @@ export default function PrivacyPolicyScreen() {
           
           <Text style={styles.subsectionTitle}>2.1 Local First アーキテクチャ</Text>
           <Text style={styles.paragraph}>
-            本アプリは「Local First」設計を採用しており、<Text style={styles.bold}>学習データ（参考書情報、カード復習履歴、学習実績など）は全て端末内のSQLiteデータベースに保存され、外部サーバーへは送信されません。</Text>
+            本アプリは「Local First」設計を採用しており、<Text style={styles.bold}>学習データ（参考書情報、カード復習履歴、学習実績など）は全て端末内のデータベース（Web: IndexedDB / Native: SQLite）に保存され、外部サーバーへは送信されません。</Text>
           </Text>
 
           <Text style={styles.subsectionTitle}>2.2 カメラ権限</Text>
@@ -72,9 +72,9 @@ export default function PrivacyPolicyScreen() {
 
           <Text style={styles.sectionTitle}>5. データのバックアップ</Text>
           <Text style={styles.paragraph}>
-            本アプリでは、ユーザーが手動でJSON形式のバックアップをエクスポートできます。
-            エクスポートされたファイルは、ユーザーがGoogle DriveやiCloud等の任意のストレージサービスに保存することができますが、
-            開発者はそれらのファイルにアクセスすることはできません。
+            本アプリでは、ユーザーが手動でJSON形式のバックアップをエクスポート/インポートできます。自動・クラウド連携によるバックアップ機能は提供していません。
+            エクスポートされたファイルは、ユーザーがGoogle DriveやiCloud等の任意のストレージサービスに<strong>手動で</strong>保存することができますが、
+            開発者がそれらのファイルへアクセスすることはありません（外部依存なし、維持費ゼロの方針）。
           </Text>
 
           <Text style={styles.sectionTitle}>6. データの削除</Text>
