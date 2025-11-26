@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { cardsDB, ledgerDB } from '../database/db';
 import { createScheduler } from '../fsrs/scheduler';
-import { calculateLexPerCard } from '../logic/lexCalculator';
+import { calculateLexForCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
 
 interface CardState {
@@ -40,7 +40,7 @@ export const useCardStore = create<CardState>((set) => ({
       await cardsDB.upsert(updatedCard);
 
       if (rating === 3 || rating === 4) {
-        const lexEarned = calculateLexPerCard(mode);
+        const lexEarned = calculateLexForCard(mode, updatedCard);
         const ledgerEntries = await ledgerDB.getRecent(1);
         const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
         const currentEarned = today?.earnedLex || 0;
@@ -69,8 +69,13 @@ export const useCardStore = create<CardState>((set) => ({
 
       await cardsDB.bulkUpsert(updatedCards);
 
-      const successfulReviews = ratings.filter((r) => r === 3 || r === 4).length;
-      const lexEarned = calculateLexPerCard(mode) * successfulReviews;
+      // 成功した復習のLexを個別に計算して合算
+      const lexEarned = updatedCards.reduce((total, card, index) => {
+        if (ratings[index] === 3 || ratings[index] === 4) {
+          return total + calculateLexForCard(mode, card);
+        }
+        return total;
+      }, 0);
 
       if (lexEarned > 0) {
         const ledgerEntries = await ledgerDB.getRecent(1);

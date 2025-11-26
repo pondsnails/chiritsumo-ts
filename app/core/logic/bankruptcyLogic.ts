@@ -1,101 +1,90 @@
 import type { Card, LedgerEntry } from '../types';
 
-export interface BankruptcyResult {
+export interface BankruptcyStatus {
   isInDebt: boolean;
   deficit: number;
-  debtLevel: number; // 借金レベル (0-3)
-  bonusQuests: string[]; // ボーナスクエスト（返済を促すポジティブな施策）
-  rescueOptions: string[]; // 救済オプション
+  warningLevel: 0 | 1 | 2 | 3; // 0: 健全, 1: 注意, 2: 警告, 3: 破産寸前
+  canBankrupt: boolean; // 破産可能か（Free版のみ）
+  message: string;
 }
 
+// 借金の上限設定（Free版のみ）
+const BANKRUPTCY_THRESHOLD_FREE = -1000; // -1000 Lexで強制破産
+
 /**
- * 借金レベルによるボーナスクエスト・救済措置
- * 機能制限ではなく、ポジティブな行動で返済を促す設計
- * 
- * Level 0: 健全な状態
- * Level 1: 軽度の借金 - ボーナスクエスト提案
- * Level 2: 中度の借金 - 返済ボーナス2倍
- * Level 3: 重度の借金 - 徳政令（救済措置）が利用可能
+ * 簡素化された破産判定
+ * - Pro版: 借金上限なし（無制限にマイナス可能）
+ * - Free版: -1000 Lexで強制破産（全データリセット）
  */
-export function checkBankruptcy(
+export function checkBankruptcyStatus(
   balance: number,
-  cards: Card[]
-): BankruptcyResult {
+  isProUser: boolean
+): BankruptcyStatus {
   if (balance >= 0) {
     return {
       isInDebt: false,
       deficit: 0,
-      debtLevel: 0,
-      bonusQuests: [],
-      rescueOptions: [],
+      warningLevel: 0,
+      canBankrupt: false,
+      message: '健全な状態です',
     };
   }
 
   const deficit = Math.abs(balance);
-  let debtLevel = 0;
-  const bonusQuests: string[] = [];
-  const rescueOptions: string[] = [];
 
-  // 借金レベルの判定（機能制限なし）
-  if (deficit >= 1000) {
-    debtLevel = 3;
-    bonusQuests.push('今日の学習で獲得したLexが3倍になります');
-    bonusQuests.push('ブラックマーケットでカードを売却できます');
-    rescueOptions.push('徳政令: 500 Lex で借金を半額に減免');
-    rescueOptions.push('強化合宿: 通常の2倍学習すれば全額免除');
-  } else if (deficit >= 500) {
-    debtLevel = 2;
-    bonusQuests.push('今日の学習で獲得したLexが2倍になります');
-    bonusQuests.push('ブラックマーケットでカードを売却できます');
-    rescueOptions.push('徳政令: 300 Lex で借金を半額に減免');
-  } else if (deficit >= 100) {
-    debtLevel = 1;
-    bonusQuests.push('今日の学習で獲得したLexが1.5倍になります');
-    rescueOptions.push('連続学習: 3日連続でノルマ達成すれば借金帳消し');
+  // Pro版は借金上限なし
+  if (isProUser) {
+    let warningLevel: 0 | 1 | 2 | 3 = 1;
+    if (deficit >= 2000) warningLevel = 3;
+    else if (deficit >= 1000) warningLevel = 2;
+    else if (deficit >= 500) warningLevel = 1;
+
+    return {
+      isInDebt: true,
+      deficit,
+      warningLevel,
+      canBankrupt: false,
+      message: `借金: ${deficit} Lex（Pro版は上限なし）`,
+    };
   }
+
+  // Free版は-1000で強制破産
+  if (balance <= BANKRUPTCY_THRESHOLD_FREE) {
+    return {
+      isInDebt: true,
+      deficit,
+      warningLevel: 3,
+      canBankrupt: true,
+      message: '破産状態です。全データをリセットして再出発できます。',
+    };
+  }
+
+  // 破産寸前の警告レベル
+  let warningLevel: 0 | 1 | 2 | 3 = 1;
+  if (deficit >= 800) warningLevel = 3;
+  else if (deficit >= 500) warningLevel = 2;
+  else if (deficit >= 200) warningLevel = 1;
 
   return {
     isInDebt: true,
     deficit,
-    debtLevel,
-    bonusQuests,
-    rescueOptions,
+    warningLevel,
+    canBankrupt: false,
+    message: `借金: ${deficit} Lex（残り ${Math.abs(BANKRUPTCY_THRESHOLD_FREE) - deficit} Lex で破産）`,
   };
 }
 
-export function getSellPrice(card: Card): number {
-  const basePrice = 10;
-  const stateMultiplier = [0, 1, 1.5, 2, 2.5];
-  return Math.floor(basePrice * stateMultiplier[card.state]);
-}
-
 /**
- * 借金による利息計算（廃止）
- * 代わりにログインボーナスで救済
- */
-export function calculatePenalty(deficit: number): number {
-  return 0; // ペナルティ廃止
-}
-
-/**
- * 破産処理（進捗リセット廃止、機能制限も廃止）
- * マイナス残高を許容し、ボーナスクエストで返済を促す
+ * 破産処理（全データリセット）
+ * Free版のみ実行可能
  */
 export async function executeBankruptcy(
-  cards: Card[],
-  currentBalance: number,
-  updateCard: (id: string, updates: Partial<Card>) => Promise<void>,
-  addLedgerEntry: (entry: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>
+  resetAllData: () => Promise<void>
 ): Promise<void> {
-  const result = checkBankruptcy(currentBalance, cards);
-
-  // 借金状態でも進捗はリセットしない、機能制限もしない
-  // ユーザーは学習を続けることで借金を返済し、ボーナスLexを獲得できる
-  if (!result.isInDebt) return;
-
-  // ログ出力のみ（ボーナスクエストの通知）
-  console.log(`Debt level ${result.debtLevel}: Bonus quests available -`, result.bonusQuests.join(', '));
+  await resetAllData();
+  console.log('Bankruptcy executed: All data has been reset.');
 }
+
 
 /**
  * ログインボーナス機能（救済措置）
