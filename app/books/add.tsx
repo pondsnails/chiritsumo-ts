@@ -15,6 +15,7 @@ import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import type { Book } from '@/app/core/types';
+import { Picker } from '@react-native-picker/picker';
 
 export default function AddBookScreen() {
   const router = useRouter();
