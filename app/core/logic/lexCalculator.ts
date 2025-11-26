@@ -2,9 +2,9 @@ import type { Book, Card } from '../types';
 
 // 基本Lex値（モード別の最低保証値）
 const BASE_LEX = {
-  read: 5,
-  solve: 10,
-  memo: 1,
+  read: 30,  // 3分想定 → 30 Lex
+  solve: 50, // 5分想定 → 50 Lex
+  memo: 1,   // 6秒想定 → 1 Lex
 } as const;
 
 // 難易度係数（difficulty: 1-10の範囲）
