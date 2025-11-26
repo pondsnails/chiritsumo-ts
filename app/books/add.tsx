@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Save } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionStore';
+import { validateBookAddition } from '@/app/core/utils/circularReferenceDetector';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import type { Book } from '@/app/core/types';
@@ -36,6 +37,7 @@ export default function AddBookScreen() {
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim()) {
+      Alert.alert('入力エラー', 'タイトルとUnit数を入力してください');
       return;
     }
 
@@ -55,18 +57,29 @@ export default function AddBookScreen() {
       return;
     }
 
+    // 循環参照のバリデーション
+    const newBookData = {
+      id: Date.now().toString(),
+      title: title.trim(),
+      previousBookId,
+    };
+
+    const validationError = validateBookAddition(newBookData, books);
+    if (validationError) {
+      Alert.alert('エラー', validationError);
+      return;
+    }
+
     try {
       setIsSaving(true);
       const newBook: Book = {
-        id: Date.now().toString(),
+        ...newBookData,
         userId: 'local',
-        title: title.trim(),
         totalUnit: parseInt(totalUnit),
         chunkSize: parseInt(chunkSize) || 1,
         completedUnit: 0,
         mode,
         status: 0,
-        previousBookId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -75,6 +88,7 @@ export default function AddBookScreen() {
       router.back();
     } catch (error) {
       console.error('Failed to add book:', error);
+      Alert.alert('エラー', '参考書の追加に失敗しました');
     } finally {
       setIsSaving(false);
     }
