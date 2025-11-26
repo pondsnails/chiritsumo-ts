@@ -16,6 +16,7 @@ export interface Book {
   previousBookId: string | null;
   priority?: 0 | 1;
   coverPath?: string | null;
+  targetCompletionDate?: string | null; // Deadline Mode用
   createdAt: string;
   updatedAt: string;
 }

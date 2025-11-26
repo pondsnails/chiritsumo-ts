@@ -7,10 +7,12 @@ import {
   SafeAreaView,
   TextInput,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Save } from 'lucide-react-native';
+import { ArrowLeft, Save, Calendar, Target, TrendingUp } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
@@ -25,6 +27,8 @@ export default function EditBookScreen() {
   const [completedUnit, setCompletedUnit] = useState('');
   const [mode, setMode] = useState<0 | 1 | 2>(0);
   const [status, setStatus] = useState<0 | 1 | 2>(0);
+  const [targetCompletionDate, setTargetCompletionDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -35,8 +39,29 @@ export default function EditBookScreen() {
       setCompletedUnit((book.completedUnit || 0).toString());
       setMode(book.mode);
       setStatus(book.status);
+      if (book.targetCompletionDate) {
+        setTargetCompletionDate(new Date(book.targetCompletionDate));
+      }
     }
   }, [id, books]);
+
+  const calculateDailyQuota = (): number | null => {
+    if (!targetCompletionDate) return null;
+    
+    const remaining = parseInt(totalUnit) - parseInt(completedUnit || '0');
+    if (remaining <= 0) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(targetCompletionDate);
+    target.setHours(0, 0, 0, 0);
+    
+    const daysRemaining = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysRemaining <= 0) return null;
+    
+    return Math.ceil(remaining / daysRemaining);
+  };
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim() || !completedUnit.trim()) {
@@ -51,6 +76,7 @@ export default function EditBookScreen() {
         completedUnit: parseInt(completedUnit),
         mode,
         status,
+        targetCompletionDate: targetCompletionDate?.toISOString() || null,
       });
       router.back();
     } catch (error) {
@@ -59,6 +85,8 @@ export default function EditBookScreen() {
       setIsSaving(false);
     }
   };
+
+  const dailyQuota = calculateDailyQuota();
 
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
@@ -197,6 +225,68 @@ export default function EditBookScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Deadline Mode */}
+            <View style={styles.formGroup}>
+              <View style={styles.deadlineHeader}>
+                <Target color={colors.warning} size={20} strokeWidth={2} />
+                <Text style={styles.label}>目標完了日（Deadline Mode）</Text>
+              </View>
+              <Text style={styles.deadlineDescription}>
+                試験日や締切を設定すると、毎日のノルマを自動計算します
+              </Text>
+              
+              <TouchableOpacity
+                style={[styles.datePickerButton, targetCompletionDate && styles.datePickerButtonActive]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Calendar color={targetCompletionDate ? colors.warning : colors.textTertiary} size={20} strokeWidth={2} />
+                <Text style={[styles.datePickerText, targetCompletionDate && styles.datePickerTextActive]}>
+                  {targetCompletionDate
+                    ? `${targetCompletionDate.getFullYear()}年${targetCompletionDate.getMonth() + 1}月${targetCompletionDate.getDate()}日`
+                    : '日付を選択'
+                  }
+                </Text>
+              </TouchableOpacity>
+
+              {targetCompletionDate && (
+                <TouchableOpacity
+                  style={styles.clearDateButton}
+                  onPress={() => setTargetCompletionDate(null)}
+                >
+                  <Text style={styles.clearDateText}>クリア</Text>
+                </TouchableOpacity>
+              )}
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={targetCompletionDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      setTargetCompletionDate(selectedDate);
+                    }
+                  }}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              {dailyQuota !== null && (
+                <View style={styles.quotaCard}>
+                  <TrendingUp color={colors.success} size={24} strokeWidth={2} />
+                  <View style={styles.quotaInfo}>
+                    <Text style={styles.quotaLabel}>今日のノルマ</Text>
+                    <Text style={styles.quotaValue}>{dailyQuota} ページ/日</Text>
+                    <Text style={styles.quotaHint}>
+                      残り{parseInt(totalUnit) - parseInt(completedUnit || '0')}ページを
+                      {Math.ceil((targetCompletionDate!.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}日で完了
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           </View>
 
@@ -337,5 +427,81 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  deadlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  deadlineDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  datePickerButtonActive: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warning + '10',
+  },
+  datePickerText: {
+    fontSize: 15,
+    color: colors.textTertiary,
+  },
+  datePickerTextActive: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  clearDateButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  clearDateText: {
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '600',
+  },
+  quotaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.success + '10',
+    borderWidth: 2,
+    borderColor: colors.success + '40',
+    borderRadius: 12,
+  },
+  quotaInfo: {
+    flex: 1,
+  },
+  quotaLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  quotaValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.success,
+    marginBottom: 4,
+  },
+  quotaHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    lineHeight: 14,
   },
 });

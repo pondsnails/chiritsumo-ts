@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, Edit2, Trash2, Search } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Search, Target } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
@@ -32,6 +32,24 @@ export default function BooksScreen() {
     } catch (error) {
       console.error('Failed to delete book:', error);
     }
+  };
+
+  const calculateDailyQuota = (book: Book): number | null => {
+    if (!book.targetCompletionDate) return null;
+    
+    const remaining = book.totalUnit - (book.completedUnit || 0);
+    if (remaining <= 0) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(book.targetCompletionDate);
+    target.setHours(0, 0, 0, 0);
+    
+    const daysRemaining = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysRemaining <= 0) return null;
+    
+    return Math.ceil(remaining / daysRemaining);
   };
 
   const getModeColor = (mode: number) => {
@@ -100,60 +118,74 @@ export default function BooksScreen() {
               data={books}
               scrollEnabled={false}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View style={[glassEffect.card, styles.bookCard]}>
-                  <View style={styles.bookHeader}>
-                    <View
-                      style={[
-                        styles.modeBadge,
-                        { backgroundColor: getModeColor(item.mode) },
-                      ]}
-                    >
-                      <Text style={styles.modeBadgeText}>{getModeLabel(item.mode)}</Text>
+              renderItem={({ item }) => {
+                const dailyQuota = calculateDailyQuota(item);
+                
+                return (
+                  <View style={[glassEffect.card, styles.bookCard]}>
+                    <View style={styles.bookHeader}>
+                      <View
+                        style={[
+                          styles.modeBadge,
+                          { backgroundColor: getModeColor(item.mode) },
+                        ]}
+                      >
+                        <Text style={styles.modeBadgeText}>{getModeLabel(item.mode)}</Text>
+                      </View>
+                      <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
                     </View>
-                    <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
-                  </View>
 
-                  <Text style={styles.bookTitle}>{item.title}</Text>
+                    <Text style={styles.bookTitle}>{item.title}</Text>
 
-                  <View style={styles.bookDetails}>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>{i18n.t('books.totalUnits')}</Text>
-                      <Text style={styles.detailValue}>{item.totalUnit}</Text>
+                    {/* Deadline Mode ノルマ表示 */}
+                    {dailyQuota !== null && (
+                      <View style={styles.deadlineQuota}>
+                        <Target color={colors.warning} size={16} strokeWidth={2} />
+                        <Text style={styles.deadlineQuotaText}>
+                          今日のノルマ: <Text style={styles.deadlineQuotaValue}>{dailyQuota}ページ</Text>
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.bookDetails}>
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>{i18n.t('books.totalUnits')}</Text>
+                        <Text style={styles.detailValue}>{item.totalUnit}</Text>
+                      </View>
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>{i18n.t('books.completedUnits')}</Text>
+                        <Text style={styles.detailValue}>{item.completedUnit}</Text>
+                      </View>
+                      <View style={styles.detailItem}>
+                        <Text style={styles.detailLabel}>{i18n.t('books.progress')}</Text>
+                        <Text style={styles.detailValue}>
+                          {item.totalUnit > 0
+                            ? Math.round(((item.completedUnit || 0) / item.totalUnit) * 100)
+                            : 0}
+                          %
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>{i18n.t('books.completedUnits')}</Text>
-                      <Text style={styles.detailValue}>{item.completedUnit}</Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>{i18n.t('books.progress')}</Text>
-                      <Text style={styles.detailValue}>
-                        {item.totalUnit > 0
-                          ? Math.round(((item.completedUnit || 0) / item.totalUnit) * 100)
-                          : 0}
-                        %
-                      </Text>
+
+                    <View style={styles.bookActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => router.push(`/books/edit?id=${item.id}`)}
+                      >
+                        <Edit2 color={colors.primary} size={18} strokeWidth={2} />
+                        <Text style={styles.actionButtonText}>{i18n.t('common.edit')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleDelete(item.id)}
+                      >
+                        <Trash2 color={colors.error} size={18} strokeWidth={2} />
+                        <Text style={[styles.actionButtonText, { color: colors.error }]}>{i18n.t('common.delete')}</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  <View style={styles.bookActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => router.push(`/books/edit?id=${item.id}`)}
-                    >
-                      <Edit2 color={colors.primary} size={18} strokeWidth={2} />
-                      <Text style={styles.actionButtonText}>{i18n.t('common.edit')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDelete(item.id)}
-                    >
-                      <Trash2 color={colors.error} size={18} strokeWidth={2} />
-                      <Text style={[styles.actionButtonText, { color: colors.error }]}>{i18n.t('common.delete')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
+                );
+              }}
             />
           )}
         </ScrollView>
@@ -264,7 +296,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  deadlineQuota: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.warning + '15',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  deadlineQuotaText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  deadlineQuotaValue: {
+    fontWeight: '700',
+    color: colors.warning,
+    fontSize: 14,
   },
   bookDetails: {
     flexDirection: 'row',
