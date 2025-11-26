@@ -50,12 +50,10 @@ export async function performDailyRollover(
 
     const newBalance = currentBalance - targetLex;
 
-    await ledgerDB.add({
-      id: Date.now().toString(),
-      userId: 'local',
-      date: new Date().toISOString(),
-      targetLex,
+    await ledgerDB.upsert({
+      date: today,
       earnedLex: 0,
+      targetLex,
       balance: newBalance,
     });
 
