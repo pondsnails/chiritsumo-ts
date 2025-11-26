@@ -11,9 +11,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Search } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
-import { BookRecommendations } from '@/app/core/components/BookRecommendations';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import i18n from '@/app/core/i18n';
@@ -70,13 +69,19 @@ export default function BooksScreen() {
             </TouchableOpacity>
           </View>
 
-          <BookRecommendations
-            context={{
-              completedBooks: books.filter(b => b.status === 1),
-              currentBooks: books.filter(b => b.status === 0),
-              interests: [],
-            }}
-          />
+          {/* Amazon教材検索へのリンク */}
+          <TouchableOpacity
+            style={[glassEffect.card, styles.searchCard]}
+            onPress={() => router.push('/books/amazon-search' as any)}
+          >
+            <Search color={colors.primary} size={24} />
+            <View style={styles.searchCardContent}>
+              <Text style={styles.searchCardTitle}>新しい教材を探す</Text>
+              <Text style={styles.searchCardSubtitle}>
+                Amazonで参考書・問題集を検索
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           {isLoading ? (
             <ActivityIndicator color={colors.primary} size="large" />
@@ -208,6 +213,26 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  searchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 24,
+    gap: 16,
+  },
+  searchCardContent: {
+    flex: 1,
+  },
+  searchCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  searchCardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   bookCard: {
     marginBottom: 16,

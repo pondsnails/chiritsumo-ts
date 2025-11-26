@@ -11,19 +11,19 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ShoppingBag, ExternalLink } from 'lucide-react-native';
-import * as WebBrowser from 'expo-web-browser';
+import { AlertTriangle, ShoppingBag } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { ledgerDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
-import recommendedBooksData from '@/app/core/data/recommendedBooks.json';
 import i18n from '@/app/core/i18n';
 import type { LedgerEntry } from '@/app/core/types';
 
 export default function BankScreen() {
+  const router = useRouter();
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [balance, setBalance] = useState(0);
@@ -32,11 +32,6 @@ export default function BankScreen() {
 
   const { books } = useBookStore();
   const { isProUser } = useSubscriptionStore();
-
-  // 学習グッズ取得
-  const learningGoods = recommendedBooksData.books.filter(
-    (book) => book.category === 'goods'
-  );
 
   useEffect(() => {
     fetchLedger();
@@ -65,12 +60,6 @@ export default function BankScreen() {
 
   // 破産ステータスチェック
   const bankruptcyStatus = checkBankruptcyStatus(balance, isProUser);
-
-  const handleOpenAffiliateLink = (asin: string) => {
-    // 実際のアフィリエイトIDに置き換え
-    const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=YOUR_AFFILIATE_ID`;
-    WebBrowser.openBrowserAsync(affiliateUrl);
-  };
 
   const getBookTitle = (bookId: string) => {
     return books.find(b => b.id === bookId)?.title || 'Unknown';
@@ -161,36 +150,22 @@ export default function BankScreen() {
                 </View>
               </View>
 
-              {/* 学習グッズアフィリエイト */}
-              {learningGoods.length > 0 && balance < 0 && (
-                <View style={styles.goodsSection}>
-                  <View style={styles.goodsHeader}>
-                    <ShoppingBag color={colors.primary} size={20} />
-                    <Text style={styles.goodsTitle}>学習効率アップグッズ</Text>
+              {/* 教材検索リンク（借金時に表示） */}
+              {balance < 0 && (
+                <TouchableOpacity
+                  style={[glassEffect.card, styles.amazonSearchCard]}
+                  onPress={() => router.push('/books/amazon-search' as any)}
+                >
+                  <View style={styles.amazonSearchContent}>
+                    <ShoppingBag color={colors.primary} size={24} />
+                    <View style={styles.amazonSearchInfo}>
+                      <Text style={styles.amazonSearchTitle}>教材を探す</Text>
+                      <Text style={styles.amazonSearchSubtitle}>
+                        新しい参考書や学習グッズで効率アップ
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={styles.goodsSubtitle}>
-                    集中力を高めて、Lex獲得を加速しよう
-                  </Text>
-                  
-                  {learningGoods.map((good) => (
-                    <TouchableOpacity
-                      key={good.id}
-                      style={[glassEffect.card, styles.goodCard]}
-                      onPress={() => handleOpenAffiliateLink(good.asin)}
-                    >
-                      <View style={styles.goodContent}>
-                        <View style={styles.goodInfo}>
-                          <Text style={styles.goodTitle}>{good.title}</Text>
-                          <Text style={styles.goodDescription} numberOfLines={2}>
-                            {good.description}
-                          </Text>
-                          <Text style={styles.goodPrice}>¥{good.price.toLocaleString()}</Text>
-                        </View>
-                        <ExternalLink color={colors.primary} size={20} />
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                </TouchableOpacity>
               )}
 
               {/* 履歴 */}
@@ -325,52 +300,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  goodsSection: {
+  amazonSearchCard: {
+    padding: 20,
     marginBottom: 24,
   },
-  goodsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  goodsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  goodsSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  goodCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  goodContent: {
+  amazonSearchContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
-  goodInfo: {
+  amazonSearchInfo: {
     flex: 1,
   },
-  goodTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  amazonSearchTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
   },
-  goodDescription: {
-    fontSize: 12,
+  amazonSearchSubtitle: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  goodPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
   },
   historyHeader: {
     marginBottom: 16,

@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { Download, Upload, Trash2, Info, CreditCard, Cloud, ExternalLink } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard, Cloud } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBackupService } from '@/app/core/services/backupService';
@@ -466,13 +465,10 @@ export default function SettingsScreen() {
 
             <TouchableOpacity
               style={[glassEffect.card, styles.menuItem]}
-              onPress={async () => {
-                // GitHub Pagesなどにホスティング後、URLを変更
-                await WebBrowser.openBrowserAsync('https://your-domain.com/privacy-policy.html');
-              }}
+              onPress={() => router.push('/privacy-policy' as any)}
             >
               <View style={styles.menuItemLeft}>
-                <ExternalLink color={colors.textSecondary} size={20} strokeWidth={2} />
+                <Info color={colors.textSecondary} size={20} strokeWidth={2} />
                 <Text style={styles.menuItemText}>プライバシーポリシー</Text>
               </View>
             </TouchableOpacity>
