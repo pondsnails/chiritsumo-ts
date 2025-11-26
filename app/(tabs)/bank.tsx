@@ -28,28 +28,29 @@ export default function BankScreen() {
   const [showBlackMarket, setShowBlackMarket] = useState(false);
   const [sellableCards, setSellableCards] = useState<Card[]>([]);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [cards, setCards] = useState<Card[]>([]);
 
   const { books } = useBookStore();
 
   useEffect(() => {
     fetchLedger();
-    fetchAllCards();
   }, []);
 
-  const fetchAllCards = async () => {
+  // ブラックマーケット表示時のみ売却可能なカードを取得
+  useEffect(() => {
+    if (showBlackMarket) {
+      fetchSellableCards();
+    }
+  }, [showBlackMarket]);
+
+  const fetchSellableCards = async () => {
     try {
-      const allCards = await cardsDB.getAll();
-      setCards(allCards);
+      // 最適化: state > 0 のカードだけを取得
+      const sellable = await cardsDB.getSellableCards();
+      setSellableCards(sellable);
     } catch (error) {
-      console.error('Failed to fetch cards:', error);
+      console.error('Failed to fetch sellable cards:', error);
     }
   };
-
-  useEffect(() => {
-    const sellable = cards.filter(card => card.state !== 0);
-    setSellableCards(sellable);
-  }, [cards]);
 
   const fetchLedger = async () => {
     try {
@@ -100,7 +101,7 @@ export default function BankScreen() {
       });
 
       await fetchLedger();
-      await fetchAllCards();
+      await fetchSellableCards(); // 最適化: 売却可能なカードのみ再取得
       setSelectedCard(null);
       setShowBlackMarket(false);
     } catch (error) {

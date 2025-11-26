@@ -222,6 +222,45 @@ export const indexedCardsDB = {
       lastReview: c.lastReview ? new Date(c.lastReview) : null,
     }));
   },
+
+  /**
+   * カードを状態(state)でフィルタリング
+   * ブラックマーケットで売却可能なカード(state > 0)を取得する際に使用
+   */
+  getByState: async (state: number): Promise<Card[]> => {
+    const cards = await getByIndex<Card>(STORES.CARDS, 'state', state);
+    return cards.map(c => ({
+      ...c,
+      due: new Date(c.due),
+      lastReview: c.lastReview ? new Date(c.lastReview) : null,
+    }));
+  },
+
+  /**
+   * 状態が0より大きいカード(売却可能なカード)を全て取得
+   * ブラックマーケット用の最適化クエリ
+   */
+  getSellableCards: async (): Promise<Card[]> => {
+    const database = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction(STORES.CARDS, 'readonly');
+      const store = transaction.objectStore(STORES.CARDS);
+      const index = store.index('state');
+      // state > 0 のカードだけを取得
+      const range = IDBKeyRange.lowerBound(1);
+      const request = index.getAll(range);
+
+      request.onsuccess = () => {
+        const cards = request.result as Card[];
+        resolve(cards.map(c => ({
+          ...c,
+          due: new Date(c.due),
+          lastReview: c.lastReview ? new Date(c.lastReview) : null,
+        })));
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
   
   getDueCards: async (bookIds: string[]): Promise<Card[]> => {
     const now = new Date();

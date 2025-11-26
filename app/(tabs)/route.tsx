@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,6 @@ export default function RouteScreen() {
   const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [nodes, setNodes] = useState<NodePosition[]>([]);
-  const [edges, setEdges] = useState<any[]>([]);
   const [hubModalVisible, setHubModalVisible] = useState(false);
   const [hubChildren, setHubChildren] = useState<Book[]>([]);
 
@@ -47,19 +45,17 @@ export default function RouteScreen() {
     fetchAllBooks();
   }, []);
 
-  useEffect(() => {
+  // パフォーマンス最適化: MetroLayoutEngineの計算をメモ化
+  const { nodes, edges } = useMemo(() => {
     if (books.length === 0) {
-      setNodes([]);
-      setEdges([]);
-      return;
+      return { nodes: [], edges: [] };
     }
 
     const engine = new MetroLayoutEngine(books);
     const positions = engine.getNodePositions();
     const connections = engine.getEdges(positions);
 
-    setNodes(positions);
-    setEdges(connections);
+    return { nodes: positions, edges: connections };
   }, [books]);
 
   const handleNodePress = (node: NodePosition) => {

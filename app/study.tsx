@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { Paths, File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useCardStore } from '@/app/core/store/cardStore';
@@ -136,7 +137,27 @@ export default function StudyScreen() {
       try {
         const photo = await cameraRef.takePictureAsync();
         const card = cards[currentIndex];
-        await cardsDB.upsert({ ...card, photoPath: photo.uri });
+        
+        // Web版の場合はそのまま保存
+        if (Platform.OS === 'web') {
+          await cardsDB.upsert({ ...card, photoPath: photo.uri });
+          setShowCamera(false);
+          Alert.alert('保存完了', '写真メモを保存しました');
+          return;
+        }
+
+        // ネイティブ版: 永続ディレクトリにコピー
+        const timestamp = Date.now();
+        const fileName = `memo_${card.id}_${timestamp}.jpg`;
+        const permanentFile = new File(Paths.document, 'photos', fileName);
+        
+        // 元の写真を読み込んで永続ディレクトリに書き込み
+        const sourceFile = new File(photo.uri);
+        const buffer = await sourceFile.arrayBuffer();
+        await permanentFile.write(new Uint8Array(buffer));
+        
+        // 永続パスを保存
+        await cardsDB.upsert({ ...card, photoPath: permanentFile.uri });
         setShowCamera(false);
         Alert.alert('保存完了', '写真メモを保存しました');
       } catch (error) {

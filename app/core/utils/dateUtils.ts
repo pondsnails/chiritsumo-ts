@@ -13,12 +13,27 @@ export function getDaysSince(date: Date | string): number {
   return Math.floor(ms / (24 * 60 * 60 * 1000));
 }
 
+/**
+ * ユーザーのローカルタイムゾーンで今日の日付を取得
+ * UTCではなくローカルタイムを基準にする
+ */
 export function getTodayDateString(): string {
-  return formatDate(new Date());
+  const now = new Date();
+  // ローカルタイムゾーンでの年月日を取得
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
+/**
+ * ユーザーのローカルタイムゾーンで昨日の日付を取得
+ */
 export function getYesterdayDateString(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return formatDate(yesterday);
+  const year = yesterday.getFullYear();
+  const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+  const day = String(yesterday.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
