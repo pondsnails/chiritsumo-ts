@@ -8,6 +8,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { performAutoBackup as performICloudBackup } from './iCloudBackup';
+import { performAutoBackup as performGoogleDriveBackup } from './googleDriveBackup';
 import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '../database/db';
 
 const BACKUP_TASK_NAME = 'auto-backup-task';
@@ -51,8 +52,7 @@ TaskManager.defineTask(BACKUP_TASK_NAME, async () => {
     if (Platform.OS === 'ios') {
       await performICloudBackup(data);
     } else if (Platform.OS === 'android') {
-      // Android版は将来的にGoogle Drive APIを使用
-      console.log('Google Drive backup not implemented yet');
+      await performGoogleDriveBackup(data);
     }
 
     console.log('Auto backup completed successfully');
