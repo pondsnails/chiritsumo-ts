@@ -15,6 +15,7 @@ import { useCardStore } from '@/app/core/store/cardStore';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
+import i18n from '@/app/core/i18n';
 import type { Card, Book } from '@/app/core/types';
 
 export default function StudyMemoScreen() {
@@ -82,8 +83,8 @@ export default function StudyMemoScreen() {
       const failedCount = failedIndices.size;
 
       Alert.alert(
-        '完了',
-        `正解: ${passedCount}枚\n不正解: ${failedCount}枚`,
+        i18n.t('study.completed'),
+        `${i18n.t('common.success')}: ${passedCount}枚\n${i18n.t('common.error')}: ${failedCount}枚`,
         [
           {
             text: 'OK',
@@ -93,7 +94,7 @@ export default function StudyMemoScreen() {
       );
     } catch (error) {
       console.error('Failed to submit reviews:', error);
-      Alert.alert('エラー', '復習の保存に失敗しました');
+      Alert.alert(i18n.t('common.error'), i18n.t('study.reviewSaveError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -113,9 +114,9 @@ export default function StudyMemoScreen() {
     return (
       <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
         <SafeAreaView style={styles.center}>
-          <Text style={styles.emptyText}>復習カードがありません</Text>
+          <Text style={styles.emptyText}>{i18n.t('study.noCards')}</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>戻る</Text>
+            <Text style={styles.backButtonText}>{i18n.t('study.back')}</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </LinearGradient>
@@ -127,16 +128,16 @@ export default function StudyMemoScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
           <Text style={styles.bookTitle}>{currentBook?.title}</Text>
-          <Text style={styles.instruction}>忘れた単語だけタップしてください</Text>
+          <Text style={styles.instruction}>{i18n.t('study.instruction')}</Text>
           <View style={styles.stats}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>正解</Text>
+              <Text style={styles.statLabel}>{i18n.t('study.correct')}</Text>
               <Text style={[styles.statValue, { color: colors.success }]}>
                 {cards.length - failedIndices.size}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>不正解</Text>
+              <Text style={styles.statLabel}>{i18n.t('study.incorrect')}</Text>
               <Text style={[styles.statValue, { color: colors.error }]}>{failedIndices.size}</Text>
             </View>
           </View>
@@ -179,7 +180,7 @@ export default function StudyMemoScreen() {
             {isSubmitting ? (
               <ActivityIndicator color={colors.text} />
             ) : (
-              <Text style={styles.submitButtonText}>完了</Text>
+              <Text style={styles.submitButtonText}>{i18n.t('study.completed')}</Text>
             )}
           </TouchableOpacity>
         </View>
