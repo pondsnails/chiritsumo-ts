@@ -55,6 +55,15 @@ const initDB = async () => {
     CREATE INDEX IF NOT EXISTS idx_cards_book_id ON cards(book_id);
     CREATE INDEX IF NOT EXISTS idx_cards_due ON cards(due);
     CREATE INDEX IF NOT EXISTS idx_ledger_date ON ledger(date);
+
+    CREATE TABLE IF NOT EXISTS inventory_presets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL,
+      icon_code INTEGER NOT NULL DEFAULT 0,
+      book_ids TEXT NOT NULL, -- JSON配列文字列
+      is_default INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_inventory_presets_default ON inventory_presets(is_default);
   `);
 };
 
@@ -117,10 +126,22 @@ export const booksDB = {
         target_completion_date, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        book.id, book.userId, book.subjectId, book.title, book.isbn,
-        book.mode, book.totalUnit, book.chunkSize, book.completedUnit,
-        book.status, book.previousBookId, book.priority, book.coverPath,
-        book.targetCompletionDate, book.createdAt, book.updatedAt
+        book.id,
+        book.userId,
+        book.subjectId ?? null,
+        book.title,
+        book.isbn ?? null,
+        book.mode,
+        book.totalUnit,
+        book.chunkSize ?? 1,
+        book.completedUnit ?? 0,
+        book.status,
+        book.previousBookId ?? null,
+        book.priority ?? 0,
+        book.coverPath ?? null,
+        book.targetCompletionDate ?? null,
+        book.createdAt,
+        book.updatedAt
       ]
     );
   },
@@ -184,6 +205,26 @@ export const cardsDB = {
     const result = db.getAllSync<any>(
       `SELECT * FROM cards WHERE book_id IN (${placeholders}) AND due <= ? ORDER BY due ASC`,
       [...bookIds, now]
+    );
+    return result.map(row => ({
+      id: row.id,
+      bookId: row.book_id,
+      unitIndex: row.unit_index,
+      state: row.state,
+      stability: row.stability,
+      difficulty: row.difficulty,
+      due: new Date(row.due),
+      lastReview: row.last_review ? new Date(row.last_review) : null,
+      reps: row.reps,
+      photoPath: row.photo_path,
+    }));
+  },
+
+  async getNewCards(limit: number): Promise<Card[]> {
+    await initDB();
+    const result = db.getAllSync<any>(
+      'SELECT * FROM cards WHERE state = 0 ORDER BY book_id ASC, unit_index ASC LIMIT ?',
+      [limit]
     );
     return result.map(row => ({
       id: row.id,
@@ -294,5 +335,41 @@ export const ledgerDB = {
        VALUES (?, ?, ?, ?)`,
       [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
     );
+  },
+};
+
+// Inventory Presets Repository
+export const inventoryPresetsDB = {
+  async getAll(): Promise<import('../types').InventoryPreset[]> {
+    await initDB();
+    const result = db.getAllSync<any>('SELECT * FROM inventory_presets ORDER BY id ASC');
+    return result.map(row => ({
+      id: row.id,
+      label: row.label,
+      iconCode: row.icon_code,
+      bookIds: JSON.parse(row.book_ids || '[]'),
+      isDefault: !!row.is_default,
+    }));
+  },
+
+  async add(preset: Omit<import('../types').InventoryPreset, 'id'>): Promise<void> {
+    await initDB();
+    db.runSync(
+      'INSERT INTO inventory_presets (label, icon_code, book_ids, is_default) VALUES (?, ?, ?, ?)',
+      [preset.label, preset.iconCode, JSON.stringify(preset.bookIds), preset.isDefault ? 1 : 0]
+    );
+  },
+
+  async update(id: number, preset: Omit<import('../types').InventoryPreset, 'id'>): Promise<void> {
+    await initDB();
+    db.runSync(
+      'UPDATE inventory_presets SET label = ?, icon_code = ?, book_ids = ?, is_default = ? WHERE id = ?',
+      [preset.label, preset.iconCode, JSON.stringify(preset.bookIds), preset.isDefault ? 1 : 0, id]
+    );
+  },
+
+  async delete(id: number): Promise<void> {
+    await initDB();
+    db.runSync('DELETE FROM inventory_presets WHERE id = ?', [id]);
   },
 };
