@@ -8,13 +8,17 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Save } from 'lucide-react-native';
+import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionStore';
 import { validateBookAddition } from '@/app/core/utils/circularReferenceDetector';
+import { getBookTitleFromBarcode } from '@/app/core/services/googleBooksService';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import i18n from '@/app/core/i18n';
@@ -31,10 +35,56 @@ export default function AddBookScreen() {
   const [previousBookId, setPreviousBookId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // バーコードスキャナー関連
+  const [showScanner, setShowScanner] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isLoadingBookInfo, setIsLoadingBookInfo] = useState(false);
 
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  const handleBarcodeScan = async () => {
+    // カメラ権限チェック
+    if (!permission) {
+      return;
+    }
+
+    if (!permission.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert('カメラ権限が必要です', 'バーコードスキャンにはカメラ権限が必要です。');
+        return;
+      }
+    }
+
+    setShowScanner(true);
+  };
+
+  const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    setShowScanner(false);
+    setIsLoadingBookInfo(true);
+
+    try {
+      const bookTitle = await getBookTitleFromBarcode(data);
+      
+      if (bookTitle) {
+        setTitle(bookTitle);
+        Alert.alert('書籍情報を取得しました', `タイトル: ${bookTitle}`);
+      } else {
+        Alert.alert(
+          '書籍が見つかりませんでした',
+          `ISBN: ${data}\n手動で入力してください。`
+        );
+      }
+    } catch (error) {
+      console.error('Barcode scan error:', error);
+      Alert.alert('エラー', '書籍情報の取得に失敗しました');
+    } finally {
+      setIsLoadingBookInfo(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim()) {
@@ -110,13 +160,26 @@ export default function AddBookScreen() {
           <View style={[glassEffect.container, styles.formContainer]}>
             <View style={styles.formGroup}>
               <Text style={styles.label}>{i18n.t('books.titleLabel')}</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder={i18n.t('books.titlePlaceholder')}
-                placeholderTextColor={colors.textTertiary}
-              />
+              <View style={styles.titleInputRow}>
+                <TextInput
+                  style={[styles.input, styles.titleInput]}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder={i18n.t('books.titlePlaceholder')}
+                  placeholderTextColor={colors.textTertiary}
+                />
+                <TouchableOpacity
+                  style={styles.barcodeButton}
+                  onPress={handleBarcodeScan}
+                  disabled={isLoadingBookInfo}
+                >
+                  {isLoadingBookInfo ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Barcode color={colors.primary} size={24} strokeWidth={2} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.formGroup}>
@@ -253,6 +316,40 @@ export default function AddBookScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
+
+        {/* バーコードスキャナーモーダル */}
+        <Modal
+          visible={showScanner}
+          animationType="slide"
+          onRequestClose={() => setShowScanner(false)}
+        >
+          <View style={styles.scannerContainer}>
+            <CameraView
+              style={styles.camera}
+              facing="back"
+              barcodeScannerSettings={{
+                barcodeTypes: ['ean13', 'ean8'],
+              }}
+              onBarcodeScanned={handleBarcodeScanned}
+            >
+              <View style={styles.scannerOverlay}>
+                <View style={styles.scannerHeader}>
+                  <Text style={styles.scannerTitle}>ISBNバーコードをスキャン</Text>
+                  <TouchableOpacity
+                    style={styles.scannerCloseButton}
+                    onPress={() => setShowScanner(false)}
+                  >
+                    <Text style={styles.scannerCloseText}>閉じる</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.scannerFrame} />
+                <Text style={styles.scannerHint}>
+                  書籍の裏表紙のバーコードを枠内に合わせてください
+                </Text>
+              </View>
+            </CameraView>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -388,5 +485,73 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  titleInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  titleInput: {
+    flex: 1,
+  },
+  barcodeButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  camera: {
+    flex: 1,
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'space-between',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  scannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  scannerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  scannerCloseButton: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  scannerCloseText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  scannerFrame: {
+    alignSelf: 'center',
+    width: 250,
+    height: 250,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  scannerHint: {
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
