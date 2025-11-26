@@ -71,7 +71,7 @@ export function TaskCard({ book, cardsDue, estimatedLex, index, onPress, onSkip 
             style={[
               styles.progressFill,
               {
-                width: `${book.totalUnit > 0 ? (book.completedUnit / book.totalUnit) * 100 : 0}%`,
+                width: `${book.totalUnit > 0 ? ((book.completedUnit || 0) / book.totalUnit) * 100 : 0}%`,
                 backgroundColor: getModeColor(),
               },
             ]}

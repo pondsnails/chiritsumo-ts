@@ -4,16 +4,17 @@ export type CardState = 'new' | 'learning' | 'review' | 'relearning';
 
 export interface Book {
   id: string;
-  subjectId: number;
+  userId: string;
+  subjectId?: number | null;
   title: string;
-  isbn: string;
+  isbn?: string | null;
   mode: 0 | 1 | 2;
   totalUnit: number;
-  completedUnit: number;
+  completedUnit?: number;
   status: 0 | 1 | 2;
   previousBookId: string | null;
-  priority: 0 | 1;
-  coverPath: string | null;
+  priority?: 0 | 1;
+  coverPath?: string | null;
   createdAt: string;
   updatedAt: string;
 }

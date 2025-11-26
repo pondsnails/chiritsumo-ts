@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Camera, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useCardStore } from '@/app/core/store/cardStore';
@@ -37,7 +37,7 @@ export default function StudyScreen() {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraRef, setCameraRef] = useState<any>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<number | null>(null);
   const confettiRef = useRef<any>(null);
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function StudyScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       }
       openCamera();
-    }, 800);
+    }, 800) as unknown as number;
     setLongPressTimer(timer);
   };
 
@@ -240,7 +240,7 @@ export default function StudyScreen() {
       </SafeAreaView>
 
       <Modal visible={showCamera} animationType="slide">
-        <Camera style={styles.camera} type={CameraType.back} ref={setCameraRef}>
+        <CameraView style={styles.camera} facing="back" ref={setCameraRef}>
           <View style={styles.cameraControls}>
             <TouchableOpacity style={styles.cameraButton} onPress={() => setShowCamera(false)}>
               <Text style={styles.cameraButtonText}>キャンセル</Text>
@@ -249,7 +249,7 @@ export default function StudyScreen() {
               <View style={styles.cameraCaptureInner} />
             </TouchableOpacity>
           </View>
-        </Camera>
+        </CameraView>
       </Modal>
     </LinearGradient>
   );

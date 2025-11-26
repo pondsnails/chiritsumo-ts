@@ -9,7 +9,7 @@ import {
   FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { localDB } from '@/app/core/database/localStorage';
+import { ledgerDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import type { LedgerEntry } from '@/app/core/types';
@@ -28,7 +28,7 @@ export default function BankScreen() {
   const fetchLedger = async () => {
     try {
       setIsLoading(true);
-      const entries = await localDB.ledger.getRecent(30);
+      const entries = await ledgerDB.getRecent(30);
       setLedger(entries);
 
       if (entries.length > 0) {

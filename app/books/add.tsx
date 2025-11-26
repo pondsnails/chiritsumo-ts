@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,11 +18,17 @@ import type { Book } from '@/app/core/types';
 
 export default function AddBookScreen() {
   const router = useRouter();
-  const { addBook } = useBookStore();
+  const { addBook, books, fetchBooks } = useBookStore();
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
   const [mode, setMode] = useState<0 | 1 | 2>(0);
+  const [previousBookId, setPreviousBookId] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim()) {
@@ -39,7 +45,7 @@ export default function AddBookScreen() {
         completedUnit: 0,
         mode,
         status: 0,
-        previousBookId: null,
+        previousBookId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -87,6 +93,45 @@ export default function AddBookScreen() {
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
               />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>前提となる教材（任意）</Text>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPicker(!showPicker)}
+              >
+                <Text style={[styles.pickerText, !previousBookId && styles.placeholderText]}>
+                  {previousBookId
+                    ? books.find(b => b.id === previousBookId)?.title || 'なし'
+                    : 'なし（始発駅）'}
+                </Text>
+              </TouchableOpacity>
+              {showPicker && (
+                <View style={styles.pickerList}>
+                  <TouchableOpacity
+                    style={styles.pickerItem}
+                    onPress={() => {
+                      setPreviousBookId(null);
+                      setShowPicker(false);
+                    }}
+                  >
+                    <Text style={styles.pickerItemText}>なし（始発駅）</Text>
+                  </TouchableOpacity>
+                  {books.map(book => (
+                    <TouchableOpacity
+                      key={book.id}
+                      style={styles.pickerItem}
+                      onPress={() => {
+                        setPreviousBookId(book.id);
+                        setShowPicker(false);
+                      }}
+                    >
+                      <Text style={styles.pickerItemText}>{book.title}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
             <View style={styles.formGroup}>
@@ -251,6 +296,39 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text,
+  },
+  pickerButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  pickerText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  placeholderText: {
+    color: colors.textTertiary,
+  },
+  pickerList: {
+    marginTop: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  pickerItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceBorder,
+  },
+  pickerItemText: {
+    fontSize: 16,
     color: colors.text,
   },
 });

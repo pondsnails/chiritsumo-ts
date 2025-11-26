@@ -47,8 +47,8 @@ export class FSRSScheduler {
       reps: card.reps,
       lapses: 0,
       state: card.state as State,
-      last_review: card.lastReview,
-    };
+      last_review: card.lastReview || undefined,
+    } as FSRSCard;
   }
 
   review(card: Card, rating: 1 | 2 | 3 | 4, reviewTime?: Date): Card {

@@ -114,7 +114,7 @@ export default function BooksScreen() {
                       <Text style={styles.detailLabel}>進捗</Text>
                       <Text style={styles.detailValue}>
                         {item.totalUnit > 0
-                          ? Math.round((item.completedUnit / item.totalUnit) * 100)
+                          ? Math.round(((item.completedUnit || 0) / item.totalUnit) * 100)
                           : 0}
                         %
                       </Text>

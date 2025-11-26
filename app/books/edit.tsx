@@ -31,7 +31,7 @@ export default function EditBookScreen() {
     if (book) {
       setTitle(book.title);
       setTotalUnit(book.totalUnit.toString());
-      setCompletedUnit(book.completedUnit.toString());
+      setCompletedUnit((book.completedUnit || 0).toString());
       setMode(book.mode);
       setStatus(book.status);
     }
