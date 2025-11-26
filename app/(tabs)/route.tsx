@@ -41,6 +41,51 @@ export default function RouteScreen() {
   const [nodes, setNodes] = useState<NodePosition[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
 
+  // 依存関係に基づいて書籍をソート（トポロジカルソート）
+  const sortBooksByDependency = useCallback((books: Book[]) => {
+    const bookMap = new Map(books.map(b => [b.id, b]));
+    const routes: Book[][] = [];
+    const visited = new Set<string>();
+    
+    // ルートノード（previousBookIdがnullまたは存在しない書籍）を探す
+    const getRootBooks = () => {
+      return books.filter(b => 
+        !b.previousBookId || !bookMap.has(b.previousBookId)
+      );
+    };
+    
+    // 各ルートから依存チェーンを辿る
+    const buildChain = (startBook: Book): Book[] => {
+      const chain: Book[] = [];
+      let current: Book | undefined = startBook;
+      
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        chain.push(current);
+        
+        // 次の書籍を探す（このcurrentを前提としている書籍）
+        current = books.find(b => b.previousBookId === current!.id);
+      }
+      
+      return chain;
+    };
+    
+    // 各ルートからチェーンを構築
+    const rootBooks = getRootBooks();
+    rootBooks.forEach(root => {
+      if (!visited.has(root.id)) {
+        const chain = buildChain(root);
+        if (chain.length > 0) {
+          routes.push(chain);
+        }
+      }
+    });
+    
+    return routes;
+  }, []);
+
+  const bookRoutes = useMemo(() => sortBooksByDependency(books), [books, sortBooksByDependency]);
+
   const fetchAllBooks = async () => {
     try {
       setIsLoading(true);
@@ -194,54 +239,60 @@ export default function RouteScreen() {
           ) : (
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
               <View style={styles.booksTimeline}>
-                {books
-                  .sort((a, b) => {
-                    // previousBookIdの関係で並び替え
-                    const aOrder = books.filter(x => x.previousBookId === a.id).length;
-                    const bOrder = books.filter(x => x.previousBookId === b.id).length;
-                    return bOrder - aOrder;
-                  })
-                  .map((book, index) => (
-                  <View key={book.id} style={styles.timelineItem}>
-                    {index > 0 && (
-                      <View style={styles.timelineConnector} />
+                {bookRoutes.map((route, routeIndex) => (
+                  <View key={`route-${routeIndex}`} style={styles.routeGroup}>
+                    {routeIndex > 0 && (
+                      <View style={styles.routeSeparator} />
                     )}
                     
-                    <TouchableOpacity
-                      style={[glassEffect.card, styles.presetBookCard]}
-                      onPress={() => router.push(`/books/edit?id=${book.id}`)}
-                    >
-                      <View style={styles.bookOrder}>
-                        <Text style={styles.bookOrderText}>{index + 1}</Text>
-                      </View>
-                      
-                      <View style={styles.presetBookInfo}>
-                        <Text style={styles.presetBookTitle}>{book.title}</Text>
-                        <Text style={styles.presetBookDescription}>
-                          {book.mode === 0 ? '読む' : book.mode === 1 ? '解く' : '暗記'}
-                        </Text>
+                    <View style={styles.routeGroupHeader}>
+                      <Text style={styles.routeGroupTitle}>ルート {routeIndex + 1}</Text>
+                      <Text style={styles.routeGroupSubtitle}>{route.length}冊の書籍</Text>
+                    </View>
+                    
+                    {route.map((book, bookIndex) => (
+                      <View key={book.id} style={styles.timelineItem}>
+                        {bookIndex > 0 && (
+                          <View style={styles.timelineConnector} />
+                        )}
                         
-                        <View style={styles.presetBookMeta}>
-                          <Text style={styles.presetBookMetaText}>
-                            📖 {book.completedUnit || 0}/{book.totalUnit} {book.mode === 0 ? 'ページ' : '問'}
-                          </Text>
-                          <Text style={styles.presetBookMetaText}>
-                            📊 進捗: {Math.round(((book.completedUnit || 0) / book.totalUnit) * 100)}%
-                          </Text>
-                        </View>
+                        <TouchableOpacity
+                          style={[glassEffect.card, styles.presetBookCard]}
+                          onPress={() => router.push(`/books/edit?id=${book.id}`)}
+                        >
+                          <View style={styles.bookOrder}>
+                            <Text style={styles.bookOrderText}>{bookIndex + 1}</Text>
+                          </View>
+                          
+                          <View style={styles.presetBookInfo}>
+                            <Text style={styles.presetBookTitle}>{book.title}</Text>
+                            <Text style={styles.presetBookDescription}>
+                              {book.mode === 0 ? '読む' : book.mode === 1 ? '解く' : '暗記'}
+                            </Text>
+                            
+                            <View style={styles.presetBookMeta}>
+                              <Text style={styles.presetBookMetaText}>
+                                📖 {book.completedUnit || 0}/{book.totalUnit} {book.mode === 0 ? 'ページ' : '問'}
+                              </Text>
+                              <Text style={styles.presetBookMetaText}>
+                                📊 進捗: {Math.round(((book.completedUnit || 0) / book.totalUnit) * 100)}%
+                              </Text>
+                            </View>
 
-                        {book.status === 1 && (
-                          <View style={[styles.difficultyBadge, { backgroundColor: colors.success + '20', marginTop: 8 }]}>
-                            <Text style={[styles.difficultyText, { color: colors.success }]}>完了</Text>
+                            {book.status === 1 && (
+                              <View style={[styles.difficultyBadge, { backgroundColor: colors.success + '20', marginTop: 8 }]}>
+                                <Text style={[styles.difficultyText, { color: colors.success }]}>完了</Text>
+                              </View>
+                            )}
+                            {book.status === 2 && (
+                              <View style={[styles.difficultyBadge, { backgroundColor: colors.textTertiary + '20', marginTop: 8 }]}>
+                                <Text style={[styles.difficultyText, { color: colors.textTertiary }]}>中断</Text>
+                              </View>
+                            )}
                           </View>
-                        )}
-                        {book.status === 2 && (
-                          <View style={[styles.difficultyBadge, { backgroundColor: colors.textTertiary + '20', marginTop: 8 }]}>
-                            <Text style={[styles.difficultyText, { color: colors.textTertiary }]}>中断</Text>
-                          </View>
-                        )}
+                        </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    ))}
                   </View>
                 ))}
               </View>
@@ -677,5 +728,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
+  },
+  routeGroup: {
+    marginBottom: 24,
+  },
+  routeSeparator: {
+    height: 2,
+    backgroundColor: colors.surfaceBorder,
+    marginVertical: 16,
+    marginHorizontal: 16,
+  },
+  routeGroupHeader: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  routeGroupTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  routeGroupSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });
