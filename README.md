@@ -90,6 +90,40 @@ npm install
 npm run dev
 ```
 
+### 本番環境への準備
+
+#### 1. APIキーのバックエンド化（必須）
+
+**詳細:** [Supabase Edge Functions セットアップガイド](./docs/SUPABASE_EDGE_FUNCTIONS.md)
+
+Gemini APIキーをクライアントから隠蔽するため、Supabase Edge Functionsを使用します。
+
+```bash
+# Supabase CLIのインストール
+npm install -g supabase
+
+# Edge Functionの作成
+supabase functions new gemini-proxy
+
+# デプロイ
+supabase functions deploy gemini-proxy
+```
+
+#### 2. 自動バックアップの実装（推奨）
+
+**詳細:** [クラウド自動バックアップ実装ガイド](./docs/AUTO_BACKUP_GUIDE.md)
+
+Pro Plan限定機能として、iCloud（iOS）またはGoogle Drive（Android）への自動バックアップを実装します。
+
+```bash
+# iOS: iCloud対応
+npx expo install expo-document-picker expo-file-system
+
+# Android: Google Drive対応
+npm install @react-native-google-signin/google-signin
+npm install react-native-google-drive-api-wrapper
+```
+
 ### RevenueCat設定（本番環境）
 
 1. `app/core/store/subscriptionStore.ts` のAPI Keyを設定
