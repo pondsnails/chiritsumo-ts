@@ -60,6 +60,8 @@ export default function RouteScreen() {
   const [hubModalVisible, setHubModalVisible] = useState(false);
   const [hubChildren, setHubChildren] = useState<Book[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<PresetRoute | null>(null);
+  const [nodes, setNodes] = useState<NodePosition[]>([]);
+  const [edges, setEdges] = useState<any[]>([]);
 
   const fetchAllBooks = async () => {
     try {
@@ -78,9 +80,11 @@ export default function RouteScreen() {
   }, []);
 
   // パフォーマンス最適化: MetroLayoutEngineの計算を画面遷移後に実行
-  const { nodes, edges } = useMemo(() => {
+  useEffect(() => {
     if (books.length === 0) {
-      return { nodes: [], edges: [] };
+      setNodes([]);
+      setEdges([]);
+      return;
     }
 
     // 計算開始を通知
@@ -93,7 +97,8 @@ export default function RouteScreen() {
         const positions = engine.getNodePositions();
         const connections = engine.getEdges(positions);
         
-        return { nodes: positions, edges: connections };
+        setNodes(positions);
+        setEdges(connections);
       } finally {
         setIsCalculating(false);
       }
@@ -440,7 +445,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceDark,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 4,
   },
@@ -602,7 +607,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceDark,
+    borderBottomColor: colors.surfaceBorder,
   },
   backButton: {
     marginBottom: 12,
@@ -688,7 +693,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 80,
     borderRadius: 8,
-    backgroundColor: colors.surfaceDark,
+    backgroundColor: colors.surface,
   },
   presetBookInfo: {
     flex: 1,

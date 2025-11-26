@@ -145,7 +145,7 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     const maxCount = Math.max(...heatmapData.map(d => d.count), 1);
     
     const getColor = (count: number) => {
-      if (count === 0) return colors.surfaceDark;
+      if (count === 0) return colors.surface;
       const intensity = Math.min(1, count / maxCount);
       
       if (intensity < 0.25) return colors.primary + '40';
@@ -203,7 +203,7 @@ export const BrainAnalyticsDashboard: React.FC = () => {
               key={i}
               style={[
                 styles.legendCell,
-                { backgroundColor: i === 0 ? colors.surfaceDark : `${colors.primary}${['40', '60', '80', 'FF'][i - 1]}` }
+                { backgroundColor: i === 0 ? colors.surface : `${colors.primary}${['40', '60', '80', 'FF'][i - 1]}` }
               ]}
             />
           ))}
@@ -252,7 +252,7 @@ export const BrainAnalyticsDashboard: React.FC = () => {
                   y1={y}
                   x2={width - padding.right}
                   y2={y}
-                  stroke={colors.surfaceDark}
+                  stroke={colors.surfaceBorder}
                   strokeWidth={1}
                   strokeDasharray="4 4"
                 />
@@ -279,7 +279,7 @@ export const BrainAnalyticsDashboard: React.FC = () => {
                   y1={padding.top}
                   x2={x}
                   y2={height - padding.bottom}
-                  stroke={colors.surfaceDark}
+                  stroke={colors.surfaceBorder}
                   strokeWidth={1}
                   strokeDasharray="4 4"
                 />
