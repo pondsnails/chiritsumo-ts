@@ -69,16 +69,16 @@ export default function BooksScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Amazon教材検索へのリンク */}
+          {/* 厳選ルートマップへのリンク */}
           <TouchableOpacity
             style={[glassEffect.card, styles.searchCard]}
-            onPress={() => router.push('/books/amazon-search' as any)}
+            onPress={() => router.push('/recommended-routes' as any)}
           >
             <Search color={colors.primary} size={24} />
             <View style={styles.searchCardContent}>
-              <Text style={styles.searchCardTitle}>新しい教材を探す</Text>
+              <Text style={styles.searchCardTitle}>厳選ルートマップ</Text>
               <Text style={styles.searchCardSubtitle}>
-                Amazonで参考書・問題集を検索
+                目標達成への最短ルートを提案
               </Text>
             </View>
           </TouchableOpacity>

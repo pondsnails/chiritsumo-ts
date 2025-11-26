@@ -59,7 +59,7 @@ export default function PrivacyPolicyScreen() {
 
           <Text style={styles.sectionTitle}>3. 情報の利用目的</Text>
           <Text style={styles.listItem}>• 学習履歴の記録と表示（端末内のみ）</Text>
-          <Text style={styles.listItem}>• FSRS v5アルゴリズムによる復習スケジュールの最適化（端末内のみ）</Text>
+          <Text style={styles.listItem}>• 学習分析AI（FSRS v5）による復習スケジュールの最適化（端末内のみ）</Text>
           <Text style={styles.listItem}>• 課金サービスの提供（RevenueCatを経由）</Text>
 
           <Text style={styles.sectionTitle}>4. 第三者への情報提供</Text>

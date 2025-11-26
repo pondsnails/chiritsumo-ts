@@ -150,18 +150,18 @@ export default function BankScreen() {
                 </View>
               </View>
 
-              {/* 教材検索リンク（借金時に表示） */}
+              {/* 厳選ルートマップリンク（借金時に表示） */}
               {balance < 0 && (
                 <TouchableOpacity
                   style={[glassEffect.card, styles.amazonSearchCard]}
-                  onPress={() => router.push('/books/amazon-search' as any)}
+                  onPress={() => router.push('/recommended-routes' as any)}
                 >
                   <View style={styles.amazonSearchContent}>
                     <ShoppingBag color={colors.primary} size={24} />
                     <View style={styles.amazonSearchInfo}>
-                      <Text style={styles.amazonSearchTitle}>教材を探す</Text>
+                      <Text style={styles.amazonSearchTitle}>厳選ルートマップ</Text>
                       <Text style={styles.amazonSearchSubtitle}>
-                        新しい参考書や学習グッズで効率アップ
+                        目標達成への最短ルートを提案
                       </Text>
                     </View>
                   </View>

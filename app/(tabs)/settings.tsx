@@ -13,20 +13,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Download, Upload, Trash2, Info, CreditCard, Cloud } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBackupService } from '@/app/core/services/backupService';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@/app/core/database/db';
-import { 
-  enableAutoBackup, 
-  disableAutoBackup, 
-  isAutoBackupEnabled,
-  performManualBackup 
-} from '@/app/core/services/autoBackupScheduler';
-import { getLastBackupDate } from '@/app/core/services/iCloudBackup';
 import { 
   getUserLexSettings,
   saveUserLexSettings,
@@ -44,14 +37,11 @@ export default function SettingsScreen() {
   const { isProUser } = useSubscriptionStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
-  const [lastBackupDate, setLastBackupDate] = useState<Date | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');
   const [customLexTarget, setCustomLexTarget] = useState('200');
   const [dailyLexTarget, setDailyLexTarget] = useState(200);
 
   useEffect(() => {
-    loadAutoBackupStatus();
     loadLexSettings();
   }, []);
 
@@ -65,14 +55,6 @@ export default function SettingsScreen() {
     
     const target = await getDailyLexTarget();
     setDailyLexTarget(target);
-  };
-
-  const loadAutoBackupStatus = async () => {
-    const enabled = await isAutoBackupEnabled();
-    setAutoBackupEnabled(enabled);
-    
-    const lastDate = await getLastBackupDate();
-    setLastBackupDate(lastDate);
   };
 
   const handleExport = async () => {
@@ -149,63 +131,6 @@ export default function SettingsScreen() {
         },
       ]
     );
-  };
-
-  const handleToggleAutoBackup = async (enabled: boolean) => {
-    if (!isProUser && enabled) {
-      Alert.alert(
-        'Pro Plan限定機能',
-        '自動バックアップはPro Planでのみ利用可能です。',
-        [
-          { text: i18n.t('common.cancel'), style: 'cancel' },
-          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
-        ]
-      );
-      return;
-    }
-
-    try {
-      if (enabled) {
-        const success = await enableAutoBackup();
-        if (success) {
-          setAutoBackupEnabled(true);
-          Alert.alert('自動バックアップ有効化', '毎日自動的にデータをバックアップします。');
-        }
-      } else {
-        const success = await disableAutoBackup();
-        if (success) {
-          setAutoBackupEnabled(false);
-          Alert.alert('自動バックアップ無効化', '自動バックアップを停止しました。');
-        }
-      }
-    } catch (error) {
-      Alert.alert(i18n.t('common.error'), '設定の変更に失敗しました');
-    }
-  };
-
-  const handleManualBackup = async () => {
-    if (!isProUser) {
-      Alert.alert(
-        'Pro Plan限定機能',
-        'クラウドバックアップはPro Planでのみ利用可能です。',
-        [
-          { text: i18n.t('common.cancel'), style: 'cancel' },
-          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
-        ]
-      );
-      return;
-    }
-
-    try {
-      const success = await performManualBackup();
-      if (success) {
-        const newDate = await getLastBackupDate();
-        setLastBackupDate(newDate);
-        Alert.alert('バックアップ完了', 'データをクラウドにバックアップしました。');
-      }
-    } catch (error) {
-      Alert.alert(i18n.t('common.error'), 'バックアップに失敗しました');
-    }
   };
 
   const handleLexProfileChange = async (profileId: string) => {
@@ -363,43 +288,6 @@ export default function SettingsScreen() {
           {/* データ管理セクション */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>データ管理</Text>
-            
-            {/* クラウド自動バックアップ (Pro Plan限定) */}
-            <View style={[glassEffect.card, styles.menuItem]}>
-              <View style={styles.menuItemLeft}>
-                <Cloud color={isProUser ? colors.primary : colors.textTertiary} size={20} strokeWidth={2} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuItemText}>自動クラウドバックアップ</Text>
-                  {!isProUser && (
-                    <Text style={styles.proLabel}>Pro Plan限定</Text>
-                  )}
-                  {lastBackupDate && (
-                    <Text style={styles.lastBackupText}>
-                      最終: {lastBackupDate.toLocaleDateString('ja-JP')} {lastBackupDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              <Switch
-                value={autoBackupEnabled}
-                onValueChange={handleToggleAutoBackup}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primary + '60' }}
-                thumbColor={autoBackupEnabled ? colors.primary : colors.surface}
-              />
-            </View>
-
-            {/* 手動バックアップ (Pro Plan限定) */}
-            {isProUser && (
-              <TouchableOpacity
-                style={[glassEffect.card, styles.menuItem]}
-                onPress={handleManualBackup}
-              >
-                <View style={styles.menuItemLeft}>
-                  <Cloud color={colors.success} size={20} strokeWidth={2} />
-                  <Text style={styles.menuItemText}>今すぐバックアップ</Text>
-                </View>
-              </TouchableOpacity>
-            )}
             
             <TouchableOpacity
               style={[glassEffect.card, styles.menuItem]}
@@ -605,80 +493,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
-  },
-  apiKeyCard: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  apiKeyHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  apiKeyDescription: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  apiKeyInput: {
-    backgroundColor: colors.surface + '40',
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  apiKeyButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  apiKeyButtonText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  apiKeyLinkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  apiKeyLinkText: {
-    fontSize: 12,
-    color: colors.primary,
-  },
-  apiKeySetInfo: {
-    backgroundColor: colors.success + '20',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  apiKeySetText: {
-    fontSize: 14,
-    color: colors.success,
-    fontWeight: '600',
-  },
-  apiKeyDeleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  apiKeyDeleteText: {
-    fontSize: 12,
-    color: colors.error,
   },
   lexProfileCard: {
     paddingVertical: 16,

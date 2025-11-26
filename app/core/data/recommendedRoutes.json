@@ -1,0 +1,110 @@
+[
+  {
+    "id": "route_toeic_beginner",
+    "title": "TOEIC初学者ルート",
+    "description": "600点突破を目指す基礎固めルート",
+    "difficulty": "beginner",
+    "estimatedMonths": 3,
+    "books": [
+      {
+        "title": "TOEIC L&R TEST 出る単特急 金のフレーズ",
+        "author": "TEX加藤",
+        "coverUrl": "https://m.media-amazon.com/images/I/51Mwie3GWFL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4023315680?tag=YOUR_AFFILIATE_ID",
+        "pages": 288,
+        "description": "TOEIC頻出1000語を厳選"
+      },
+      {
+        "title": "公式TOEIC Listening & Reading 問題集",
+        "author": "ETS",
+        "coverUrl": "https://m.media-amazon.com/images/I/51hN+qQiSPL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4906033644?tag=YOUR_AFFILIATE_ID",
+        "pages": 230,
+        "description": "本番形式の模試2回分"
+      }
+    ]
+  },
+  {
+    "id": "route_math_highschool",
+    "title": "大学受験数学ルート（文系）",
+    "description": "数学IA・IIBを基礎から完成させるルート",
+    "difficulty": "intermediate",
+    "estimatedMonths": 6,
+    "books": [
+      {
+        "title": "白チャート数学I+A",
+        "author": "チャート研究所",
+        "coverUrl": "https://m.media-amazon.com/images/I/51yHOKF3vfL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108743?tag=YOUR_AFFILIATE_ID",
+        "pages": 480,
+        "description": "基礎固めに最適"
+      },
+      {
+        "title": "青チャート数学I+A",
+        "author": "チャート研究所",
+        "coverUrl": "https://m.media-amazon.com/images/I/51Xb0ztqYVL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108751?tag=YOUR_AFFILIATE_ID",
+        "pages": 624,
+        "description": "入試標準レベル"
+      },
+      {
+        "title": "白チャート数学II+B",
+        "author": "チャート研究所",
+        "coverUrl": "https://m.media-amazon.com/images/I/51g2oNzn3DL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/441010876X?tag=YOUR_AFFILIATE_ID",
+        "pages": 576,
+        "description": "基礎固めパート2"
+      }
+    ]
+  },
+  {
+    "id": "route_programming_beginner",
+    "title": "プログラミング入門ルート",
+    "description": "Web開発の基礎をゼロから学ぶルート",
+    "difficulty": "beginner",
+    "estimatedMonths": 4,
+    "books": [
+      {
+        "title": "スッキリわかるJava入門 第4版",
+        "author": "中山清喬",
+        "coverUrl": "https://m.media-amazon.com/images/I/51GvP+FE8qL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4295013803?tag=YOUR_AFFILIATE_ID",
+        "pages": 768,
+        "description": "プログラミング初心者に最適"
+      },
+      {
+        "title": "リーダブルコード",
+        "author": "Dustin Boswell",
+        "coverUrl": "https://m.media-amazon.com/images/I/51MgH8Jmr+L._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4873115655?tag=YOUR_AFFILIATE_ID",
+        "pages": 260,
+        "description": "美しいコードを書くための必読書"
+      }
+    ]
+  },
+  {
+    "id": "route_accounting",
+    "title": "簿記3級ストレートルート",
+    "description": "2ヶ月で簿記3級合格を目指すルート",
+    "difficulty": "beginner",
+    "estimatedMonths": 2,
+    "books": [
+      {
+        "title": "スッキリわかる日商簿記3級",
+        "author": "滝澤ななみ",
+        "coverUrl": "https://m.media-amazon.com/images/I/51VH3ZQHAVL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4813298990?tag=YOUR_AFFILIATE_ID",
+        "pages": 356,
+        "description": "テキスト+問題集一体型"
+      },
+      {
+        "title": "合格トレーニング 日商簿記3級",
+        "author": "TAC簿記検定講座",
+        "coverUrl": "https://m.media-amazon.com/images/I/51P-xRVnP9L._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4813299032?tag=YOUR_AFFILIATE_ID",
+        "pages": 320,
+        "description": "問題演習で実力アップ"
+      }
+    ]
+  }
+]
