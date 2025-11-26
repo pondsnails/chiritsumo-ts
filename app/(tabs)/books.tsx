@@ -16,6 +16,7 @@ import { useBookStore } from '@/app/core/store/bookStore';
 import { BookRecommendations } from '@/app/core/components/BookRecommendations';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
+import i18n from '@/app/core/i18n';
 import type { Book } from '@/app/core/types';
 
 export default function BooksScreen() {
@@ -41,15 +42,15 @@ export default function BooksScreen() {
   };
 
   const getModeLabel = (mode: number) => {
-    if (mode === 0) return '読';
-    if (mode === 1) return '解';
-    return '暗';
+    if (mode === 0) return i18n.t('common.modeRead');
+    if (mode === 1) return i18n.t('common.modeSolve');
+    return i18n.t('common.modeMemo');
   };
 
   const getStatusLabel = (status: number) => {
-    if (status === 0) return '進行中';
-    if (status === 1) return '完了';
-    return '中断';
+    if (status === 0) return i18n.t('books.statusInProgress');
+    if (status === 1) return i18n.t('books.statusCompleted');
+    return i18n.t('books.statusPaused');
   };
 
   return (
@@ -58,8 +59,8 @@ export default function BooksScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Books</Text>
-              <Text style={styles.subtitle}>参考書管理</Text>
+              <Text style={styles.title}>{i18n.t('books.title')}</Text>
+              <Text style={styles.subtitle}>{i18n.t('books.subtitle')}</Text>
             </View>
             <TouchableOpacity
               style={[glassEffect.card, styles.addButton]}
@@ -81,12 +82,12 @@ export default function BooksScreen() {
             <ActivityIndicator color={colors.primary} size="large" />
           ) : books.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>参考書が登録されていません</Text>
+              <Text style={styles.emptyText}>{i18n.t('books.noBooks')}</Text>
               <TouchableOpacity
                 style={[glassEffect.card, styles.emptyButton]}
                 onPress={() => router.push('/books/add')}
               >
-                <Text style={styles.emptyButtonText}>最初の参考書を追加</Text>
+                <Text style={styles.emptyButtonText}>{i18n.t('books.addFirstBook')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -112,15 +113,15 @@ export default function BooksScreen() {
 
                   <View style={styles.bookDetails}>
                     <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>総単位</Text>
+                      <Text style={styles.detailLabel}>{i18n.t('books.totalUnits')}</Text>
                       <Text style={styles.detailValue}>{item.totalUnit}</Text>
                     </View>
                     <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>完了単位</Text>
+                      <Text style={styles.detailLabel}>{i18n.t('books.completedUnits')}</Text>
                       <Text style={styles.detailValue}>{item.completedUnit}</Text>
                     </View>
                     <View style={styles.detailItem}>
-                      <Text style={styles.detailLabel}>進捗</Text>
+                      <Text style={styles.detailLabel}>{i18n.t('books.progress')}</Text>
                       <Text style={styles.detailValue}>
                         {item.totalUnit > 0
                           ? Math.round(((item.completedUnit || 0) / item.totalUnit) * 100)
@@ -136,14 +137,14 @@ export default function BooksScreen() {
                       onPress={() => router.push(`/books/edit?id=${item.id}`)}
                     >
                       <Edit2 color={colors.primary} size={18} strokeWidth={2} />
-                      <Text style={styles.actionButtonText}>編集</Text>
+                      <Text style={styles.actionButtonText}>{i18n.t('common.edit')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.actionButton}
                       onPress={() => handleDelete(item.id)}
                     >
                       <Trash2 color={colors.error} size={18} strokeWidth={2} />
-                      <Text style={[styles.actionButtonText, { color: colors.error }]}>削除</Text>
+                      <Text style={[styles.actionButtonText, { color: colors.error }]}>{i18n.t('common.delete')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

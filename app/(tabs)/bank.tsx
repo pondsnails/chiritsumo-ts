@@ -18,6 +18,7 @@ import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { setLastRolloverDate } from '@/app/core/utils/dailyRollover';
 import { getSellPrice } from '@/app/core/logic/bankruptcyLogic';
+import i18n from '@/app/core/i18n';
 import type { LedgerEntry, Card } from '@/app/core/types';
 
 export default function BankScreen() {
@@ -183,8 +184,8 @@ export default function BankScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.title}>Bank</Text>
-            <Text style={styles.subtitle}>読書銀行</Text>
+            <Text style={styles.title}>{i18n.t('bank.title')}</Text>
+            <Text style={styles.subtitle}>{i18n.t('bank.subtitle')}</Text>
           </View>
 
           {isLoading ? (

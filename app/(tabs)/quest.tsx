@@ -19,6 +19,7 @@ import { calculateLexPerCard } from '@/app/core/logic/lexCalculator';
 import { inventoryPresetsDB } from '@/app/core/database/db';
 import { InventoryFilterChip } from '@/app/core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@/app/core/components/InventoryFilterModal';
+import i18n from '@/app/core/i18n';
 import type { Card, InventoryPreset } from '@/app/core/types';
 
 export default function QuestScreen() {
@@ -116,9 +117,9 @@ export default function QuestScreen() {
 
   const getModeLabel = (mode: 0 | 1 | 2) => {
     switch (mode) {
-      case 0: return '読';
-      case 1: return '解';
-      case 2: return '暗';
+      case 0: return i18n.t('common.modeRead');
+      case 1: return i18n.t('common.modeSolve');
+      case 2: return i18n.t('common.modeMemo');
     }
   };
 
@@ -166,7 +167,7 @@ export default function QuestScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.title}>Quest</Text>
+            <Text style={styles.title}>{i18n.t('quest.title')}</Text>
             <TouchableOpacity onPress={() => setShowFilterModal(true)} style={styles.settingsButton}>
               <Settings color={colors.textSecondary} size={24} strokeWidth={2} />
             </TouchableOpacity>
@@ -183,7 +184,7 @@ export default function QuestScreen() {
                 onPress={() => setActivePresetId(null)}
               >
                 <Text style={[styles.allChipText, !activePresetId && styles.allChipTextActive]}>
-                  すべて
+                  {i18n.t('quest.filterAll')}
                 </Text>
               </TouchableOpacity>
               {presets.map(preset => (
@@ -200,22 +201,22 @@ export default function QuestScreen() {
 
           <View style={styles.summaryContainer}>
             <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>待機中のカード</Text>
+              <Text style={styles.summaryLabel}>{i18n.t('quest.dueCards')}</Text>
               <Text style={styles.summaryValue}>{dueCards.length}</Text>
             </View>
             <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>獲得予定Lex</Text>
+              <Text style={styles.summaryLabel}>{i18n.t('quest.expectedLex')}</Text>
               <Text style={styles.summaryValue}>{calculateTotalLex()}</Text>
             </View>
           </View>
 
           {groupedCards.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>学習待機中のカードはありません</Text>
+              <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
               <Text style={styles.emptySubtext}>
                 {activePresetId
-                  ? 'このフィルターには期限切れカードがありません'
-                  : 'Books画面から教材を追加してください'}
+                  ? i18n.t('quest.noCardsInFilter')
+                  : i18n.t('quest.addBooksPrompt')}
               </Text>
             </View>
           ) : (
@@ -232,7 +233,7 @@ export default function QuestScreen() {
                       </Text>
                     </View>
                     <View style={styles.taskStats}>
-                      <Text style={styles.taskCount}>{cards.length}枚</Text>
+                      <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
                       <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
                     </View>
                   </View>
@@ -241,7 +242,7 @@ export default function QuestScreen() {
                     onPress={() => startStudy(book.id)}
                   >
                     <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                    <Text style={styles.startButtonText}>開始</Text>
+                    <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
                   </TouchableOpacity>
                 </View>
               ))}

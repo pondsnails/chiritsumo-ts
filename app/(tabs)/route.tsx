@@ -20,6 +20,7 @@ import { glassEffect } from '@/app/core/theme/glassEffect';
 import { MetroLayoutEngine } from '@/app/core/layout/metroLayout';
 import { MetroLine } from '@/app/core/components/MetroLine';
 import { BookNode } from '@/app/core/components/BookNode';
+import i18n from '@/app/core/i18n';
 import type { Book } from '@/app/core/types';
 import type { NodePosition } from '@/app/core/layout/metroLayout';
 
@@ -101,28 +102,28 @@ export default function RouteScreen() {
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
-          <Text style={styles.title}>Route</Text>
-          <Text style={styles.subtitle}>学習路線図</Text>
+          <Text style={styles.title}>{i18n.t('route.title')}</Text>
+          <Text style={styles.subtitle}>{i18n.t('route.subtitle')}</Text>
         </View>
 
         {isLoading ? (
           <View style={styles.centerContent}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.loadingText}>読み込み中...</Text>
+            <Text style={styles.loadingText}>{i18n.t('route.loading')}</Text>
           </View>
         ) : isCalculating ? (
           <View style={styles.centerContent}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.loadingText}>路線図を計算中...</Text>
+            <Text style={styles.loadingText}>{i18n.t('route.calculating')}</Text>
           </View>
         ) : books.length === 0 ? (
           <View style={styles.centerContent}>
-            <Text style={styles.emptyText}>参考書が登録されていません</Text>
+            <Text style={styles.emptyText}>{i18n.t('route.noBooks')}</Text>
             <TouchableOpacity
               style={[glassEffect.card, styles.emptyButton]}
               onPress={() => router.push('/(tabs)/books')}
             >
-              <Text style={styles.emptyButtonText}>参考書を追加</Text>
+              <Text style={styles.emptyButtonText}>{i18n.t('route.addBooks')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -174,7 +175,7 @@ export default function RouteScreen() {
           <View style={styles.modalOverlay}>
             <View style={[glassEffect.containerLarge, styles.modalContent]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>参考書一覧</Text>
+                <Text style={styles.modalTitle}>{i18n.t('route.bookList')}</Text>
                 <TouchableOpacity onPress={() => setHubModalVisible(false)}>
                   <X color={colors.text} size={24} strokeWidth={2} />
                 </TouchableOpacity>
