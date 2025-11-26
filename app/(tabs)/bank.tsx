@@ -15,7 +15,6 @@ import { ShoppingBag, X, TrendingUp, AlertCircle, Clock } from 'lucide-react-nat
 import { ledgerDB, cardsDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useCardStore } from '@/app/core/store/cardStore';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { setLastRolloverDate } from '@/app/core/utils/dailyRollover';
 import type { LedgerEntry, Card } from '@/app/core/types';
@@ -29,14 +28,23 @@ export default function BankScreen() {
   const [showBlackMarket, setShowBlackMarket] = useState(false);
   const [sellableCards, setSellableCards] = useState<Card[]>([]);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
 
-  const { cards, fetchCards } = useCardStore();
   const { books } = useBookStore();
 
   useEffect(() => {
     fetchLedger();
-    fetchCards();
+    fetchAllCards();
   }, []);
+
+  const fetchAllCards = async () => {
+    try {
+      const allCards = await cardsDB.getAll();
+      setCards(allCards);
+    } catch (error) {
+      console.error('Failed to fetch cards:', error);
+    }
+  };
 
   useEffect(() => {
     const sellable = cards.filter(card => card.state !== 0);
@@ -92,7 +100,7 @@ export default function BankScreen() {
       });
 
       await fetchLedger();
-      await fetchCards();
+      await fetchAllCards();
       setSelectedCard(null);
       setShowBlackMarket(false);
     } catch (error) {

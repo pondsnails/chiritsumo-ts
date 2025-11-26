@@ -1,8 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { useSQLiteContext } from 'expo-sqlite';
-import { books, cards, ledger } from '../database/schema';
+import { Platform } from 'react-native';
+import { booksDB, cardsDB, ledgerDB } from '../database/db';
 
 export interface BackupData {
   version: string;
@@ -15,14 +14,12 @@ export interface BackupData {
 /**
  * 全データをJSONとしてエクスポートし、シェア機能で保存
  */
-export const exportBackup = async (db: any): Promise<void> => {
+export const exportBackup = async (): Promise<void> => {
   try {
-    const drizzleDb = drizzle(db);
-
     // 全テーブルからデータを取得
-    const booksData = await drizzleDb.select().from(books);
-    const cardsData = await drizzleDb.select().from(cards);
-    const ledgerData = await drizzleDb.select().from(ledger);
+    const booksData = await booksDB.getAll();
+    const cardsData = await cardsDB.getAll();
+    const ledgerData = await ledgerDB.getAll();
 
     const backup: BackupData = {
       version: '1.0.0',
@@ -35,7 +32,7 @@ export const exportBackup = async (db: any): Promise<void> => {
     const jsonString = JSON.stringify(backup, null, 2);
     
     // Webの場合はダウンロード
-    if (typeof window !== 'undefined') {
+    if (Platform.OS === 'web') {
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -70,7 +67,7 @@ export const exportBackup = async (db: any): Promise<void> => {
 /**
  * JSONファイルを読み込み、データベースを復元
  */
-export const importBackup = async (db: any): Promise<void> => {
+export const importBackup = async (): Promise<void> => {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/json',
@@ -84,7 +81,7 @@ export const importBackup = async (db: any): Promise<void> => {
     let jsonString: string;
     
     // Web環境の場合
-    if (typeof window !== 'undefined' && result.assets[0].file) {
+    if (Platform.OS === 'web' && result.assets[0].file) {
       const file = result.assets[0].file;
       jsonString = await file.text();
     } else {
@@ -99,33 +96,17 @@ export const importBackup = async (db: any): Promise<void> => {
       throw new Error('Invalid backup file format');
     }
 
-    const drizzleDb = drizzle(db);
-
-    await db.execAsync('BEGIN TRANSACTION;');
-
-    try {
-      // 既存データを削除
-      await drizzleDb.delete(cards);
-      await drizzleDb.delete(books);
-      await drizzleDb.delete(ledger);
-
-      // バックアップデータを挿入
-      if (backup.books.length > 0) {
-        await drizzleDb.insert(books).values(backup.books);
-      }
-      if (backup.cards.length > 0) {
-        await drizzleDb.insert(cards).values(backup.cards);
-      }
-      if (backup.ledger.length > 0) {
-        await drizzleDb.insert(ledger).values(backup.ledger);
-      }
-
-      await db.execAsync('COMMIT;');
+    // LocalStorageの場合は直接上書き
+    if (Platform.OS === 'web') {
+      localStorage.setItem('chiritsumo_books', JSON.stringify(backup.books));
+      localStorage.setItem('chiritsumo_cards', JSON.stringify(backup.cards));
+      localStorage.setItem('chiritsumo_ledger', JSON.stringify(backup.ledger));
       console.log('Backup imported successfully');
-    } catch (error) {
-      await db.execAsync('ROLLBACK;');
-      throw error;
+      return;
     }
+
+    // ネイティブの場合はDrizzle ORMを使用（実装保留）
+    throw new Error('Native backup import not yet implemented');
   } catch (error) {
     console.error('Failed to import backup:', error);
     throw error;
@@ -133,13 +114,11 @@ export const importBackup = async (db: any): Promise<void> => {
 };
 
 /**
- * Hook形式でエクスポート
+ * Hook形式でエクスポート（Web版ではSQLiteContextは不要）
  */
 export const useBackupService = () => {
-  const db = useSQLiteContext();
-
   return {
-    exportBackup: () => exportBackup(db),
-    importBackup: () => importBackup(db),
+    exportBackup,
+    importBackup,
   };
 };

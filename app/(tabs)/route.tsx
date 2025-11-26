@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X } from 'lucide-react-native';
-import { useBookStore } from '@/app/core/store/bookStore';
+import { booksDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { MetroLayoutEngine } from '@/app/core/layout/metroLayout';
@@ -24,14 +24,27 @@ import type { NodePosition } from '@/app/core/layout/metroLayout';
 
 export default function RouteScreen() {
   const router = useRouter();
-  const { books, fetchBooks, isLoading } = useBookStore();
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [nodes, setNodes] = useState<NodePosition[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [hubModalVisible, setHubModalVisible] = useState(false);
   const [hubChildren, setHubChildren] = useState<Book[]>([]);
 
+  const fetchAllBooks = async () => {
+    try {
+      setIsLoading(true);
+      const allBooks = await booksDB.getAll();
+      setBooks(allBooks);
+    } catch (error) {
+      console.error('Failed to fetch books:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchBooks();
+    fetchAllBooks();
   }, []);
 
   useEffect(() => {

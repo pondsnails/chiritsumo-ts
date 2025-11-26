@@ -1,41 +1,36 @@
-import { supabase } from './supabase';
+// Web版はLocalStorageベースの実装（Local First）
 import type { Book, Card, LedgerEntry, InventoryPreset } from '../types';
 
+const STORAGE_KEYS = {
+  BOOKS: 'chiritsumo_books',
+  CARDS: 'chiritsumo_cards',
+  LEDGER: 'chiritsumo_ledger',
+  PRESETS: 'chiritsumo_presets',
+};
+
 export async function initializeDatabase() {
-  console.log('Using Supabase for web platform');
+  console.log('Using LocalStorage for web platform (Local First)');
+  
+  // 初期データがなければ作成
+  if (!localStorage.getItem(STORAGE_KEYS.BOOKS)) {
+    localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.CARDS)) {
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.LEDGER)) {
+    localStorage.setItem(STORAGE_KEYS.LEDGER, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.PRESETS)) {
+    localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify([]));
+  }
 }
 
 export const booksDB = {
   getAll: async (): Promise<Book[]> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      return (data || []).map(book => ({
-        id: book.id,
-        userId: book.user_id,
-        subjectId: book.subject_id,
-        title: book.title,
-        isbn: book.isbn,
-        mode: book.mode,
-        totalUnit: book.total_unit,
-        chunkSize: book.chunk_size || 1,
-        completedUnit: book.completed_unit || 0,
-        status: book.status,
-        previousBookId: book.previous_book_id,
-        priority: book.priority,
-        coverPath: book.cover_path,
-        createdAt: book.created_at,
-        updatedAt: book.updated_at,
-      }));
+      const data = localStorage.getItem(STORAGE_KEYS.BOOKS);
+      return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Failed to get books:', error);
       return [];
@@ -44,32 +39,8 @@ export const booksDB = {
 
   getById: async (id: string): Promise<Book | null> => {
     try {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) return null;
-
-      return {
-        id: data.id,
-        userId: data.user_id,
-        subjectId: data.subject_id,
-        title: data.title,
-        isbn: data.isbn,
-        mode: data.mode,
-        totalUnit: data.total_unit,
-        chunkSize: data.chunk_size || 1,
-        completedUnit: data.completed_unit || 0,
-        status: data.status,
-        previousBookId: data.previous_book_id,
-        priority: data.priority,
-        coverPath: data.cover_path,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+      const books = await booksDB.getAll();
+      return books.find(b => b.id === id) || null;
     } catch (error) {
       console.error('Failed to get book:', error);
       return null;
@@ -77,85 +48,53 @@ export const booksDB = {
   },
 
   add: async (book: Book): Promise<void> => {
-    const { error } = await supabase.from('books').insert({
-      id: book.id,
-      user_id: book.userId,
-      subject_id: book.subjectId || null,
-      title: book.title,
-      isbn: book.isbn || null,
-      mode: book.mode,
-      total_unit: book.totalUnit,
-      chunk_size: book.chunkSize || 1,
-      completed_unit: book.completedUnit || 0,
-      status: book.status,
-      previous_book_id: book.previousBookId,
-      priority: book.priority || 0,
-      cover_path: book.coverPath || null,
-      created_at: book.createdAt,
-      updated_at: book.updatedAt,
-    });
-
-    if (error) throw error;
+    const books = await booksDB.getAll();
+    books.push(book);
+    localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify(books));
   },
 
   update: async (id: string, updates: Partial<Book>): Promise<void> => {
-    const dbUpdates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (updates.title !== undefined) dbUpdates.title = updates.title;
-    if (updates.mode !== undefined) dbUpdates.mode = updates.mode;
-    if (updates.totalUnit !== undefined) dbUpdates.total_unit = updates.totalUnit;
-    if (updates.chunkSize !== undefined) dbUpdates.chunk_size = updates.chunkSize;
-    if (updates.completedUnit !== undefined) dbUpdates.completed_unit = updates.completedUnit;
-    if (updates.status !== undefined) dbUpdates.status = updates.status;
-    if (updates.previousBookId !== undefined) dbUpdates.previous_book_id = updates.previousBookId;
-    if (updates.subjectId !== undefined) dbUpdates.subject_id = updates.subjectId;
-    if (updates.isbn !== undefined) dbUpdates.isbn = updates.isbn;
-    if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-    if (updates.coverPath !== undefined) dbUpdates.cover_path = updates.coverPath;
-
-    const { error } = await supabase
-      .from('books')
-      .update(dbUpdates)
-      .eq('id', id);
-
-    if (error) throw error;
+    const books = await booksDB.getAll();
+    const index = books.findIndex(b => b.id === id);
+    if (index !== -1) {
+      books[index] = { ...books[index], ...updates, updatedAt: new Date().toISOString() };
+      localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify(books));
+    }
   },
 
   delete: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('books')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    const books = await booksDB.getAll();
+    const filtered = books.filter(b => b.id !== id);
+    localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify(filtered));
+    
+    // 関連カードも削除
+    const cards = await cardsDB.getAll();
+    const filteredCards = cards.filter(c => c.bookId !== id);
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(filteredCards));
   },
 };
 
 export const cardsDB = {
+  getAll: async (): Promise<Card[]> => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CARDS);
+      const cards = data ? JSON.parse(data) : [];
+      // Date型に変換
+      return cards.map((c: any) => ({
+        ...c,
+        due: new Date(c.due),
+        lastReview: c.lastReview ? new Date(c.lastReview) : null,
+      }));
+    } catch (error) {
+      console.error('Failed to get cards:', error);
+      return [];
+    }
+  },
+
   getByBookId: async (bookId: string): Promise<Card[]> => {
     try {
-      const { data, error } = await supabase
-        .from('cards')
-        .select('*')
-        .eq('book_id', bookId)
-        .order('unit_index', { ascending: true });
-
-      if (error) throw error;
-
-      return (data || []).map(card => ({
-        id: card.id,
-        bookId: card.book_id,
-        unitIndex: card.unit_index,
-        state: card.state,
-        stability: card.stability,
-        difficulty: card.difficulty,
-        due: new Date(card.due),
-        lastReview: card.last_review ? new Date(card.last_review) : null,
-        reps: card.reps,
-        photoPath: card.photo_path,
-      }));
+      const cards = await cardsDB.getAll();
+      return cards.filter(c => c.bookId === bookId);
     } catch (error) {
       console.error('Failed to get cards:', error);
       return [];
@@ -164,30 +103,9 @@ export const cardsDB = {
 
   getDueCards: async (bookIds: string[]): Promise<Card[]> => {
     try {
-      if (bookIds.length === 0) return [];
-
-      const now = new Date().toISOString();
-      const { data, error } = await supabase
-        .from('cards')
-        .select('*')
-        .in('book_id', bookIds)
-        .lte('due', now)
-        .order('due', { ascending: true });
-
-      if (error) throw error;
-
-      return (data || []).map(card => ({
-        id: card.id,
-        bookId: card.book_id,
-        unitIndex: card.unit_index,
-        state: card.state,
-        stability: card.stability,
-        difficulty: card.difficulty,
-        due: new Date(card.due),
-        lastReview: card.last_review ? new Date(card.last_review) : null,
-        reps: card.reps,
-        photoPath: card.photo_path,
-      }));
+      const cards = await cardsDB.getAll();
+      const now = new Date();
+      return cards.filter(c => bookIds.includes(c.bookId) && c.due <= now);
     } catch (error) {
       console.error('Failed to get due cards:', error);
       return [];
@@ -195,194 +113,113 @@ export const cardsDB = {
   },
 
   upsert: async (card: Card): Promise<void> => {
-    const { error } = await supabase.from('cards').upsert({
-      id: card.id,
-      book_id: card.bookId,
-      unit_index: card.unitIndex,
-      state: card.state,
-      stability: card.stability,
-      difficulty: card.difficulty,
-      due: card.due.toISOString(),
-      last_review: card.lastReview ? card.lastReview.toISOString() : null,
-      reps: card.reps,
-      photo_path: card.photoPath,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) throw error;
+    const cards = await cardsDB.getAll();
+    const index = cards.findIndex(c => c.id === card.id);
+    
+    if (index !== -1) {
+      cards[index] = card;
+    } else {
+      cards.push(card);
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
   },
 
-  bulkUpsert: async (cards: Card[]): Promise<void> => {
-    const dbCards = cards.map(card => ({
-      id: card.id,
-      book_id: card.bookId,
-      unit_index: card.unitIndex,
-      state: card.state,
-      stability: card.stability,
-      difficulty: card.difficulty,
-      due: card.due.toISOString(),
-      last_review: card.lastReview ? card.lastReview.toISOString() : null,
-      reps: card.reps,
-      photo_path: card.photoPath,
-      updated_at: new Date().toISOString(),
-    }));
+  bulkUpsert: async (newCards: Card[]): Promise<void> => {
+    const existingCards = await cardsDB.getAll();
+    const cardMap = new Map(existingCards.map(c => [c.id, c]));
+    
+    newCards.forEach(card => {
+      cardMap.set(card.id, card);
+    });
+    
+    localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(Array.from(cardMap.values())));
+  },
 
-    const { error } = await supabase.from('cards').upsert(dbCards);
-
-    if (error) throw error;
+  update: async (id: string, updates: Partial<Card>): Promise<void> => {
+    const cards = await cardsDB.getAll();
+    const index = cards.findIndex(c => c.id === id);
+    
+    if (index !== -1) {
+      cards[index] = { ...cards[index], ...updates };
+      localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
+    }
   },
 };
 
 export const ledgerDB = {
-  getRecent: async (limit: number = 30): Promise<LedgerEntry[]> => {
+  getAll: async (): Promise<LedgerEntry[]> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('ledger')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-
-      return (data || []).map(entry => ({
-        id: entry.id,
-        date: entry.date,
-        earnedLex: entry.earned_lex,
-        targetLex: entry.target_lex,
-        balance: entry.balance,
-      }));
+      const data = localStorage.getItem(STORAGE_KEYS.LEDGER);
+      return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Failed to get ledger:', error);
       return [];
     }
   },
 
-  getSummary: async (): Promise<{ balance: number; earnedToday: number; targetToday: number }> => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { balance: 0, earnedToday: 0, targetToday: 0 };
-
-      const today = new Date().toISOString().split('T')[0];
-
-      const { data, error } = await supabase
-        .from('ledger')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      const { data: todayData } = await supabase
-        .from('ledger')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .maybeSingle();
-
-      return {
-        balance: data?.balance || 0,
-        earnedToday: todayData?.earned_lex || 0,
-        targetToday: todayData?.target_lex || 0,
-      };
-    } catch (error) {
-      console.error('Failed to get ledger summary:', error);
-      return { balance: 0, earnedToday: 0, targetToday: 0 };
-    }
+  getRecent: async (limit: number): Promise<LedgerEntry[]> => {
+    const entries = await ledgerDB.getAll();
+    return entries
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
   },
 
-  upsert: async (entry: Omit<LedgerEntry, 'id'>): Promise<void> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+  add: async (entry: LedgerEntry): Promise<void> => {
+    const entries = await ledgerDB.getAll();
+    entries.push(entry);
+    localStorage.setItem(STORAGE_KEYS.LEDGER, JSON.stringify(entries));
+  },
 
-    const { error } = await supabase.from('ledger').upsert({
-      user_id: user.id,
-      date: entry.date,
-      earned_lex: entry.earnedLex,
-      target_lex: entry.targetLex,
-      balance: entry.balance,
-    }, {
-      onConflict: 'user_id,date',
-    });
-
-    if (error) throw error;
+  upsert: async (entry: Omit<LedgerEntry, 'id' | 'userId' | 'createdAt'>): Promise<void> => {
+    const entries = await ledgerDB.getAll();
+    const index = entries.findIndex(e => e.date === entry.date);
+    
+    if (index !== -1) {
+      entries[index] = { ...entries[index], ...entry };
+    } else {
+      entries.push({
+        id: Date.now(),
+        userId: 'local',
+        createdAt: new Date().toISOString(),
+        ...entry,
+      } as LedgerEntry);
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.LEDGER, JSON.stringify(entries));
   },
 };
 
 export const inventoryPresetsDB = {
   getAll: async (): Promise<InventoryPreset[]> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('inventory_presets')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      return (data || []).map(preset => ({
-        id: preset.id,
-        label: preset.label,
-        iconCode: preset.icon_code,
-        bookIds: Array.isArray(preset.book_ids) ? preset.book_ids : [],
-        isDefault: preset.is_default,
-      }));
+      const data = localStorage.getItem(STORAGE_KEYS.PRESETS);
+      return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('Failed to get presets:', error);
       return [];
     }
   },
 
-  add: async (preset: Omit<InventoryPreset, 'id'>): Promise<number> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const { data, error } = await supabase
-      .from('inventory_presets')
-      .insert({
-        user_id: user.id,
-        label: preset.label,
-        icon_code: preset.iconCode,
-        book_ids: preset.bookIds,
-        is_default: preset.isDefault,
-      })
-      .select('id')
-      .single();
-
-    if (error) throw error;
-    return data.id;
+  add: async (preset: InventoryPreset): Promise<void> => {
+    const presets = await inventoryPresetsDB.getAll();
+    presets.push(preset);
+    localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(presets));
   },
 
   update: async (id: number, updates: Partial<InventoryPreset>): Promise<void> => {
-    const dbUpdates: Record<string, unknown> = {};
-
-    if (updates.label !== undefined) dbUpdates.label = updates.label;
-    if (updates.iconCode !== undefined) dbUpdates.icon_code = updates.iconCode;
-    if (updates.bookIds !== undefined) dbUpdates.book_ids = updates.bookIds;
-    if (updates.isDefault !== undefined) dbUpdates.is_default = updates.isDefault;
-
-    const { error } = await supabase
-      .from('inventory_presets')
-      .update(dbUpdates)
-      .eq('id', id);
-
-    if (error) throw error;
+    const presets = await inventoryPresetsDB.getAll();
+    const index = presets.findIndex(p => p.id === id);
+    
+    if (index !== -1) {
+      presets[index] = { ...presets[index], ...updates };
+      localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(presets));
+    }
   },
 
   delete: async (id: number): Promise<void> => {
-    const { error } = await supabase
-      .from('inventory_presets')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    const presets = await inventoryPresetsDB.getAll();
+    const filtered = presets.filter(p => p.id !== id);
+    localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(filtered));
   },
 };
