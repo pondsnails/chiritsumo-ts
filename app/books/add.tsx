@@ -32,6 +32,10 @@ export default function AddBookScreen() {
   }, []);
 
   const handleSave = async () => {
+    const newBook: Book = {
+  // ... 他のプロパティ
+  previousBookId: previousBookId, // 👈 これを保存する
+};
     if (!title.trim() || !totalUnit.trim()) {
       return;
     }
@@ -185,6 +189,23 @@ export default function AddBookScreen() {
               </View>
             </View>
           </View>
+
+                <View style={styles.formGroup}>
+        <Text style={styles.label}>接続元（親ルート）</Text>
+        <View style={[glassEffect.container, { backgroundColor: colors.surface }]}>
+          <Picker
+            selectedValue={previousBookId}
+            onValueChange={(itemValue) => setPreviousBookId(itemValue)}
+            style={{ color: colors.text }}
+            dropdownIconColor={colors.text}
+          >
+            <Picker.Item label="なし（始発駅）" value={null} />
+            {books.map((b) => (
+              <Picker.Item key={b.id} label={b.title} value={b.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
 
           <TouchableOpacity
             style={[
