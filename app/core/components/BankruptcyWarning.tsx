@@ -230,12 +230,3 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
 });
-  confirmButton: {
-    backgroundColor: colors.error,
-  },
-  confirmButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});

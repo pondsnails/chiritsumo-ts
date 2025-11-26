@@ -205,6 +205,21 @@ app/
 
 これにより、APIキーがアプリから抽出されても、他のアプリやWebサイトから不正利用されることを防げます。
 
+#### ⚠️ Web版の脆弱性について
+
+**重要な制限事項:**
+- Web版（`npm run build:web`）では、バンドルID制限が**機能しません**
+- リファラー制限は偽装可能なため、セキュリティ対策として不十分です
+- **推奨対策:**
+  1. **本番Web版を公開しない**（ネイティブアプリのみ配布）
+  2. Web版を公開する場合：
+     - Firebase FunctionsやCloudflare Workersなどのバックエンドプロキシを経由
+     - フロントエンドにAPIキーを埋め込まない
+     - ユーザー自身のAPIキーを入力させる方式に変更
+  3. Web版ではAI機能を無効化
+
+現状、Web版は開発・テスト用途のみに留めることを強く推奨します。
+
 ### Environment Variables Setup
 
 `.env` ファイルを作成（`.gitignore`に含める）:
@@ -226,6 +241,29 @@ EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
 ```
 
 ⚠️ **注意**: APIキーはGitにコミットしないでください！
+
+## 🗄️ Database Architecture
+
+### Native Version (将来実装)
+
+ネイティブ版でSQLiteを使用する場合、以下の設定が必須です：
+
+**外部キー制約の有効化:**
+```typescript
+// app/core/database/sqlite.ts (将来実装時)
+const db = SQLite.openDatabaseSync('chiritsumo.db');
+db.execSync('PRAGMA foreign_keys = ON;');
+```
+
+これにより、`books`テーブルの削除時に関連する`cards`が自動的にCASCADE削除されます。
+設定しない場合、削除されたBookに紐づくCardがゴミデータとして残る可能性があります。
+
+### Web Version (現行)
+
+- **Database**: IndexedDB
+- **Migration**: localStorage → IndexedDB（自動）
+- **Storage Limit**: 5MB制限を回避（IndexedDBは実質無制限）
+- **Note**: IndexedDBには外部キー制約がないため、削除処理は明示的に実装済み
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
