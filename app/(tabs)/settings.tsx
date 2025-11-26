@@ -348,7 +348,8 @@ export default function SettingsScreen() {
                 <CreditCard color={colors.success} size={20} strokeWidth={2} />
                 <View>
                   <Text style={styles.upgradeTitle}>Pro Planにアップグレード</Text>
-                  <Text style={styles.upgradePrice}>¥1,980 / 年</Text>
+                  <Text style={styles.upgradePrice}>買い切り: ¥3,600</Text>
+                  <Text style={[styles.upgradePrice, { color: colors.textTertiary, fontSize: 12 }]}>年額: ¥1,500 / 年</Text>
                 </View>
               </View>
             </TouchableOpacity>

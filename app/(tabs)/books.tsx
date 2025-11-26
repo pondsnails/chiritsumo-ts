@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, Edit2, Trash2, Search, Target } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Sparkles, Target } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
@@ -87,12 +87,12 @@ export default function BooksScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 厳選ルートマップへのリンク */}
+          {/* 厳選ルートマップへのリンク（検索ではなく提案） */}
           <TouchableOpacity
             style={[glassEffect.card, styles.searchCard]}
             onPress={() => router.push('/recommended-routes' as any)}
           >
-            <Search color={colors.primary} size={24} />
+            <Sparkles color={colors.primary} size={24} />
             <View style={styles.searchCardContent}>
               <Text style={styles.searchCardTitle}>厳選ルートマップ</Text>
               <Text style={styles.searchCardSubtitle}>
