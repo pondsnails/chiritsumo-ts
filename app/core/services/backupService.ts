@@ -104,12 +104,31 @@ export const importBackup = async (): Promise<void> => {
       throw new Error('Invalid backup file format');
     }
 
-    // Web: LocalStorageに直接上書き
+    // Web: IndexedDBに直接上書き
     if (Platform.OS === 'web') {
-      localStorage.setItem('chiritsumo_books', JSON.stringify(backup.books));
-      localStorage.setItem('chiritsumo_cards', JSON.stringify(backup.cards));
-      localStorage.setItem('chiritsumo_ledger', JSON.stringify(backup.ledger));
-      console.log('Backup imported successfully (Web)');
+      // IndexedDBをインポート
+      const { indexedBooksDB, indexedCardsDB, indexedLedgerDB } = await import('../database/indexedDB');
+      
+      // 既存データをクリア（カスケード削除も含む）
+      const oldBooks = await indexedBooksDB.getAll();
+      for (const book of oldBooks) {
+        await indexedBooksDB.delete(book.id);
+      }
+
+      // バックアップデータを復元
+      for (const book of backup.books) {
+        await indexedBooksDB.add(book);
+      }
+
+      for (const card of backup.cards) {
+        await indexedCardsDB.upsert(card);
+      }
+
+      for (const entry of backup.ledger) {
+        await indexedLedgerDB.add(entry);
+      }
+
+      console.log('Backup imported successfully (Web - IndexedDB)');
       return;
     }
 
