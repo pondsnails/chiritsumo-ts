@@ -1,314 +1,51 @@
-# クラウド自動バックアップ実装ガイド
+# 自動バックアップの廃止と現行バックアップ方針（ゼロ運用コスト）
 
 ## 概要
 
-ユーザーのスマホ紛失・故障時のデータ消失を防ぐため、自動クラウドバックアップ機能を実装します。
-Pro Plan限定機能として提供することで、課金インセンティブとしても機能します。
+本プロジェクトは「運営労力ゼロ・コストゼロ」の原則に基づき、クラウド連携や自動バックアップ機能を廃止しました。現在は、手動のJSONバックアップのみを公式サポートとします。
 
-## プラットフォーム別実装
+目的は、外部依存の撤去による維持費ゼロ化・障害要因削減・セキュリティリスク低減です。以下に現行のバックアップ方針をまとめます。
 
-### iOS版: iCloud Document Storage
+## 現行バックアップ方針（手動のみ）
 
-#### 1. 必要なパッケージ
+### 手動バックアップ（JSON）
 
-```bash
-npx expo install expo-document-picker expo-file-system
-```
+- Settings画面からJSON形式でエクスポート/インポートが可能です。
+- 共有シートを用いて、ファイル保存・クラウドへの手動アップロード（任意）・他端末への移行ができます。
+- バックアップ対象は、Books / Cards / Ledger（学習台帳）です。
 
-#### 2. app.json設定
+### 推奨運用
 
-```json
-{
-  "expo": {
-    "ios": {
-      "usesIcloudStorage": true,
-      "bundleIdentifier": "com.chiritsumo.app"
-    }
-  }
-}
-```
+- 週1回の手動バックアップを推奨します（学習が活発な方は毎日）。
+- バックアップファイルはクラウドドライブ（例：Google Drive, iCloud Drive）へ「手動で」保存してください。
+- 移行時は新端末のSettings画面でインポートしてください。
 
-#### 3. 実装例
+## 自動バックアップ機能の扱い（廃止）
 
-```typescript
-// app/core/services/iCloudBackup.ts
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
+自動バックアップ（バックグラウンドタスク／クラウドAPI連携）は、ゼロ運用コスト方針のため今後提供しません。既存コード例・依存関係の導入は非推奨です。
 
-const ICLOUD_BACKUP_FILENAME = 'chiritsumo_backup.json';
+## Settings画面の現行仕様
 
-export async function enableAutoBackup(): Promise<boolean> {
-  if (Platform.OS !== 'ios') return false;
+Settings画面では、手動バックアップ（JSONのExport/Import）のみ提供します。トグルやクラウド連携UIは設けません。
 
-  try {
-    // iCloud Container URLを取得
-    const containerUrl = await FileSystem.getInfoAsync(
-      FileSystem.documentDirectory + 'iCloud/'
-    );
-
-    if (!containerUrl.exists) {
-      await FileSystem.makeDirectoryAsync(
-        FileSystem.documentDirectory + 'iCloud/',
-        { intermediates: true }
-      );
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Failed to enable iCloud backup:', error);
-    return false;
-  }
-}
-
-export async function performAutoBackup(data: any): Promise<void> {
-  if (Platform.OS !== 'ios') return;
-
-  try {
-    const backupPath = `${FileSystem.documentDirectory}iCloud/${ICLOUD_BACKUP_FILENAME}`;
-    await FileSystem.writeAsStringAsync(backupPath, JSON.stringify(data));
-    console.log('iCloud backup completed');
-  } catch (error) {
-    console.error('Failed to backup to iCloud:', error);
-  }
-}
-
-export async function restoreFromICloud(): Promise<any | null> {
-  if (Platform.OS !== 'ios') return null;
-
-  try {
-    const backupPath = `${FileSystem.documentDirectory}iCloud/${ICLOUD_BACKUP_FILENAME}`;
-    const fileInfo = await FileSystem.getInfoAsync(backupPath);
-
-    if (!fileInfo.exists) {
-      return null;
-    }
-
-    const content = await FileSystem.readAsStringAsync(backupPath);
-    return JSON.parse(content);
-  } catch (error) {
-    console.error('Failed to restore from iCloud:', error);
-    return null;
-  }
-}
-```
-
-### Android版: Google Drive API
-
-#### 1. 必要なパッケージ
-
-```bash
-npm install @react-native-google-signin/google-signin
-npm install react-native-google-drive-api-wrapper
-```
-
-#### 2. Google Cloud Console設定
-
-1. https://console.cloud.google.com にアクセス
-2. 新規プロジェクト作成
-3. Google Drive API を有効化
-4. OAuth 2.0 クライアントID を作成（Android用）
-5. SHA-1フィンガープリントを登録
-
-#### 3. 実装例
-
-```typescript
-// app/core/services/googleDriveBackup.ts
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { GDrive } from 'react-native-google-drive-api-wrapper';
-import { Platform } from 'react-native';
-
-const BACKUP_FILENAME = 'chiritsumo_backup.json';
-const BACKUP_FOLDER = 'ChiritsumoBackups';
-
-export async function initializeGoogleDrive(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-
-  GoogleSignin.configure({
-    scopes: ['https://www.googleapis.com/auth/drive.appdata'],
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-}
-
-export async function signInAndEnableBackup(): Promise<boolean> {
-  try {
-    await GoogleSignin.hasPlayServices();
-    const userInfo = await GoogleSignin.signIn();
-    
-    // トークンを取得
-    const tokens = await GoogleSignin.getTokens();
-    GDrive.setAccessToken(tokens.accessToken);
-
-    return true;
-  } catch (error) {
-    console.error('Google Sign-In failed:', error);
-    return false;
-  }
-}
-
-export async function performAutoBackup(data: any): Promise<void> {
-  if (Platform.OS !== 'android') return;
-
-  try {
-    // フォルダを作成または取得
-    const folder = await GDrive.files.createFolder(BACKUP_FOLDER);
-
-    // バックアップファイルを作成
-    const fileContent = JSON.stringify(data);
-    await GDrive.files.createFileMultipart(
-      fileContent,
-      'application/json',
-      {
-        parents: [folder.id],
-        name: BACKUP_FILENAME,
-      }
-    );
-
-    console.log('Google Drive backup completed');
-  } catch (error) {
-    console.error('Failed to backup to Google Drive:', error);
-  }
-}
-
-export async function restoreFromGoogleDrive(): Promise<any | null> {
-  if (Platform.OS !== 'android') return null;
-
-  try {
-    // バックアップファイルを検索
-    const files = await GDrive.files.list({
-      q: `name='${BACKUP_FILENAME}'`,
-    });
-
-    if (files.files.length === 0) {
-      return null;
-    }
-
-    // 最新のバックアップを取得
-    const latestFile = files.files[0];
-    const content = await GDrive.files.download(latestFile.id);
-
-    return JSON.parse(content);
-  } catch (error) {
-    console.error('Failed to restore from Google Drive:', error);
-    return null;
-  }
-}
-```
-
-## 自動バックアップのスケジューリング
-
-### 1. バックグラウンドタスク設定
-
-```bash
-npx expo install expo-background-fetch expo-task-manager
-```
-
-### 2. 実装
-
-```typescript
-// app/core/services/autoBackupScheduler.ts
-import * as BackgroundFetch from 'expo-background-fetch';
-import * as TaskManager from 'expo-task-manager';
-import { Platform } from 'react-native';
-import { performAutoBackup as performICloudBackup } from './iCloudBackup';
-import { performAutoBackup as performGoogleDriveBackup } from './googleDriveBackup';
-import { exportAllData } from './backupService';
-
-const BACKUP_TASK_NAME = 'auto-backup-task';
-
-// バックグラウンドタスクの定義
-TaskManager.defineTask(BACKUP_TASK_NAME, async () => {
-  try {
-    // データをエクスポート
-    const data = await exportAllData();
-
-    // プラットフォームに応じてバックアップ
-    if (Platform.OS === 'ios') {
-      await performICloudBackup(data);
-    } else if (Platform.OS === 'android') {
-      await performGoogleDriveBackup(data);
-    }
-
-    return BackgroundFetch.BackgroundFetchResult.NewData;
-  } catch (error) {
-    console.error('Auto backup failed:', error);
-    return BackgroundFetch.BackgroundFetchResult.Failed;
-  }
-});
-
-// 自動バックアップを有効化（日次）
-export async function enableAutoBackup(): Promise<void> {
-  await BackgroundFetch.registerTaskAsync(BACKUP_TASK_NAME, {
-    minimumInterval: 60 * 60 * 24, // 24時間
-    stopOnTerminate: false,
-    startOnBoot: true,
-  });
-}
-
-// 自動バックアップを無効化
-export async function disableAutoBackup(): Promise<void> {
-  await BackgroundFetch.unregisterTaskAsync(BACKUP_TASK_NAME);
-}
-```
-
-## Settings画面への統合
-
-```typescript
-// app/(tabs)/settings.tsx に追加
-import { enableAutoBackup, disableAutoBackup } from '@/app/core/services/autoBackupScheduler';
-import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
-
-const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
-const { isProUser } = useSubscriptionStore();
-
-const handleToggleAutoBackup = async (enabled: boolean) => {
-  if (!isProUser) {
-    Alert.alert(
-      'Pro Plan限定機能',
-      '自動バックアップはPro Planでのみ利用可能です。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
-      ]
-    );
-    return;
-  }
-
-  try {
-    if (enabled) {
-      await enableAutoBackup();
-    } else {
-      await disableAutoBackup();
-    }
-    setAutoBackupEnabled(enabled);
-  } catch (error) {
-    Alert.alert('エラー', '設定の変更に失敗しました');
-  }
-};
-```
-
-## Pro Plan機能としての位置づけ
+## 課金プランとの関係
 
 ### 料金プラン比較
 
 | 機能 | Free Plan | Pro Plan |
 |------|-----------|----------|
 | 手動バックアップ | ✅ | ✅ |
-| **自動クラウドバックアップ** | ❌ | ✅ |
+| 自動クラウドバックアップ | —（廃止） | —（廃止） |
 | 参考書登録数 | 3冊まで | 無制限 |
-| AI推薦機能 | ❌ | ✅ |
 
-### メリット
+### 方針のメリット
 
-- データ消失リスクの完全回避
-- デバイス変更時の簡単な移行
-- 安心感によるアプリ利用促進
-- Pro Plan加入の強力なインセンティブ
+- 維持費ゼロ（外部API/サーバー不要）
+- 障害要因の最小化（API制限・認証切れ・仕様変更の影響なし）
+- セキュリティリスク低減（キー管理不要）
+- ローカルファーストの一貫性
 
-## 実装優先度
+## 補足
 
-**HIGH - リリース前に実装推奨**
-
-理由：
-- Local Firstアプリの最大の弱点を補完
-- ユーザーの学習履歴（資産）を保護
-- Pro Planの価値を大幅に向上
+- データ保全は「ユーザー主体」の運用（手動）で行います。
+- 紛失や故障に備え、定期的なエクスポートとクラウドドライブへの保管を推奨します。
