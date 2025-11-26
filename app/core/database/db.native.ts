@@ -129,6 +129,16 @@ export const booksDB = {
     await initDB();
     db.runSync('DELETE FROM books WHERE id = ?', [id]);
   },
+
+  // 互換API: 既存コードで利用される add/update を upsert にマッピング
+  async add(book: Book): Promise<void> {
+    return this.upsert(book);
+  },
+  async update(id: string, book: Book): Promise<void> {
+    // idを信頼しつつbook.idを整合させてupsert
+    const normalized: Book = { ...book, id };
+    return this.upsert(normalized);
+  },
 };
 
 // Cards Repository
@@ -231,6 +241,17 @@ export const cardsDB = {
 
 // Ledger Repository
 export const ledgerDB = {
+  async getAll(): Promise<LedgerEntry[]> {
+    await initDB();
+    const result = db.getAllSync<any>('SELECT * FROM ledger ORDER BY date ASC');
+    return result.map(row => ({
+      id: row.id,
+      date: row.date,
+      earnedLex: row.earned_lex,
+      targetLex: row.target_lex,
+      balance: row.balance,
+    }));
+  },
   async getRecent(limit: number): Promise<LedgerEntry[]> {
     await initDB();
     const result = db.getAllSync<any>(
@@ -261,6 +282,15 @@ export const ledgerDB = {
     await initDB();
     db.runSync(
       `INSERT OR REPLACE INTO ledger (date, earned_lex, target_lex, balance)
+       VALUES (?, ?, ?, ?)`,
+      [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
+    );
+  },
+  // 互換API: add (重複日付は無視)
+  async add(entry: Omit<LedgerEntry, 'id'>): Promise<void> {
+    await initDB();
+    db.runSync(
+      `INSERT OR IGNORE INTO ledger (date, earned_lex, target_lex, balance)
        VALUES (?, ?, ?, ?)`,
       [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
     );
