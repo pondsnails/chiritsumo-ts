@@ -1,8 +1,44 @@
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
+import { useCardStore } from '@/app/core/store/cardStore';
+import { useBookStore } from '@/app/core/store/bookStore';
+import { checkAndPerformRollover } from '@/app/core/utils/dailyRollover';
+import { RolloverNotification } from '@/app/core/components/RolloverNotification';
+import { ledgerDB } from '@/app/core/database/db';
 
 export default function Index() {
+  const [showRollover, setShowRollover] = useState(false);
+  const [rolloverData, setRolloverData] = useState({ targetLex: 0, newBalance: 0 });
+  const { cards, fetchCards } = useCardStore();
+  const { books, fetchBooks } = useBookStore();
+
+  useEffect(() => {
+    checkRollover();
+  }, []);
+
+  const checkRollover = async () => {
+    try {
+      await Promise.all([fetchCards(), fetchBooks()]);
+
+      const summary = await ledgerDB.getSummary();
+      const currentBalance = summary.balance;
+
+      const result = await checkAndPerformRollover(cards, books, currentBalance);
+
+      if (result.performed) {
+        setRolloverData({
+          targetLex: result.targetLex,
+          newBalance: result.newBalance,
+        });
+        setShowRollover(true);
+      }
+    } catch (error) {
+      console.error('Failed to check rollover:', error);
+    }
+  };
+
   return (
     <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.container}>
       <View style={styles.content}>
@@ -12,6 +48,13 @@ export default function Index() {
           <Text style={styles.linkText}>開始</Text>
         </Link>
       </View>
+
+      <RolloverNotification
+        visible={showRollover}
+        targetLex={rolloverData.targetLex}
+        newBalance={rolloverData.newBalance}
+        onClose={() => setShowRollover(false)}
+      />
     </LinearGradient>
   );
 }

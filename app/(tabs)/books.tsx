@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, Edit2, Trash2 } from 'lucide-react-native';
 import { useBookStore } from '@/app/core/store/bookStore';
+import { BookRecommendations } from '@/app/core/components/BookRecommendations';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import type { Book } from '@/app/core/types';
@@ -67,6 +68,14 @@ export default function BooksScreen() {
               <Plus color={colors.primary} size={24} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
+
+          <BookRecommendations
+            context={{
+              completedBooks: books.filter(b => b.status === 1),
+              currentBooks: books.filter(b => b.status === 0),
+              interests: [],
+            }}
+          />
 
           {isLoading ? (
             <ActivityIndicator color={colors.primary} size="large" />
