@@ -104,81 +104,86 @@ export const importBackup = async (): Promise<void> => {
       throw new Error('Invalid backup file format');
     }
 
-    // Web: IndexedDBに直接上書き
+    // Web: IndexedDBにマージ（Upsertロジック）
     if (Platform.OS === 'web') {
       // IndexedDBをインポート
       const { indexedBooksDB, indexedCardsDB, indexedLedgerDB } = await import('../database/indexedDB');
       
-      // 既存データをクリア（カスケード削除も含む）
-      const oldBooks = await indexedBooksDB.getAll();
-      for (const book of oldBooks) {
-        await indexedBooksDB.delete(book.id);
-      }
-
-      // バックアップデータを復元
+      // 書籍データをマージ（updatedAtで新しい方を優先）
+      const existingBooks = await indexedBooksDB.getAll();
+      const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
+      
       for (const book of backup.books) {
-        await indexedBooksDB.add(book);
+        const existing = existingBooksMap.get(book.id);
+        if (!existing) {
+          // 新規書籍は追加
+          await indexedBooksDB.add(book);
+        } else {
+          // 既存書籍はタイムスタンプ比較
+          const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
+          const importTime = new Date(book.updatedAt || book.createdAt).getTime();
+          if (importTime > existingTime) {
+            await indexedBooksDB.update(book.id, book);
+          }
+        }
       }
 
+      // カードはupsert（既にマージ対応）
       for (const card of backup.cards) {
         await indexedCardsDB.upsert(card);
       }
 
+      // 台帳は日付単位でユニーク、既存チェックして追加
+      const existingLedger = await indexedLedgerDB.getAll();
+      const existingDates = new Set(existingLedger.map(e => e.date));
       for (const entry of backup.ledger) {
-        await indexedLedgerDB.add(entry);
+        if (!existingDates.has(entry.date)) {
+          await indexedLedgerDB.add(entry);
+        }
       }
 
-      console.log('Backup imported successfully (Web - IndexedDB)');
+      console.log('Backup merged successfully (Web - IndexedDB)');
       return;
     }
 
-    // ネイティブ: データベースに復元
-    // 既存データを取得して保持（ロールバック用）
-    const oldBooks = await booksDB.getAll();
-    const oldCards = await cardsDB.getAll();
-    const oldLedger = await ledgerDB.getAll();
+    // ネイティブ: データベースにマージ（Upsertロジック）
+    const existingBooks = await booksDB.getAll();
+    const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
 
     try {
-      // 既存データをクリア
-      for (const book of oldBooks) {
-        await booksDB.delete(book.id);
-      }
-
-      // バックアップデータを復元
+      // 書籍データをマージ（updatedAtで新しい方を優先）
       for (const book of backup.books) {
-        await booksDB.add(book);
+        const existing = existingBooksMap.get(book.id);
+        if (!existing) {
+          // 新規書籍は追加
+          await booksDB.add(book);
+        } else {
+          // 既存書籍はタイムスタンプ比較
+          const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
+          const importTime = new Date(book.updatedAt || book.createdAt).getTime();
+          if (importTime > existingTime) {
+            await booksDB.update(book.id, book);
+          }
+        }
       }
 
+      // カードはupsert（既にマージ対応）
       for (const card of backup.cards) {
         await cardsDB.upsert(card);
       }
 
+      // 台帳は日付単位でユニーク、既存チェックして追加
+      const existingLedger = await ledgerDB.getAll();
+      const existingDates = new Set(existingLedger.map(e => e.date));
       for (const entry of backup.ledger) {
-        await ledgerDB.add(entry);
+        if (!existingDates.has(entry.date)) {
+          await ledgerDB.add(entry);
+        }
       }
 
-      console.log('Backup imported successfully (Native)');
+      console.log('Backup merged successfully (Native)');
     } catch (error) {
-      // エラー時はロールバック
-      console.error('Failed to import backup, rolling back:', error);
-      
-      // データをクリア
-      const currentBooks = await booksDB.getAll();
-      for (const book of currentBooks) {
-        await booksDB.delete(book.id);
-      }
-
-      // 元のデータを復元
-      for (const book of oldBooks) {
-        await booksDB.add(book);
-      }
-      for (const card of oldCards) {
-        await cardsDB.upsert(card);
-      }
-      for (const entry of oldLedger) {
-        await ledgerDB.add(entry);
-      }
-
+      console.error('Failed to merge backup:', error);
       throw error;
     }
   } catch (error) {

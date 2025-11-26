@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,9 @@ import { ArrowLeft, Search, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
+import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
+import { extractBookFromAmazonUrl, createBookFromExtractedData } from '@/app/core/services/amazonImportService';
+import { booksDB } from '@/app/core/database/db';
 
 // ★ あなたのAmazonアソシエイトIDをここに設定
 const AFFILIATE_TAG = 'YOUR_AFFILIATE_ID';
@@ -29,6 +33,8 @@ export default function AmazonSearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const { isProUser } = useSubscriptionStore();
 
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
@@ -76,15 +82,52 @@ export default function AmazonSearchScreen() {
     setCanGoBack(navState.canGoBack);
   };
 
-  const handleAddToLibrary = () => {
-    Alert.alert(
-      '書籍をインポート',
-      'この機能はPro版で利用可能です。\n\n商品ページのURL、タイトル、画像を自動的に取得してライブラリに追加できます。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'Pro版を見る', onPress: () => router.push('/(tabs)/settings') },
-      ]
-    );
+  const handleAddToLibrary = async () => {
+    if (!isProUser) {
+      Alert.alert(
+        '書籍をインポート（Pro版限定）',
+        '商品ページのURL、タイトル、画像を自動的に取得してライブラリに追加できます。',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: 'Pro版を見る', onPress: () => router.push('/paywall') },
+        ]
+      );
+      return;
+    }
+
+    if (!currentUrl.includes('amazon.co.jp/')) {
+      Alert.alert('エラー', 'Amazon商品ページを開いてから追加してください');
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const extractedData = await extractBookFromAmazonUrl(currentUrl);
+      
+      if (!extractedData) {
+        throw new Error('書籍情報の取得に失敗しました');
+      }
+
+      const newBook = createBookFromExtractedData(extractedData);
+      await booksDB.add(newBook);
+
+      Alert.alert(
+        '追加完了',
+        `「${newBook.title}」をライブラリに追加しました`,
+        [
+          { text: 'OK', onPress: () => router.back() },
+        ]
+      );
+    } catch (error) {
+      console.error('Failed to import book:', error);
+      Alert.alert(
+        'インポート失敗',
+        error instanceof Error ? error.message : '書籍情報の取得に失敗しました'
+      );
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -115,8 +158,13 @@ export default function AmazonSearchScreen() {
           <TouchableOpacity
             style={styles.addButton}
             onPress={handleAddToLibrary}
+            disabled={isImporting}
           >
-            <Plus color={colors.primary} size={24} />
+            {isImporting ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Plus color={colors.primary} size={24} />
+            )}
           </TouchableOpacity>
         </View>
 
