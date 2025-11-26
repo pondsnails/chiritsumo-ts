@@ -8,26 +8,26 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { Sparkles, ExternalLink, RefreshCw } from 'lucide-react-native';
+import { Sparkles, ExternalLink, RefreshCw, Star } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
 import {
   generateBookRecommendations,
+  getUserGeminiApiKey,
   type BookRecommendation,
   type AffiliateContext,
 } from '../services/aiAffiliate';
 
 interface BookRecommendationsProps {
   context: AffiliateContext;
-  geminiApiKey?: string;
 }
 
 export function BookRecommendations({
   context,
-  geminiApiKey,
 }: BookRecommendationsProps) {
   const [recommendations, setRecommendations] = useState<BookRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAiMode, setIsAiMode] = useState(false);
 
   useEffect(() => {
     loadRecommendations();
@@ -36,7 +36,12 @@ export function BookRecommendations({
   const loadRecommendations = async () => {
     try {
       setIsLoading(true);
-      const results = await generateBookRecommendations(context, geminiApiKey);
+      
+      // APIキー設定状況を確認
+      const apiKey = await getUserGeminiApiKey();
+      setIsAiMode(!!apiKey);
+      
+      const results = await generateBookRecommendations(context);
       setRecommendations(results);
     } catch (error) {
       console.error('Failed to load recommendations:', error);
@@ -60,21 +65,36 @@ export function BookRecommendations({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Sparkles color={colors.primary} size={20} />
-          <Text style={styles.title}>おすすめの本</Text>
+          {isAiMode ? (
+            <>
+              <Sparkles color={colors.primary} size={20} />
+              <Text style={styles.title}>AI推薦（For You）</Text>
+            </>
+          ) : (
+            <>
+              <Star color={colors.warning} size={20} />
+              <Text style={styles.title}>おすすめ（Pickup）</Text>
+            </>
+          )}
         </View>
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={loadRecommendations}
-          disabled={isLoading}
+          disabled={isLoading || !isAiMode}
         >
           <RefreshCw
-            color={colors.text}
+            color={isAiMode ? colors.text : colors.textTertiary}
             size={20}
             style={isLoading ? styles.spinning : undefined}
           />
         </TouchableOpacity>
       </View>
+
+      {!isAiMode && (
+        <Text style={styles.modeHint}>
+          Settings > AI機能設定でAPIキーを設定すると、AIによる個別最適化された推薦が利用できます
+        </Text>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -143,6 +163,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  modeHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+    lineHeight: 16,
   },
   refreshButton: {
     padding: 8,
