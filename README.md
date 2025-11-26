@@ -92,22 +92,17 @@ npm run dev
 
 ### 本番環境への準備
 
-#### 1. APIキーのバックエンド化（必須）
+#### 1. Web版の制限事項（重要）
 
-**詳細:** [Supabase Edge Functions セットアップガイド](./docs/SUPABASE_EDGE_FUNCTIONS.md)
+**⚠️ Web版はネイティブ機能が制限されます:**
+- `expo-secure-store`：× Webでは使用不可（APIキー保存ができない）
+- `expo-file-system`：× ファイルシステムアクセスが制限される
+- クラウドバックアップ：× 利用不可
+- AI機能：× APIキー保存ができないため利用不可
 
-Gemini APIキーをクライアントから隠蔽するため、Supabase Edge Functionsを使用します。
-
-```bash
-# Supabase CLIのインストール
-npm install -g supabase
-
-# Edge Functionの作成
-supabase functions new gemini-proxy
-
-# デプロイ
-supabase functions deploy gemini-proxy
-```
+**推奨構成:**
+- 本番リリース：**ネイティブアプリのみ配布**（iOS/Android）
+- Web版：開発・テスト用途のみ
 
 #### 2. 自動バックアップの実装（推奨）
 
@@ -220,84 +215,31 @@ app/
 
 ## 🔐 Security Best Practices
 
-### ⚠️ CRITICAL: API Key Security Issue
+### AI機能: BYOK（Bring Your Own Key）方式
 
-**現在の実装には重大なセキュリティリスクがあります。**
+**セキュリティリスクとコスト削減のため、開発者のAPIキーを組み込まない設計に変更しました。**
 
-Gemini APIキーが `EXPO_PUBLIC_` 環境変数としてクライアントアプリのバンドルに含まれています。
-これは開発・プロトタイプ段階では許容されますが、**本番リリース前に必ず修正が必要です。**
+#### 仕組み
+1. **ユーザー自身がGoogle AI StudioでAPIキーを取得**
+   - 無料枠:1分あたり60リクエスト（1日あたり1,500リクエスト）
+   - 取得URL: https://aistudio.google.com/app/apikey
 
-**リスク:**
-- APK/IPAを解析すれば誰でもAPIキーを抽出可能
-- Google Cloud Consoleのアプリ制限（Bundle ID/SHA-1）も、curlなどで偽装可能
-- 特にWeb版は完全に脆弱（JavaScriptバンドルに平文で含まれる）
+2. **Settings画面でAPIキーを入力**
+   - `expo-secure-store`で端末内に安全に保存
+   - ネイティブアプリのみ対応（Web版は非対応）
 
-**本番対応（必須）:**
-1. **バックエンドプロキシの実装:**
-   - Firebase Functions / Supabase Edge Functions / Cloudflare Workers のいずれかを使用
-   - クライアント → バックエンド → Gemini API の構成に変更
-   - APIキーはバックエンド環境変数に保存（Secret Manager推奨）
+3. **AIによる書籍推薦が有効化**
+   - キー未設定：「おすすめ（Pickup）」静的リストを表示
+   - キー設定済：「AI推薦（For You）」個別最適化された推薦
 
-2. **または、AI機能の無効化:**
-   - Web版ではAI機能を完全に無効化
-   - ネイティブアプリのみでAI機能を提供（アプリ制限と組み合わせ）
+#### メリット
+- ✅ 開発者のAPIコストがゼロ
+- ✅ キー流出リスクがない
+- ✅ バックエンドサーバー不要（運用コストゼロ）
+- ✅ ユーザーが自分で制御できる（カスタマイズ性）
 
-3. **レート制限の実装:**
-   - バックエンドでユーザーごとのAPI呼び出し回数を制限
-
-**開発用の暫定対策:**
-
-**開発用の暫定対策:**
-
-1. Google Cloud Consoleにアクセス
-2. 「APIs & Services」→「認証情報」
-3. 使用中のAPI Keyを編集
-4. 「アプリケーションの制限」セクション：
-   - ✅ 「Android apps」または「iOS apps」を選択
-   - ❌ 「なし」は選択しない（セキュリティリスク）
-5. **iOS apps**の場合：
-   - Bundle ID: `com.chiritsumo.app` を追加
-6. **Android apps**の場合：
-   - Package name: `com.chiritsumo.app`
-   - SHA-1フィンガープリント: （keystoreから取得）
-7. 「保存」
-
-これにより、APIキーがアプリから抽出されても、他のアプリやWebサイトから不正利用されることを防げます。
-
-#### ⚠️ Web版の脆弱性について
-
-**重要な制限事項:**
-- Web版（`npm run build:web`）では、バンドルID制限が**機能しません**
-- リファラー制限は偽装可能なため、セキュリティ対策として不十分です
-- **推奨対策:**
-  1. **本番Web版を公開しない**（ネイティブアプリのみ配布）
-  2. Web版を公開する場合：
-     - Firebase FunctionsやCloudflare Workersなどのバックエンドプロキシを経由
-     - フロントエンドにAPIキーを埋め込まない
-     - ユーザー自身のAPIキーを入力させる方式に変更
-  3. Web版ではAI機能を無効化
-
-現状、Web版は開発・テスト用途のみに留めることを強く推奨します。
-
-### Environment Variables Setup
-
-`.env` ファイルを作成（`.gitignore`に含める）:
-
-```env
-EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
-```
-
-または `app.json` の `extra` セクション:
-
-```json
-{
-  "expo": {
-    "extra": {
-      "geminiApiKey": "your_api_key_here"
-    }
-  }
-}
-```
+#### ターゲット層への訴求
+エンジニアや理系学生にとって、APIキー取得はハードルではなく、むしろ「自分で制御できる」メリットとしてポジティブに働きます。
 
 ⚠️ **注意**: APIキーはGitにコミットしないでください！
 
