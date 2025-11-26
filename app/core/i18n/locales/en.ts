@@ -143,6 +143,16 @@ export default {
     deleteAllError: 'Failed to delete data',
     notImplemented: 'Not Implemented',
     notImplementedMessage: 'This feature is coming soon',
+    autoBackup: 'Auto Cloud Backup',
+    autoBackupEnabled: 'Auto backup enabled',
+    autoBackupDisabled: 'Auto backup disabled',
+    manualBackupNow: 'Backup Now',
+    manualBackupSuccess: 'Data backed up to cloud',
+    manualBackupError: 'Backup failed',
+    lastBackup: 'Last Backup',
+    proOnlyFeature: 'Pro Plan Only',
+    autoBackupProOnly: 'Auto backup is only available in Pro Plan.',
+    cloudBackupProOnly: 'Cloud backup is only available in Pro Plan.',
   },
   
   validation: {

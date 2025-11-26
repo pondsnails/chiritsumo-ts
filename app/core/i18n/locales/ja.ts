@@ -143,6 +143,16 @@ export default {
     deleteAllError: 'データの削除に失敗しました',
     notImplemented: '未実装',
     notImplementedMessage: 'この機能は準備中です',
+    autoBackup: '自動クラウドバックアップ',
+    autoBackupEnabled: '自動バックアップを有効化しました',
+    autoBackupDisabled: '自動バックアップを停止しました',
+    manualBackupNow: '今すぐバックアップ',
+    manualBackupSuccess: 'データをクラウドにバックアップしました',
+    manualBackupError: 'バックアップに失敗しました',
+    lastBackup: '最終バックアップ',
+    proOnlyFeature: 'Pro Plan限定機能',
+    autoBackupProOnly: '自動バックアップはPro Planでのみ利用可能です。',
+    cloudBackupProOnly: 'クラウドバックアップはPro Planでのみ利用可能です。',
   },
   
   validation: {

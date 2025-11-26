@@ -10,6 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.chiritsumo.app",
+      "usesIcloudStorage": true,
       "infoPlist": {
         "NSCameraUsageDescription": "学習カードの復習時に、間違えた問題の写真メモを撮影するために使用します。",
         "NSPhotoLibraryUsageDescription": "学習記録の写真を保存するために使用します。"

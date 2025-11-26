@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,48 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Download, Upload, Trash2, Info, CreditCard, ExternalLink } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard, ExternalLink, Cloud } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBackupService } from '@/app/core/services/backupService';
 import { useBookStore } from '@/app/core/store/bookStore';
+import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@/app/core/database/db';
+import { 
+  enableAutoBackup, 
+  disableAutoBackup, 
+  isAutoBackupEnabled,
+  performManualBackup 
+} from '@/app/core/services/autoBackupScheduler';
+import { getLastBackupDate } from '@/app/core/services/iCloudBackup';
 import i18n from '@/app/core/i18n';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
   const { fetchBooks } = useBookStore();
+  const { isProUser } = useSubscriptionStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [lastBackupDate, setLastBackupDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    loadAutoBackupStatus();
+  }, []);
+
+  const loadAutoBackupStatus = async () => {
+    const enabled = await isAutoBackupEnabled();
+    setAutoBackupEnabled(enabled);
+    
+    const lastDate = await getLastBackupDate();
+    setLastBackupDate(lastDate);
+  };
 
   const handleExport = async () => {
     try {
@@ -103,6 +127,63 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleToggleAutoBackup = async (enabled: boolean) => {
+    if (!isProUser && enabled) {
+      Alert.alert(
+        'Pro Plan限定機能',
+        '自動バックアップはPro Planでのみ利用可能です。',
+        [
+          { text: i18n.t('common.cancel'), style: 'cancel' },
+          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
+        ]
+      );
+      return;
+    }
+
+    try {
+      if (enabled) {
+        const success = await enableAutoBackup();
+        if (success) {
+          setAutoBackupEnabled(true);
+          Alert.alert('自動バックアップ有効化', '毎日自動的にデータをバックアップします。');
+        }
+      } else {
+        const success = await disableAutoBackup();
+        if (success) {
+          setAutoBackupEnabled(false);
+          Alert.alert('自動バックアップ無効化', '自動バックアップを停止しました。');
+        }
+      }
+    } catch (error) {
+      Alert.alert(i18n.t('common.error'), '設定の変更に失敗しました');
+    }
+  };
+
+  const handleManualBackup = async () => {
+    if (!isProUser) {
+      Alert.alert(
+        'Pro Plan限定機能',
+        'クラウドバックアップはPro Planでのみ利用可能です。',
+        [
+          { text: i18n.t('common.cancel'), style: 'cancel' },
+          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
+        ]
+      );
+      return;
+    }
+
+    try {
+      const success = await performManualBackup();
+      if (success) {
+        const newDate = await getLastBackupDate();
+        setLastBackupDate(newDate);
+        Alert.alert('バックアップ完了', 'データをクラウドにバックアップしました。');
+      }
+    } catch (error) {
+      Alert.alert(i18n.t('common.error'), 'バックアップに失敗しました');
+    }
+  };
+
   const handleUpgradeToPro = () => {
     router.push('/paywall');
   };
@@ -119,6 +200,43 @@ export default function SettingsScreen() {
           {/* データ管理セクション */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>データ管理</Text>
+            
+            {/* クラウド自動バックアップ (Pro Plan限定) */}
+            <View style={[glassEffect.card, styles.menuItem]}>
+              <View style={styles.menuItemLeft}>
+                <Cloud color={isProUser ? colors.primary : colors.textTertiary} size={20} strokeWidth={2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemText}>自動クラウドバックアップ</Text>
+                  {!isProUser && (
+                    <Text style={styles.proLabel}>Pro Plan限定</Text>
+                  )}
+                  {lastBackupDate && (
+                    <Text style={styles.lastBackupText}>
+                      最終: {lastBackupDate.toLocaleDateString('ja-JP')} {lastBackupDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <Switch
+                value={autoBackupEnabled}
+                onValueChange={handleToggleAutoBackup}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primary + '60' }}
+                thumbColor={autoBackupEnabled ? colors.primary : colors.surface}
+              />
+            </View>
+
+            {/* 手動バックアップ (Pro Plan限定) */}
+            {isProUser && (
+              <TouchableOpacity
+                style={[glassEffect.card, styles.menuItem]}
+                onPress={handleManualBackup}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Cloud color={colors.success} size={20} strokeWidth={2} />
+                  <Text style={styles.menuItemText}>今すぐバックアップ</Text>
+                </View>
+              </TouchableOpacity>
+            )}
             
             <TouchableOpacity
               style={[glassEffect.card, styles.menuItem]}
@@ -265,6 +383,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     fontWeight: '500',
+  },
+  proLabel: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  lastBackupText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   versionText: {
     fontSize: 14,
