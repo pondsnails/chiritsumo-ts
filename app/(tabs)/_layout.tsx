@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { View, StyleSheet, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Zap, Route, Wallet, BookOpen, Settings } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
+import { colors } from '@core/theme/colors';
 
 export default function TabsLayout() {
   return (

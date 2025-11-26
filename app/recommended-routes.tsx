@@ -16,10 +16,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, ExternalLink, Clock, BarChart3 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import recommendedRoutes from '@/app/core/data/recommendedRoutes.json';
-import type { RouteStep, PresetRoute } from '@/app/core/types';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import recommendedRoutes from '@core/data/recommendedRoutes.json';
+import type { RouteStep, PresetRoute } from '@core/types';
 
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 

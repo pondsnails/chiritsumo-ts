@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -15,16 +16,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
-import { booksDB } from '@/app/core/database/db';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { MetroLayoutEngine } from '@/app/core/layout/metroLayout';
-import { MetroLine } from '@/app/core/components/MetroLine';
-import { BookNode } from '@/app/core/components/BookNode';
-import i18n from '@/app/core/i18n';
-import type { Book, RouteStep, PresetRoute } from '@/app/core/types';
-import type { NodePosition } from '@/app/core/layout/metroLayout';
-import recommendedRoutesData from '@/app/core/data/recommendedRoutes.json';
+import { booksDB } from '@core/database/db';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { MetroLayoutEngine } from '@core/layout/metroLayout';
+import { MetroLine } from '@core/components/MetroLine';
+import { BookNode } from '@core/components/BookNode';
+import i18n from '@core/i18n';
+import type { Book, RouteStep, PresetRoute } from '@core/types';
+import type { NodePosition } from '@core/layout/metroLayout';
+import recommendedRoutesData from '@core/data/recommendedRoutes.json';
 
 type TabType = 'myRoute' | 'presetRoute';
 
@@ -52,9 +53,12 @@ export default function RouteScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchAllBooks();
-  }, []);
+  // 画面フォーカス毎に最新Booksを取得（編集・追加反映）
+  useFocusEffect(
+    useCallback(() => {
+      fetchAllBooks();
+    }, [])
+  );
 
   // パフォーマンス最適化: MetroLayoutEngineの計算を画面遷移後に実行
   useEffect(() => {

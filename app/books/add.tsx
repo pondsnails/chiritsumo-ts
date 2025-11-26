@@ -15,14 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionStore';
-import { validateBookAddition } from '@/app/core/utils/circularReferenceDetector';
-import { getBookTitleFromBarcode } from '@/app/core/services/bookDataService';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import i18n from '@/app/core/i18n';
-import type { Book } from '@/app/core/types';
+import { useBookStore } from '@core/store/bookStore';
+import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore';
+import { validateBookAddition } from '@core/utils/circularReferenceDetector';
+import { getBookTitleFromBarcode } from '@core/services/bookDataService';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import i18n from '@core/i18n';
+import type { Book } from '@core/types';
 
 export default function AddBookScreen() {
   const router = useRouter();

@@ -12,9 +12,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { X, Check, Crown, Sparkles } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { useSubscriptionStore } from '@core/store/subscriptionStore';
 
 type PlanType = 'lifetime' | 'annual';
 

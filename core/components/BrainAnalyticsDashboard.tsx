@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, Circle, Path } from 'react-native-svg';
 import { Brain, TrendingUp, Clock, Target } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { cardsDB } from '@/app/core/database/db';
-import type { Card } from '@/app/core/types';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { cardsDB } from '@core/database/db';
+import type { Card } from '@core/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

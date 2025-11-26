@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, Edit2, Trash2, Sparkles, Target } from 'lucide-react-native';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import i18n from '@/app/core/i18n';
-import type { Book } from '@/app/core/types';
+import { Plus, BookOpen } from 'lucide-react-native';
+import { useBookStore } from '@core/store/bookStore';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import i18n from '@core/i18n';
+import type { Book } from '@core/types';
 
 export default function BooksScreen() {
   const router = useRouter();

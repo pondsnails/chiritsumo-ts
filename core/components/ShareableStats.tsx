@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Share2, Sparkles, TrendingUp, Flame } from 'lucide-react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
 
 interface ShareableStatsProps {
   todayLex: number;

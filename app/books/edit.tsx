@@ -13,10 +13,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar, Target, TrendingUp } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import i18n from '@/app/core/i18n';
+import { useBookStore } from '@core/store/bookStore';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import i18n from '@core/i18n';
 
 export default function EditBookScreen() {
   const router = useRouter();

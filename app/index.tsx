@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
-import { useCardStore } from '@/app/core/store/cardStore';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { checkAndPerformRollover } from '@/app/core/utils/dailyRollover';
-import { RolloverNotification } from '@/app/core/components/RolloverNotification';
-import { ledgerDB } from '@/app/core/database/db';
+import { useCardStore } from '@core/store/cardStore';
+import { useBookStore } from '@core/store/bookStore';
+import { checkAndPerformRollover } from '@core/utils/dailyRollover';
+import { RolloverNotification } from '@core/components/RolloverNotification';
+import { ledgerDB } from '@core/database/db';
 
 export default function Index() {
   const [showRollover, setShowRollover] = useState(false);

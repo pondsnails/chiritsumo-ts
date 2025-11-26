@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
+import { colors } from '@core/theme/colors';
 
 export default function PrivacyPolicyScreen() {
   const router = useRouter();

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import { checkAndPerformRollover } from '@/app/core/utils/dailyRollover';
-import { cardsDB } from '@/app/core/database/db';
-import { useBookStore } from '@/app/core/store/bookStore';
+import { checkAndPerformRollover } from '@core/utils/dailyRollover';
+import { cardsDB } from '@core/database/db';
+import { useBookStore } from '@core/store/bookStore';
 
 /**
  * アプリのバックグラウンド復帰や深夜0時を跨いだ際に

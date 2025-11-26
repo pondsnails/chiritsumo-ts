@@ -11,16 +11,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Play, Settings } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { useCardStore } from '@/app/core/store/cardStore';
-import { calculateLexPerCard } from '@/app/core/logic/lexCalculator';
-import { inventoryPresetsDB, cardsDB } from '@/app/core/database/db';
-import { InventoryFilterChip } from '@/app/core/components/InventoryFilterChip';
-import { InventoryFilterModal } from '@/app/core/components/InventoryFilterModal';
-import i18n from '@/app/core/i18n';
-import type { Card, InventoryPreset } from '@/app/core/types';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { useBookStore } from '@core/store/bookStore';
+import { useCardStore } from '@core/store/cardStore';
+import { calculateLexPerCard } from '@core/logic/lexCalculator';
+import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
+import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
+import i18n from '@core/i18n';
+import type { Card, InventoryPreset } from '@core/types';
 
 export default function QuestScreen() {
   const router = useRouter();

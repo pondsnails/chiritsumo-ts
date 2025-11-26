@@ -13,17 +13,17 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, ShoppingBag, Lock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { ledgerDB } from '@/app/core/database/db';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
-import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
-import { BrainAnalyticsDashboard } from '@/app/core/components/BrainAnalyticsDashboard';
-import { ShareableStats } from '@/app/core/components/ShareableStats';
-import { calculateCurrentStreak } from '@/app/core/utils/streakCalculator';
-import i18n from '@/app/core/i18n';
-import type { LedgerEntry } from '@/app/core/types';
+import { ledgerDB } from '@core/database/db';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { useBookStore } from '@core/store/bookStore';
+import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { checkBankruptcyStatus } from '@core/logic/bankruptcyLogic';
+import { BrainAnalyticsDashboard } from '@core/components/BrainAnalyticsDashboard';
+import { ShareableStats } from '@core/components/ShareableStats';
+import { calculateCurrentStreak } from '@core/utils/streakCalculator';
+import i18n from '@core/i18n';
+import type { LedgerEntry } from '@core/types';
 
 export default function BankScreen() {
   const router = useRouter();

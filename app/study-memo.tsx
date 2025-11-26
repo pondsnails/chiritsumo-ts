@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useCardStore } from '@/app/core/store/cardStore';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import i18n from '@/app/core/i18n';
-import type { Card, Book } from '@/app/core/types';
+import { useCardStore } from '@core/store/cardStore';
+import { useBookStore } from '@core/store/bookStore';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import i18n from '@core/i18n';
+import type { Card, Book } from '@core/types';
 
 export default function StudyMemoScreen() {
   const router = useRouter();

@@ -14,21 +14,21 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Download, Upload, Trash2, Info, CreditCard } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useBackupService } from '@/app/core/services/backupService';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
-import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@/app/core/database/db';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { useBackupService } from '@core/services/backupService';
+import { useBookStore } from '@core/store/bookStore';
+import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@core/database/db';
 import { 
   getUserLexSettings,
   saveUserLexSettings,
   getDailyLexTarget,
   getAvailableProfilesForFree,
   getAllProfiles
-} from '@/app/core/services/lexSettingsService';
-import { LEX_PROFILES } from '@/app/core/types/lexProfile';
-import i18n from '@/app/core/i18n';
+} from '@core/services/lexSettingsService';
+import { LEX_PROFILES } from '@core/types/lexProfile';
+import i18n from '@core/i18n';
 
 export default function SettingsScreen() {
   const router = useRouter();

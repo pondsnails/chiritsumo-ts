@@ -18,16 +18,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, TrendingUp, Clock, Zap } from 'lucide-react-native';
-import { colors } from '@/app/core/theme/colors';
-import { glassEffect } from '@/app/core/theme/glassEffect';
-import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import {
   getVelocityData,
   getVelocitySettings,
   setDesiredDailyMinutes,
   enableAutoAdjust,
-} from '@/app/core/services/velocityService';
-import type { VelocityData, VelocitySettings } from '@/app/core/services/velocityService';
+} from '@core/services/velocityService';
+import type { VelocityData, VelocitySettings } from '@core/services/velocityService';
+import { colors } from '@core/theme/colors';
+import { glassEffect } from '@core/theme/glassEffect';
+import { useSubscriptionStore } from '@core/store/subscriptionStore';
 
 export default function VelocitySettingsScreen() {
   const router = useRouter();

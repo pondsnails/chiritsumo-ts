@@ -18,12 +18,12 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { Paths, File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { useCardStore } from '@/app/core/store/cardStore';
-import { useBookStore } from '@/app/core/store/bookStore';
-import { colors } from '@/app/core/theme/colors';
-import { cardsDB } from '@/app/core/database/db';
-import i18n from '@/app/core/i18n';
-import type { Card, Book } from '@/app/core/types';
+import { useCardStore } from '@core/store/cardStore';
+import { useBookStore } from '@core/store/bookStore';
+import { colors } from '@core/theme/colors';
+import { cardsDB } from '@core/database/db';
+import i18n from '@core/i18n';
+import type { Card, Book } from '@core/types';
 
 const { width, height } = Dimensions.get('window');
 
