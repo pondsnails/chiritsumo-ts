@@ -16,11 +16,13 @@ import { useBookStore } from '@/app/core/store/bookStore';
 import { useCardStore } from '@/app/core/store/cardStore';
 import { SolvencyCapsule } from '@/app/core/components/SolvencyCapsule';
 import { TaskCard } from '@/app/core/components/TaskCard';
+import { InventoryFilterChip } from '@/app/core/components/InventoryFilterChip';
+import { InventoryFilterModal } from '@/app/core/components/InventoryFilterModal';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
-import { ledgerDB } from '@/app/core/database/db';
+import { ledgerDB, inventoryPresetsDB } from '@/app/core/database/db';
 import { calculateLex } from '@/app/core/logic/lexCalculator';
-import type { Book, Card } from '@/app/core/types';
+import type { Book, Card, InventoryPreset } from '@/app/core/types';
 
 interface TaskItem {
   book: Book;
@@ -37,11 +39,29 @@ export default function QuestScreen() {
   const [balance, setBalance] = useState(0);
   const [todayTarget, setTodayTarget] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
+  const [presets, setPresets] = useState<InventoryPreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<number | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   useEffect(() => {
     fetchBooks();
     loadLedgerData();
+    loadPresets();
   }, []);
+
+  const loadPresets = async () => {
+    try {
+      const loadedPresets = await inventoryPresetsDB.getAll();
+      setPresets(loadedPresets);
+
+      const defaultPreset = loadedPresets.find((p) => p.isDefault);
+      if (defaultPreset) {
+        setActivePresetId(defaultPreset.id);
+      }
+    } catch (error) {
+      console.error('Failed to load presets:', error);
+    }
+  };
 
   const loadLedgerData = async () => {
     try {
@@ -66,9 +86,16 @@ export default function QuestScreen() {
       }
 
       try {
-        const activeBooks = books
+        let activeBooks = books
           .filter((b) => b.status === 0)
           .sort((a, b) => b.priority - a.priority);
+
+        if (activePresetId !== null) {
+          const activePreset = presets.find((p) => p.id === activePresetId);
+          if (activePreset) {
+            activeBooks = activeBooks.filter((b) => activePreset.bookIds.includes(b.id));
+          }
+        }
 
         const bookIds = activeBooks.map((b) => b.id);
         const dueCards = await fetchDueCards(bookIds);
@@ -102,7 +129,7 @@ export default function QuestScreen() {
     };
 
     loadTasks();
-  }, [books]);
+  }, [books, activePresetId]);
 
   const handleStartBook = useCallback(
     (bookId: string) => {
@@ -143,6 +170,29 @@ export default function QuestScreen() {
           <Text style={styles.title}>Quest</Text>
 
           <SolvencyCapsule balance={balance} todayTarget={todayTarget} todayEarned={todayEarned} />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+            <TouchableOpacity
+              style={[styles.filterChip, activePresetId === null && styles.filterChipActive]}
+              onPress={() => setActivePresetId(null)}
+            >
+              <Text style={[styles.filterChipText, activePresetId === null && styles.filterChipTextActive]}>
+                すべて
+              </Text>
+            </TouchableOpacity>
+            {presets.map((preset) => (
+              <InventoryFilterChip
+                key={preset.id}
+                preset={preset}
+                isActive={activePresetId === preset.id}
+                onPress={() => setActivePresetId(preset.id)}
+                onLongPress={() => setShowFilterModal(true)}
+              />
+            ))}
+            <TouchableOpacity style={styles.filterAddButton} onPress={() => setShowFilterModal(true)}>
+              <Text style={styles.filterAddText}>+</Text>
+            </TouchableOpacity>
+          </ScrollView>
 
           <View style={styles.summaryContainer}>
             <View style={[glassEffect.card, styles.summaryCard]}>
@@ -198,6 +248,14 @@ export default function QuestScreen() {
             </LinearGradient>
           </TouchableOpacity>
         )}
+
+        <InventoryFilterModal
+          visible={showFilterModal}
+          onClose={() => setShowFilterModal(false)}
+          books={books}
+          presets={presets}
+          onPresetsChange={loadPresets}
+        />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -217,6 +275,46 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 16,
     marginBottom: 8,
+  },
+  filterContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: `${colors.primary}20`,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: colors.primary,
+  },
+  filterAddButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterAddText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
   },
   summaryContainer: {
     flexDirection: 'row',

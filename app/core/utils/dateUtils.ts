@@ -12,3 +12,13 @@ export function getDaysSince(date: Date | string): number {
   const ms = now.getTime() - d.getTime();
   return Math.floor(ms / (24 * 60 * 60 * 1000));
 }
+
+export function getTodayDateString(): string {
+  return formatDate(new Date());
+}
+
+export function getYesterdayDateString(): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return formatDate(yesterday);
+}

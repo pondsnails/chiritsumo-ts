@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,23 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Camera, CameraType, useCameraPermissions } from 'expo-camera';
+import * as Haptics from 'expo-haptics';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { useCardStore } from '@/app/core/store/cardStore';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
+import { cardsDB } from '@/app/core/database/db';
 import type { Card, Book } from '@/app/core/types';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function StudyScreen() {
   const router = useRouter();
@@ -26,6 +34,11 @@ export default function StudyScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraRef, setCameraRef] = useState<any>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const confettiRef = useRef<any>(null);
 
   useEffect(() => {
     loadCards();
@@ -62,20 +75,74 @@ export default function StudyScreen() {
     }
   };
 
-  const handleReview = async (rating: 1 | 3) => {
+  const handleReview = async (rating: 1 | 2 | 3 | 4) => {
     if (!currentBook || currentIndex >= cards.length) return;
 
     try {
+      if (rating === 3 || rating === 4) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        if (confettiRef.current) {
+          confettiRef.current.start();
+        }
+      }
+
       const card = cards[currentIndex];
       await updateCardReview(card.id, card.bookId, rating, currentBook.mode);
 
-      if (currentIndex < cards.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        router.back();
-      }
+      setTimeout(() => {
+        if (currentIndex < cards.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          router.back();
+        }
+      }, rating === 3 || rating === 4 ? 1000 : 0);
     } catch (error) {
       console.error('Failed to update card:', error);
+    }
+  };
+
+  const handleFailPressIn = () => {
+    const timer = setTimeout(() => {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
+      openCamera();
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleFailPressOut = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const openCamera = async () => {
+    if (!permission) {
+      const { status } = await requestPermission();
+      if (status !== 'granted') {
+        Alert.alert('エラー', 'カメラの権限が必要です');
+        return;
+      }
+    }
+    setShowCamera(true);
+  };
+
+  const takePicture = async () => {
+    if (cameraRef) {
+      try {
+        const photo = await cameraRef.takePictureAsync();
+        const card = cards[currentIndex];
+        await cardsDB.upsert({ ...card, photoPath: photo.uri });
+        setShowCamera(false);
+        Alert.alert('保存完了', '写真メモを保存しました');
+      } catch (error) {
+        console.error('Failed to take picture:', error);
+        Alert.alert('エラー', '写真の保存に失敗しました');
+      }
     }
   };
 
@@ -131,20 +198,59 @@ export default function StudyScreen() {
 
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.error }]}
+            style={[styles.actionButton, styles.failButton]}
             onPress={() => handleReview(1)}
+            onPressIn={handleFailPressIn}
+            onPressOut={handleFailPressOut}
           >
             <Text style={styles.actionButtonText}>もう一度</Text>
+            <Text style={styles.actionHint}>長押しで写真メモ</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.success }]}
+            style={[styles.actionButton, styles.hardButton]}
+            onPress={() => handleReview(2)}
+          >
+            <Text style={styles.actionButtonText}>難しい</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.passButton]}
             onPress={() => handleReview(3)}
           >
             <Text style={styles.actionButtonText}>できた</Text>
           </TouchableOpacity>
         </View>
+
+        {currentCard.photoPath && (
+          <View style={styles.photoMemo}>
+            <Image source={{ uri: currentCard.photoPath }} style={styles.photoImage} />
+          </View>
+        )}
+
+        <ConfettiCannon
+          ref={confettiRef}
+          count={100}
+          origin={{ x: width / 2, y: height / 2 }}
+          autoStart={false}
+          fadeOut={true}
+          fallSpeed={3000}
+          colors={['#00F260', '#0575E6', '#FF416C', '#FF4B2B', '#FFD700']}
+        />
       </SafeAreaView>
+
+      <Modal visible={showCamera} animationType="slide">
+        <Camera style={styles.camera} type={CameraType.back} ref={setCameraRef}>
+          <View style={styles.cameraControls}>
+            <TouchableOpacity style={styles.cameraButton} onPress={() => setShowCamera(false)}>
+              <Text style={styles.cameraButtonText}>キャンセル</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraCaptureButton} onPress={takePicture}>
+              <View style={styles.cameraCaptureInner} />
+            </TouchableOpacity>
+          </View>
+        </Camera>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -225,7 +331,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingBottom: 24,
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
@@ -233,10 +339,72 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  failButton: {
+    backgroundColor: colors.error,
+  },
+  hardButton: {
+    backgroundColor: '#FF9500',
+  },
+  passButton: {
+    backgroundColor: colors.success,
+  },
   actionButtonText: {
     color: colors.text,
     fontWeight: '700',
     fontSize: 16,
+  },
+  actionHint: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    marginTop: 4,
+  },
+  photoMemo: {
+    position: 'absolute',
+    bottom: 100,
+    right: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraControls: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingBottom: 40,
+  },
+  cameraButton: {
+    padding: 16,
+  },
+  cameraButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cameraCaptureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraCaptureInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.text,
   },
   emptyText: {
     fontSize: 16,
