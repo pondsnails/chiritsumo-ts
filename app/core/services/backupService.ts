@@ -1,5 +1,6 @@
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import { Paths, File } from 'expo-file-system';
 import { Platform } from 'react-native';
 import { booksDB, cardsDB, ledgerDB } from '../database/db';
 
@@ -43,19 +44,25 @@ export const exportBackup = async (): Promise<void> => {
       return;
     }
 
-    // ネイティブの場合はシェア機能を使用
+    // ネイティブの場合はファイルシステムに保存してシェア
     const isAvailable = await Sharing.isAvailableAsync();
-    if (isAvailable) {
-      // ネイティブでのシェアは文字列データとして
-      const fileName = `chiritsumo_backup_${new Date().getTime()}.json`;
-      // @ts-ignore - Sharing accepts string data on some platforms
-      await Sharing.shareAsync(jsonString, {
-        dialogTitle: 'バックアップを保存',
-        mimeType: 'application/json',
-      });
-    } else {
+    if (!isAvailable) {
       throw new Error('Sharing is not available on this device');
     }
+
+    const fileName = `chiritsumo_backup_${new Date().getTime()}.json`;
+    const file = new File(Paths.cache, fileName);
+    
+    // ファイルに書き込み（Blob APIを使用）
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const buffer = await blob.arrayBuffer();
+    await file.write(new Uint8Array(buffer));
+    
+    // シェア機能で保存
+    await Sharing.shareAsync(file.uri, {
+      dialogTitle: 'バックアップを保存',
+      mimeType: 'application/json',
+    });
 
     console.log('Backup exported successfully');
   } catch (error) {
@@ -85,9 +92,10 @@ export const importBackup = async (): Promise<void> => {
       const file = result.assets[0].file;
       jsonString = await file.text();
     } else {
-      // ネイティブ環境ではURIから読み込み（実装依存）
-      // 簡易的にuriをそのまま使う
-      throw new Error('Native file import not yet implemented. Please use web version.');
+      // ネイティブ環境ではURIから読み込み
+      const fileUri = result.assets[0].uri;
+      const file = new File(fileUri);
+      jsonString = await file.text();
     }
 
     const backup: BackupData = JSON.parse(jsonString);
@@ -96,17 +104,64 @@ export const importBackup = async (): Promise<void> => {
       throw new Error('Invalid backup file format');
     }
 
-    // LocalStorageの場合は直接上書き
+    // Web: LocalStorageに直接上書き
     if (Platform.OS === 'web') {
       localStorage.setItem('chiritsumo_books', JSON.stringify(backup.books));
       localStorage.setItem('chiritsumo_cards', JSON.stringify(backup.cards));
       localStorage.setItem('chiritsumo_ledger', JSON.stringify(backup.ledger));
-      console.log('Backup imported successfully');
+      console.log('Backup imported successfully (Web)');
       return;
     }
 
-    // ネイティブの場合はDrizzle ORMを使用（実装保留）
-    throw new Error('Native backup import not yet implemented');
+    // ネイティブ: データベースに復元
+    // 既存データを取得して保持（ロールバック用）
+    const oldBooks = await booksDB.getAll();
+    const oldCards = await cardsDB.getAll();
+    const oldLedger = await ledgerDB.getAll();
+
+    try {
+      // 既存データをクリア
+      for (const book of oldBooks) {
+        await booksDB.delete(book.id);
+      }
+
+      // バックアップデータを復元
+      for (const book of backup.books) {
+        await booksDB.add(book);
+      }
+
+      for (const card of backup.cards) {
+        await cardsDB.upsert(card);
+      }
+
+      for (const entry of backup.ledger) {
+        await ledgerDB.add(entry);
+      }
+
+      console.log('Backup imported successfully (Native)');
+    } catch (error) {
+      // エラー時はロールバック
+      console.error('Failed to import backup, rolling back:', error);
+      
+      // データをクリア
+      const currentBooks = await booksDB.getAll();
+      for (const book of currentBooks) {
+        await booksDB.delete(book.id);
+      }
+
+      // 元のデータを復元
+      for (const book of oldBooks) {
+        await booksDB.add(book);
+      }
+      for (const card of oldCards) {
+        await cardsDB.upsert(card);
+      }
+      for (const entry of oldLedger) {
+        await ledgerDB.add(entry);
+      }
+
+      throw error;
+    }
   } catch (error) {
     console.error('Failed to import backup:', error);
     throw error;
