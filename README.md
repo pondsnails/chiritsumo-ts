@@ -2,7 +2,7 @@
 
 **脱・時間管理。成果主義のデジタル学習台帳**
 
-Version: 7.0.0 (Local-First Definitive Edition)
+Version: 7.1.0 (Local-First + Zero-Operation Cost)
 
 ## 🎯 コンセプト
 
@@ -17,21 +17,21 @@ Version: 7.0.0 (Local-First Definitive Edition)
 
 ## 🛠 Tech Stack
 
-- **Runtime**: React Native (Expo SDK 52+)
+- **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
-- **Database**: expo-sqlite (SQLite)
+- **Storage**: IndexedDB（Web） / SQLite（Native 予定）
 - **ORM**: Drizzle ORM
 - **State**: Zustand
-- **Algorithm**: ts-fsrs (FSRS v5)
-- **IAP**: react-native-purchases (RevenueCat)
-- **AI**: Google Gemini API
+- **Scheduling**: ts-fsrs（FSRS v5）
+- **IAP**: react-native-purchases（RevenueCat）
+- **Visualization/Share**: react-native-svg, react-native-view-shot
 
 ## 📦 主要機能
 
-### ✅ 実装済み（Phase 1-3）
+### ✅ 実装済み（Phase 1-3 完了 / v7.1.0）
 
 #### データベース & コアロジック
-- [x] SQLite + Drizzle ORM環境構築
+- [x] IndexedDB（Web） + Drizzle ORM
 - [x] Books/Cards/Ledgerスキーマ定義
 - [x] Chunking機能（1カードあたりの学習量指定）
 - [x] 循環参照防止（DAGグラフ管理）
@@ -50,21 +50,32 @@ Version: 7.0.0 (Local-First Definitive Edition)
 - [x] ブラックマーケット（カード売却）
 
 #### Route（路線図）
-- [x] 地下鉄路線図風のグラフ描画
-- [x] MainLine/Branch表示
-- [x] Hub表示（多数の子書籍）
+- [x] 地下鉄路線図風のグラフ描画（マイルート）
+- [x] ルートプリセット（厳選書籍の静的リンク集）
+- [x] MainLine/Branch/Hub表示
 
-#### データ管理
+#### データ管理（ゼロ運用コスト）
 - [x] JSONバックアップ機能（Export/Import）
-- [x] 設定画面
-- [x] 手動バックアップ対応
+- [x] 設定画面（手動バックアップのみ）
+- [x] クラウド連携・自動バックアップ削除（維持費ゼロ）
 
 #### 課金システム
 - [x] RevenueCat統合
-- [x] Paywallスクリーン
+- [x] Paywallスクリーン（買い切り¥3,600優先／年額¥1,500は補助表示）
 - [x] Free Plan制限（Book 3冊まで）
 - [x] Pro Plan判定ロジック
 - [x] ストリーク維持（徳政令）機能
+
+#### 分析/シェア
+- [x] Brain Analytics Dashboard（忘却曲線・ヒートマップ）
+- [x] Shareable Stats（SNS向け実績カード生成・共有）
+- [x] 連続学習（ストリーク）算出・表示
+
+#### 目標・報酬バランス（v7.1.0）
+- [x] BASE_LEXを時間価値で統一（1分=10 Lex）
+  - Read: 30 / Solve: 50 / Memo: 1
+- [x] Lexプロファイルを時間ベースに再構築
+  - 15分=150 / 1h=600 / 3h=1800 / 5h=3000（Pro） / 8h=4800（Pro）
 
 #### ストア対応
 - [x] app.jsonにカメラ権限説明追加
@@ -95,29 +106,16 @@ npm run dev
 #### 1. Web版の制限事項（重要）
 
 **⚠️ Web版はネイティブ機能が制限されます:**
-- `expo-secure-store`：× Webでは使用不可（APIキー保存ができない）
 - `expo-file-system`：× ファイルシステムアクセスが制限される
-- クラウドバックアップ：× 利用不可
-- AI機能：× APIキー保存ができないため利用不可
+- 自動/クラウドバックアップ：× 方針として非対応（手動のみ）
 
 **推奨構成:**
 - 本番リリース：**ネイティブアプリのみ配布**（iOS/Android）
 - Web版：開発・テスト用途のみ
 
-#### 2. 自動バックアップの実装（推奨）
+#### 2. バックアップ方針（ゼロ運用コスト）
 
-**詳細:** [クラウド自動バックアップ実装ガイド](./docs/AUTO_BACKUP_GUIDE.md)
-
-Pro Plan限定機能として、iCloud（iOS）またはGoogle Drive（Android）への自動バックアップを実装します。
-
-```bash
-# iOS: iCloud対応
-npx expo install expo-document-picker expo-file-system
-
-# Android: Google Drive対応
-npm install @react-native-google-signin/google-signin
-npm install react-native-google-drive-api-wrapper
-```
+本アプリは「手動バックアップ（JSON）」のみに対応します。OS標準の共有シートでエクスポート/インポートでき、壊れにくく維持費ゼロです。
 
 ### RevenueCat設定（本番環境）
 
@@ -213,70 +211,18 @@ app/
   - [ ] App Store Connect
   - [ ] Google Play Console
 
-## 🔐 Security Best Practices
+## 🔐 運用ポリシー（ゼロ運用コスト）
 
-### AI機能: BYOK（Bring Your Own Key）方式
+- サーバーなし（完全ローカル）
+- 外部API課金なし（IAPのみ）
+- 認証/クラウドストレージ非対応（手動バックアップ）
+- 維持コストゼロを最優先
 
-**セキュリティリスクとコスト削減のため、開発者のAPIキーを組み込まない設計に変更しました。**
+## 💾 Backup（手動のみ）
 
-#### 仕組み
-1. **ユーザー自身がGoogle AI StudioでAPIキーを取得**
-   - 無料枠:1分あたり60リクエスト（1日あたり1,500リクエスト）
-   - 取得URL: https://aistudio.google.com/app/apikey
-
-2. **Settings画面でAPIキーを入力**
-   - `expo-secure-store`で端末内に安全に保存
-   - ネイティブアプリのみ対応（Web版は非対応）
-
-3. **AIによる書籍推薦が有効化**
-   - キー未設定：「おすすめ（Pickup）」静的リストを表示
-   - キー設定済：「AI推薦（For You）」個別最適化された推薦
-
-#### メリット
-- ✅ 開発者のAPIコストがゼロ
-- ✅ キー流出リスクがない
-- ✅ バックエンドサーバー不要（運用コストゼロ）
-- ✅ ユーザーが自分で制御できる（カスタマイズ性）
-
-#### ターゲット層への訴求
-エンジニアや理系学生にとって、APIキー取得はハードルではなく、むしろ「自分で制御できる」メリットとしてポジティブに働きます。
-
-⚠️ **注意**: APIキーはGitにコミットしないでください！
-
-## 💾 Data Backup & Recovery
-
-### 現在の実装
-
-**手動バックアップ（実装済み）:**
 - Settings画面から JSON形式でエクスポート/インポート可能
 - 全データ（Books, Cards, Ledger）を含む完全バックアップ
-
-**⚠️ 重要な制限:**
-- ユーザーが手動で操作する必要があり、実際に使われない可能性が高い
-- スマホの紛失・故障時にデータが完全消失するリスク
-
-### 本番対応（推奨実装）
-
-**自動クラウドバックアップ（未実装）:**
-
-1. **iOS版:**
-   - iCloud Document Pickerを使用
-   - アプリ Documents ディレクトリの自動同期
-   - ユーザー認証不要（システムレベルで処理）
-
-2. **Android版:**
-   - Google Drive APIを使用
-   - 定期的な自動バックアップ（日次/週次）
-   - ユーザー認証が必要
-
-3. **Pro Plan機能として提供:**
-   - Free Plan: 手動バックアップのみ
-   - Pro Plan: 自動クラウドバックアップ
-   - 課金インセンティブとして最適
-
-**実装優先度: 高**
-- Local Firstアプリの最大の弱点はデータ消失リスク
-- ユーザーの学習履歴は貴重な資産であり、保護が不可欠
+- OS標準の共有シートを利用（壊れにくく、維持費ゼロ）
 
 ## 🗄️ Database Architecture
 
@@ -298,8 +244,8 @@ interface IBooksRepository {
 ```
 
 **実装の分離:**
-- **Web版**: `indexedDB.ts` - IndexedDB実装（現行）
-- **Native版**: `sqlite.ts` - SQLite + Drizzle ORM実装（将来対応）
+- **Web版**: `db.web.ts` - IndexedDB実装（現行）
+- **Native版**: `db.ts` - SQLite + Drizzle ORM実装（将来対応）
 
 **利点:**
 - スキーマ変更時、インターフェースを修正すればTypeScriptが実装漏れを検出
@@ -335,6 +281,13 @@ db.execSync('PRAGMA foreign_keys = ON;');
   - Pass/Gain: Aurora Green (#00F260)
   - Fail/Debt: Plasma Red (#FF416C)
   - Route/Link: Electric Blue (#2980B9)
+
+## 🧠 使い方のヒント（v7.1.0）
+
+- 日次Lex目標は時間で考える（例: 1800 Lex ≒ 3時間）
+- Solve/Read/Memoのどれを選んでも、時間あたりの報酬は公平（1分=10 Lex）
+- 少しずつ貯金して、Time Freeze（休暇）を買うのがおすすめ
+- 実績カードを定期的にSNSでシェアして、習慣化とモチベ維持
 
 ## 📄 ライセンス
 
