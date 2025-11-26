@@ -1,9 +1,13 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { useAppStateRollover } from '@/hooks/useAppStateRollover';
 
 export default function RootLayout() {
   useFrameworkReady();
+  
+  // バックグラウンド復帰時の日付変更を監視
+  useAppStateRollover();
 
   return (
     <>

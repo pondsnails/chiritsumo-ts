@@ -17,6 +17,7 @@ import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { setLastRolloverDate } from '@/app/core/utils/dailyRollover';
+import { getSellPrice } from '@/app/core/logic/bankruptcyLogic';
 import type { LedgerEntry, Card } from '@/app/core/types';
 
 export default function BankScreen() {
@@ -73,39 +74,66 @@ export default function BankScreen() {
 
   const solvencyRatio = todayTarget > 0 ? (todayEarned / todayTarget) * 100 : 0;
 
-  const getSellPrice = (card: Card) => {
-    const basePrice = 10;
-    const stateMultiplier = [0, 1, 1.5, 2, 2.5];
-    return Math.floor(basePrice * stateMultiplier[card.state]);
-  };
-
+  /**
+   * カード売却処理
+   * トランザクションで整合性を保証し、学習機会を保持（翌日に復習可能）
+   */
   const handleSellCard = async () => {
     if (!selectedCard) return;
 
     try {
       const sellPrice = getSellPrice(selectedCard);
+      const newBalance = balance + sellPrice;
 
-      await cardsDB.update(selectedCard.id, {
-        state: 0,
-        due: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
-      });
+      // 翌日を計算（1年後ではなく学習機会を保持）
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      await ledgerDB.add({
-        id: Date.now().toString(),
-        userId: 'local',
-        date: new Date().toISOString(),
-        targetLex: 0,
-        earnedLex: sellPrice,
-        balance: balance + sellPrice,
-        createdAt: new Date().toISOString(),
-      });
+      // トランザクション的に両方の更新を実行
+      // Web版（IndexedDB）にはトランザクションAPIがないため、
+      // エラー時のロールバックは手動で行う
+      let cardUpdateSuccess = false;
+      let ledgerUpdateSuccess = false;
 
-      await fetchLedger();
-      await fetchSellableCards(); // 最適化: 売却可能なカードのみ再取得
-      setSelectedCard(null);
-      setShowBlackMarket(false);
+      try {
+        // カードをリセット（翌日復習可能に）
+        await cardsDB.update(selectedCard.id, {
+          state: 0,
+          due: tomorrow.toISOString(),
+        });
+        cardUpdateSuccess = true;
+
+        // 売却収益を記録
+        await ledgerDB.add({
+          id: Date.now().toString(),
+          userId: 'local',
+          date: new Date().toISOString(),
+          targetLex: 0,
+          earnedLex: sellPrice,
+          balance: newBalance,
+          createdAt: new Date().toISOString(),
+        });
+        ledgerUpdateSuccess = true;
+
+        // 成功: UIを更新
+        await fetchLedger();
+        await fetchSellableCards();
+        setSelectedCard(null);
+        setShowBlackMarket(false);
+      } catch (innerError) {
+        // ロールバック処理
+        if (cardUpdateSuccess && !ledgerUpdateSuccess) {
+          // Ledgerの追加に失敗した場合、カードを元に戻す
+          await cardsDB.update(selectedCard.id, {
+            state: selectedCard.state,
+            due: selectedCard.due,
+          });
+        }
+        throw innerError;
+      }
     } catch (error) {
       console.error('Failed to sell card:', error);
+      alert('売却に失敗しました');
     }
   };
 

@@ -1,5 +1,6 @@
 // Web版はIndexedDBベースの実装（Local First）
 import type { Book, Card, LedgerEntry, InventoryPreset } from '../types';
+import type { IBooksRepository, ICardsRepository, ILedgerRepository, IPresetsRepository } from './IRepository';
 import {
   initIndexedDB,
   indexedBooksDB,
@@ -34,7 +35,8 @@ export async function initializeDatabase() {
   initialized = true;
 }
 
-export const booksDB = indexedBooksDB;
-export const cardsDB = indexedCardsDB;
-export const ledgerDB = indexedLedgerDB;
-export const inventoryPresetsDB = indexedPresetsDB;
+// Repository implementations (型安全性を保証)
+export const booksDB: IBooksRepository = indexedBooksDB;
+export const cardsDB: ICardsRepository = indexedCardsDB;
+export const ledgerDB: ILedgerRepository = indexedLedgerDB;
+export const inventoryPresetsDB: IPresetsRepository = indexedPresetsDB;

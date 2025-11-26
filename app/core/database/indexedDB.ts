@@ -1,5 +1,6 @@
 // IndexedDB wrapper for Web platform (replaces localStorage)
 import type { Book, Card, LedgerEntry, InventoryPreset } from '../types';
+import type { IBooksRepository, ICardsRepository, ILedgerRepository, IPresetsRepository } from './IRepository';
 
 const DB_NAME = 'chiritsumo_db';
 const DB_VERSION = 1;
@@ -177,7 +178,7 @@ async function getByIndexRange<T>(
 
 // ===== Books API =====
 
-export const indexedBooksDB = {
+export const indexedBooksDB: IBooksRepository = {
   getAll: () => getAll<Book>(STORES.BOOKS),
   
   getById: (id: string) => getByKey<Book>(STORES.BOOKS, id),
@@ -203,7 +204,7 @@ export const indexedBooksDB = {
 
 // ===== Cards API =====
 
-export const indexedCardsDB = {
+export const indexedCardsDB: ICardsRepository = {
   getAll: async (): Promise<Card[]> => {
     const cards = await getAll<Card>(STORES.CARDS);
     // Convert date strings to Date objects
@@ -293,7 +294,7 @@ export const indexedCardsDB = {
 
 // ===== Ledger API =====
 
-export const indexedLedgerDB = {
+export const indexedLedgerDB: ILedgerRepository = {
   getAll: () => getAll<LedgerEntry>(STORES.LEDGER),
   
   getRecent: async (limit: number): Promise<LedgerEntry[]> => {
@@ -324,7 +325,7 @@ export const indexedLedgerDB = {
 
 // ===== Inventory Presets API =====
 
-export const indexedPresetsDB = {
+export const indexedPresetsDB: IPresetsRepository = {
   getAll: () => getAll<InventoryPreset>(STORES.PRESETS),
   
   add: (preset: InventoryPreset) => put(STORES.PRESETS, preset),

@@ -244,6 +244,32 @@ EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
 
 ## 🗄️ Database Architecture
 
+### Repository Pattern (統一インターフェース)
+
+Web版（IndexedDB）とNative版（SQLite）の実装差異を吸収するため、Repository パターンを採用しています。
+
+**インターフェース定義:**
+```typescript
+// app/core/database/IRepository.ts
+interface IBooksRepository {
+  getAll(): Promise<Book[]>;
+  getById(id: string): Promise<Book | null>;
+  add(book: Book): Promise<void>;
+  update(id: string, updates: Partial<Book>): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+// ICardsRepository, ILedgerRepository, IPresetsRepository も同様
+```
+
+**実装の分離:**
+- **Web版**: `indexedDB.ts` - IndexedDB実装（現行）
+- **Native版**: `sqlite.ts` - SQLite + Drizzle ORM実装（将来対応）
+
+**利点:**
+- スキーマ変更時、インターフェースを修正すればTypeScriptが実装漏れを検出
+- テストコードでモックRepositoryを注入可能
+- プラットフォーム間の挙動の違いを最小化
+
 ### Native Version (将来実装)
 
 ネイティブ版でSQLiteを使用する場合、以下の設定が必須です：
