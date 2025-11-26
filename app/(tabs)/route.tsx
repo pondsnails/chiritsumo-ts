@@ -10,10 +10,12 @@ import {
   Modal,
   FlatList,
   InteractionManager,
+  Linking,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { BookOpen, X } from 'lucide-react-native';
+import { BookOpen, X, ExternalLink, CheckCircle, Lock, Trophy } from 'lucide-react-native';
 import { booksDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
@@ -23,14 +25,41 @@ import { BookNode } from '@/app/core/components/BookNode';
 import i18n from '@/app/core/i18n';
 import type { Book } from '@/app/core/types';
 import type { NodePosition } from '@/app/core/layout/metroLayout';
+import recommendedRoutesData from '@/app/core/data/recommendedRoutes.json';
+
+type TabType = 'myRoute' | 'presetRoute';
+
+interface PresetBook {
+  order: number;
+  title: string;
+  author: string;
+  coverUrl: string;
+  affiliateUrl: string;
+  pages: number;
+  description: string;
+  requiredDays: number;
+  prerequisite: number | null;
+}
+
+interface PresetRoute {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedMonths: number;
+  targetScore: string;
+  books: PresetBook[];
+}
 
 export default function RouteScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>('myRoute');
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
   const [hubModalVisible, setHubModalVisible] = useState(false);
   const [hubChildren, setHubChildren] = useState<Book[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<PresetRoute | null>(null);
 
   const fetchAllBooks = async () => {
     try {
@@ -98,62 +127,247 @@ export default function RouteScreen() {
     600
   );
 
+  const presetRoutes = recommendedRoutesData as PresetRoute[];
+
+  const checkBookOwnership = (bookTitle: string): boolean => {
+    return books.some(book => 
+      book.title.includes(bookTitle.substring(0, 10)) || 
+      bookTitle.includes(book.title.substring(0, 10))
+    );
+  };
+
+  const handlePresetBookPress = (book: PresetBook) => {
+    const isOwned = checkBookOwnership(book.title);
+    if (!isOwned) {
+      Linking.openURL(book.affiliateUrl);
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner':
+        return colors.success;
+      case 'intermediate':
+        return colors.warning;
+      case 'advanced':
+        return colors.error;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty) {
+      case 'beginner':
+        return '入門';
+      case 'intermediate':
+        return '中級';
+      case 'advanced':
+        return '上級';
+      default:
+        return '';
+    }
+  };
+
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
           <Text style={styles.title}>{i18n.t('route.title')}</Text>
           <Text style={styles.subtitle}>{i18n.t('route.subtitle')}</Text>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.loadingText}>{i18n.t('route.loading')}</Text>
-          </View>
-        ) : isCalculating ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.loadingText}>{i18n.t('route.calculating')}</Text>
-          </View>
-        ) : books.length === 0 ? (
-          <View style={styles.centerContent}>
-            <Text style={styles.emptyText}>{i18n.t('route.noBooks')}</Text>
+          
+          {/* Tab Selector */}
+          <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[glassEffect.card, styles.emptyButton]}
-              onPress={() => router.push('/(tabs)/books')}
+              style={[styles.tab, activeTab === 'myRoute' && styles.tabActive]}
+              onPress={() => setActiveTab('myRoute')}
             >
-              <Text style={styles.emptyButtonText}>{i18n.t('route.addBooks')}</Text>
+              <Text style={[styles.tabText, activeTab === 'myRoute' && styles.tabTextActive]}>
+                マイルート
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'presetRoute' && styles.tabActive]}
+              onPress={() => setActiveTab('presetRoute')}
+            >
+              <Text style={[styles.tabText, activeTab === 'presetRoute' && styles.tabTextActive]}>
+                厳選ルート
+              </Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={{ height: contentHeight }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={{ height: contentHeight, width: '100%' }}>
-              <MetroLine edges={edges} width={360} height={contentHeight} />
+        </View>
 
-              {nodes.map((node) => (
-                <View
-                  key={node.id}
-                  style={[
-                    styles.nodeWrapper,
-                    {
-                      left: node.x - 70,
-                      top: node.y,
-                    },
-                  ]}
-                >
-                  <BookNode
-                    book={node.book}
-                    isHub={node.isHub}
-                    hubCount={node.children.length}
-                    onPress={() => handleNodePress(node)}
-                    onLongPress={() => router.push(`/books/edit?id=${node.book.id}`)}
-                  />
+        {activeTab === 'myRoute' ? (
+          isLoading ? (
+            <View style={styles.centerContent}>
+              <ActivityIndicator color={colors.primary} size="large" />
+              <Text style={styles.loadingText}>{i18n.t('route.loading')}</Text>
+            </View>
+          ) : isCalculating ? (
+            <View style={styles.centerContent}>
+              <ActivityIndicator color={colors.primary} size="large" />
+              <Text style={styles.loadingText}>{i18n.t('route.calculating')}</Text>
+            </View>
+          ) : books.length === 0 ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.emptyText}>{i18n.t('route.noBooks')}</Text>
+              <TouchableOpacity
+                style={[glassEffect.card, styles.emptyButton]}
+                onPress={() => router.push('/(tabs)/books')}
+              >
+                <Text style={styles.emptyButtonText}>{i18n.t('route.addBooks')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={{ height: contentHeight }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ height: contentHeight, width: '100%' }}>
+                <MetroLine edges={edges} width={360} height={contentHeight} />
+
+                {nodes.map((node) => (
+                  <View
+                    key={node.id}
+                    style={[
+                      styles.nodeWrapper,
+                      {
+                        left: node.x - 70,
+                        top: node.y,
+                      },
+                    ]}
+                  >
+                    <BookNode
+                      book={node.book}
+                      isHub={node.isHub}
+                      hubCount={node.children.length}
+                      onPress={() => handleNodePress(node)}
+                      onLongPress={() => router.push(`/books/edit?id=${node.book.id}`)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )
+        ) : selectedRoute ? (
+          <View style={{ flex: 1 }}>
+            <View style={styles.routeHeader}>
+              <TouchableOpacity onPress={() => setSelectedRoute(null)} style={styles.backButton}>
+                <Text style={styles.backButtonText}>← 戻る</Text>
+              </TouchableOpacity>
+              <View style={styles.routeHeaderInfo}>
+                <Text style={styles.routeTitle}>{selectedRoute.title}</Text>
+                <View style={styles.routeMeta}>
+                  <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(selectedRoute.difficulty) + '20' }]}>
+                    <Text style={[styles.difficultyText, { color: getDifficultyColor(selectedRoute.difficulty) }]}>
+                      {getDifficultyLabel(selectedRoute.difficulty)}
+                    </Text>
+                  </View>
+                  <Text style={styles.routeMetaText}>目標: {selectedRoute.targetScore}</Text>
+                  <Text style={styles.routeMetaText}>期間: {selectedRoute.estimatedMonths}ヶ月</Text>
                 </View>
+                <Text style={styles.routeDescription}>{selectedRoute.description}</Text>
+              </View>
+            </View>
+
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              <View style={styles.booksTimeline}>
+                {selectedRoute.books.map((book, index) => {
+                  const isOwned = checkBookOwnership(book.title);
+                  const prerequisiteCompleted = book.prerequisite === null || 
+                    checkBookOwnership(selectedRoute.books[book.prerequisite - 1]?.title || '');
+                  
+                  return (
+                    <View key={index} style={styles.timelineItem}>
+                      {index > 0 && (
+                        <View style={[styles.timelineConnector, !prerequisiteCompleted && styles.timelineConnectorLocked]} />
+                      )}
+                      
+                      <TouchableOpacity
+                        style={[
+                          glassEffect.card,
+                          styles.presetBookCard,
+                          !isOwned && styles.presetBookCardUnowned,
+                          !prerequisiteCompleted && styles.presetBookCardLocked,
+                        ]}
+                        onPress={() => handlePresetBookPress(book)}
+                        disabled={prerequisiteCompleted && isOwned}
+                      >
+                        <View style={styles.bookOrder}>
+                          {isOwned ? (
+                            <CheckCircle color={colors.success} size={20} strokeWidth={2.5} />
+                          ) : !prerequisiteCompleted ? (
+                            <Lock color={colors.textTertiary} size={20} strokeWidth={2} />
+                          ) : (
+                            <Text style={styles.bookOrderText}>{book.order}</Text>
+                          )}
+                        </View>
+
+                        <Image source={{ uri: book.coverUrl }} style={styles.presetBookCover} />
+                        
+                        <View style={styles.presetBookInfo}>
+                          <Text style={[styles.presetBookTitle, !isOwned && styles.presetBookTitleUnowned]}>
+                            {book.title}
+                          </Text>
+                          <Text style={styles.presetBookAuthor}>{book.author}</Text>
+                          <Text style={styles.presetBookDescription}>{book.description}</Text>
+                          
+                          <View style={styles.presetBookMeta}>
+                            <Text style={styles.presetBookMetaText}>📄 {book.pages}ページ</Text>
+                            <Text style={styles.presetBookMetaText}>⏱️ {book.requiredDays}日</Text>
+                          </View>
+
+                          {!isOwned && prerequisiteCompleted && (
+                            <View style={styles.externalLinkBadge}>
+                              <ExternalLink color={colors.primary} size={14} strokeWidth={2} />
+                              <Text style={styles.externalLinkText}>Amazon で購入</Text>
+                            </View>
+                          )}
+                          {!prerequisiteCompleted && (
+                            <Text style={styles.lockedText}>前の本を完了すると解放されます</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        ) : (
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <View style={styles.presetRoutesContainer}>
+              {presetRoutes.map((route) => (
+                <TouchableOpacity
+                  key={route.id}
+                  style={[glassEffect.card, styles.routeCard]}
+                  onPress={() => setSelectedRoute(route)}
+                >
+                  <View style={styles.routeCardHeader}>
+                    <Text style={styles.routeCardTitle}>{route.title}</Text>
+                    <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(route.difficulty) + '20' }]}>
+                      <Text style={[styles.difficultyText, { color: getDifficultyColor(route.difficulty) }]}>
+                        {getDifficultyLabel(route.difficulty)}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.routeCardDescription}>{route.description}</Text>
+                  
+                  <View style={styles.routeCardMeta}>
+                    <View style={styles.routeCardMetaItem}>
+                      <Trophy color={colors.warning} size={16} strokeWidth={2} />
+                      <Text style={styles.routeCardMetaText}>{route.targetScore}</Text>
+                    </View>
+                    <View style={styles.routeCardMetaItem}>
+                      <Text style={styles.routeCardMetaText}>📚 {route.books.length}冊</Text>
+                    </View>
+                    <View style={styles.routeCardMetaItem}>
+                      <Text style={styles.routeCardMetaText}>⏱️ {route.estimatedMonths}ヶ月</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
               ))}
             </View>
           </ScrollView>
@@ -222,6 +436,30 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceDark,
+    borderRadius: 12,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    color: colors.background,
   },
   centerContent: {
     flex: 1,
@@ -310,5 +548,195 @@ const styles = StyleSheet.create({
   hubItemSubtitle: {
     fontSize: 12,
     color: colors.textTertiary,
+  },
+  presetRoutesContainer: {
+    padding: 16,
+  },
+  routeCard: {
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+  },
+  routeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  routeCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+    marginRight: 12,
+  },
+  routeCardDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  routeCardMeta: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  routeCardMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeCardMetaText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  difficultyText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  routeHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceDark,
+  },
+  backButton: {
+    marginBottom: 12,
+  },
+  backButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  routeHeaderInfo: {
+    marginBottom: 8,
+  },
+  routeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  routeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  routeMetaText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  routeDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  booksTimeline: {
+    padding: 16,
+  },
+  timelineItem: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  timelineConnector: {
+    position: 'absolute',
+    top: -16,
+    left: 28,
+    width: 3,
+    height: 16,
+    backgroundColor: colors.primary,
+    opacity: 0.3,
+  },
+  timelineConnectorLocked: {
+    backgroundColor: colors.textTertiary,
+  },
+  presetBookCard: {
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  presetBookCardUnowned: {
+    borderColor: colors.primary + '40',
+  },
+  presetBookCardLocked: {
+    opacity: 0.4,
+    borderColor: colors.textTertiary + '20',
+  },
+  bookOrder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  bookOrderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  presetBookCover: {
+    width: 60,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceDark,
+  },
+  presetBookInfo: {
+    flex: 1,
+  },
+  presetBookTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  presetBookTitleUnowned: {
+    color: colors.textSecondary,
+  },
+  presetBookAuthor: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginBottom: 6,
+  },
+  presetBookDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  presetBookMeta: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  presetBookMetaText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+  },
+  externalLinkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  externalLinkText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  lockedText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
   },
 });

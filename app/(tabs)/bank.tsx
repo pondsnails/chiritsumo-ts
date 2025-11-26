@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ShoppingBag } from 'lucide-react-native';
+import { AlertTriangle, ShoppingBag, Lock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { ledgerDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
@@ -19,6 +19,7 @@ import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
+import { BrainAnalyticsDashboard } from '@/app/core/components/BrainAnalyticsDashboard';
 import i18n from '@/app/core/i18n';
 import type { LedgerEntry } from '@/app/core/types';
 
@@ -149,6 +150,25 @@ export default function BankScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* Pro版専用: 脳内分析ダッシュボード */}
+              {isProUser ? (
+                <BrainAnalyticsDashboard />
+              ) : (
+                <TouchableOpacity
+                  style={[glassEffect.card, styles.proUpgradeCard]}
+                  onPress={() => router.push('/paywall' as any)}
+                >
+                  <Lock color={colors.primary} size={32} strokeWidth={2} />
+                  <View style={styles.proUpgradeContent}>
+                    <Text style={styles.proUpgradeTitle}>🧠 脳内分析ダッシュボード</Text>
+                    <Text style={styles.proUpgradeDescription}>
+                      学習ヒートマップ・忘却曲線・記憶保持率など、あなたの脳を可視化。Pro版で解放！
+                    </Text>
+                    <Text style={styles.proUpgradePrice}>¥3,600で一生使える</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
               {/* 厳選ルートマップリンク（借金時に表示） */}
               {balance < 0 && (
@@ -370,5 +390,34 @@ const styles = StyleSheet.create({
   ledgerValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  proUpgradeCard: {
+    flexDirection: 'row',
+    padding: 24,
+    marginBottom: 24,
+    gap: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+  },
+  proUpgradeContent: {
+    flex: 1,
+  },
+  proUpgradeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  proUpgradeDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  proUpgradePrice: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

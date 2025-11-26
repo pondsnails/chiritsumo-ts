@@ -1,109 +1,195 @@
 [
   {
-    "id": "route_toeic_beginner",
-    "title": "TOEIC初学者ルート",
-    "description": "600点突破を目指す基礎固めルート",
-    "difficulty": "beginner",
+    "id": "route_toeic_900",
+    "title": "TOEIC 900点突破ルート",
+    "description": "初学者から900点を目指す最短3ヶ月カリキュラム",
+    "difficulty": "advanced",
     "estimatedMonths": 3,
+    "targetScore": "900点",
     "books": [
       {
+        "order": 1,
         "title": "TOEIC L&R TEST 出る単特急 金のフレーズ",
         "author": "TEX加藤",
         "coverUrl": "https://m.media-amazon.com/images/I/51Mwie3GWFL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4023315680?tag=YOUR_AFFILIATE_ID",
         "pages": 288,
-        "description": "TOEIC頻出1000語を厳選"
+        "description": "TOEIC頻出1000語を厳選。毎日50語×6週間で基礎完成",
+        "requiredDays": 42,
+        "prerequisite": null
       },
       {
-        "title": "公式TOEIC Listening & Reading 問題集",
+        "order": 2,
+        "title": "TOEIC L&Rテスト 文法問題 でる1000問",
+        "author": "TEX加藤",
+        "coverUrl": "https://m.media-amazon.com/images/I/51Z7gKXqVkL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4757430604?tag=YOUR_AFFILIATE_ID",
+        "pages": 656,
+        "description": "Part5対策の決定版。1日50問×20日で完走",
+        "requiredDays": 20,
+        "prerequisite": 1
+      },
+      {
+        "order": 3,
+        "title": "公式TOEIC Listening & Reading 問題集 10",
         "author": "ETS",
         "coverUrl": "https://m.media-amazon.com/images/I/51hN+qQiSPL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4906033644?tag=YOUR_AFFILIATE_ID",
         "pages": 230,
-        "description": "本番形式の模試2回分"
+        "description": "本番形式模試2回分。1回目は実力測定、2回目は本番前仕上げ",
+        "requiredDays": 10,
+        "prerequisite": 2
       }
     ]
   },
   {
-    "id": "route_math_highschool",
-    "title": "大学受験数学ルート（文系）",
-    "description": "数学IA・IIBを基礎から完成させるルート",
+    "id": "route_math_entrance_exam",
+    "title": "大学受験数学ルート（文系・MARCH）",
+    "description": "数学ゼロから共通テスト7割、MARCH合格レベルへ",
     "difficulty": "intermediate",
     "estimatedMonths": 6,
+    "targetScore": "共通テスト7割",
     "books": [
       {
+        "order": 1,
         "title": "白チャート数学I+A",
         "author": "チャート研究所",
         "coverUrl": "https://m.media-amazon.com/images/I/51yHOKF3vfL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4410108743?tag=YOUR_AFFILIATE_ID",
         "pages": 480,
-        "description": "基礎固めに最適"
+        "description": "基礎の基礎から。例題理解→類題演習で確実に",
+        "requiredDays": 60,
+        "prerequisite": null
       },
       {
-        "title": "青チャート数学I+A",
+        "order": 2,
+        "title": "黄チャート数学I+A",
         "author": "チャート研究所",
-        "coverUrl": "https://m.media-amazon.com/images/I/51Xb0ztqYVL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108751?tag=YOUR_AFFILIATE_ID",
-        "pages": 624,
-        "description": "入試標準レベル"
+        "coverUrl": "https://m.media-amazon.com/images/I/51XJZK8qVhL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108778?tag=YOUR_AFFILIATE_ID",
+        "pages": 560,
+        "description": "共通テスト〜MARCH標準レベル。白チャート完了後に",
+        "requiredDays": 70,
+        "prerequisite": 1
       },
       {
+        "order": 3,
         "title": "白チャート数学II+B",
         "author": "チャート研究所",
         "coverUrl": "https://m.media-amazon.com/images/I/51g2oNzn3DL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/441010876X?tag=YOUR_AFFILIATE_ID",
         "pages": 576,
-        "description": "基礎固めパート2"
+        "description": "数II・B基礎固め。数IAと並行可",
+        "requiredDays": 60,
+        "prerequisite": null
+      },
+      {
+        "order": 4,
+        "title": "黄チャート数学II+B",
+        "author": "チャート研究所",
+        "coverUrl": "https://m.media-amazon.com/images/I/51oYzKqVhL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108786?tag=YOUR_AFFILIATE_ID",
+        "pages": 640,
+        "description": "仕上げ。過去問演習前の最終段階",
+        "requiredDays": 80,
+        "prerequisite": 3
       }
     ]
   },
   {
-    "id": "route_programming_beginner",
-    "title": "プログラミング入門ルート",
-    "description": "Web開発の基礎をゼロから学ぶルート",
-    "difficulty": "beginner",
-    "estimatedMonths": 4,
+    "id": "route_web_developer",
+    "title": "Web開発エンジニア最短ルート",
+    "description": "未経験から3ヶ月でReact+TypeScriptを習得",
+    "difficulty": "intermediate",
+    "estimatedMonths": 3,
+    "targetScore": "実務レベル",
     "books": [
       {
+        "order": 1,
         "title": "スッキリわかるJava入門 第4版",
         "author": "中山清喬",
         "coverUrl": "https://m.media-amazon.com/images/I/51GvP+FE8qL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4295013803?tag=YOUR_AFFILIATE_ID",
         "pages": 768,
-        "description": "プログラミング初心者に最適"
+        "description": "プログラミングの基礎をJavaで習得。型システム理解",
+        "requiredDays": 30,
+        "prerequisite": null
       },
       {
-        "title": "リーダブルコード",
-        "author": "Dustin Boswell",
-        "coverUrl": "https://m.media-amazon.com/images/I/51MgH8Jmr+L._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4873115655?tag=YOUR_AFFILIATE_ID",
-        "pages": 260,
-        "description": "美しいコードを書くための必読書"
+        "order": 2,
+        "title": "JavaScriptの絵本",
+        "author": "株式会社アンク",
+        "coverUrl": "https://m.media-amazon.com/images/I/51VQnxKqYsL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4798161934?tag=YOUR_AFFILIATE_ID",
+        "pages": 208,
+        "description": "Web必須言語の基礎。イラストで直感的理解",
+        "requiredDays": 14,
+        "prerequisite": 1
+      },
+      {
+        "order": 3,
+        "title": "プロを目指す人のためのTypeScript入門",
+        "author": "鈴木僚太",
+        "coverUrl": "https://m.media-amazon.com/images/I/51Z1Z8qVhL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4297127474?tag=YOUR_AFFILIATE_ID",
+        "pages": 472,
+        "description": "TypeScript完全マスター。実務必須",
+        "requiredDays": 20,
+        "prerequisite": 2
+      },
+      {
+        "order": 4,
+        "title": "モダンJavaScriptの基本から始める React実践の教科書",
+        "author": "じゃけぇ",
+        "coverUrl": "https://m.media-amazon.com/images/I/51XqVhL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4815615365?tag=YOUR_AFFILIATE_ID",
+        "pages": 368,
+        "description": "React完全理解。ポートフォリオ作成可能レベルへ",
+        "requiredDays": 25,
+        "prerequisite": 3
       }
     ]
   },
   {
-    "id": "route_accounting",
-    "title": "簿記3級ストレートルート",
-    "description": "2ヶ月で簿記3級合格を目指すルート",
+    "id": "route_boki_3kyu",
+    "title": "簿記3級ストレート合格ルート",
+    "description": "2ヶ月で一発合格を目指す効率学習",
     "difficulty": "beginner",
     "estimatedMonths": 2,
+    "targetScore": "合格",
     "books": [
       {
+        "order": 1,
         "title": "スッキリわかる日商簿記3級",
         "author": "滝澤ななみ",
         "coverUrl": "https://m.media-amazon.com/images/I/51VH3ZQHAVL._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4813298990?tag=YOUR_AFFILIATE_ID",
         "pages": 356,
-        "description": "テキスト+問題集一体型"
+        "description": "テキスト+問題集一体型。ゼロから理解",
+        "requiredDays": 30,
+        "prerequisite": null
       },
       {
+        "order": 2,
         "title": "合格トレーニング 日商簿記3級",
         "author": "TAC簿記検定講座",
         "coverUrl": "https://m.media-amazon.com/images/I/51P-xRVnP9L._SY445_SX342_.jpg",
         "affiliateUrl": "https://www.amazon.co.jp/dp/4813299032?tag=YOUR_AFFILIATE_ID",
         "pages": 320,
-        "description": "問題演習で実力アップ"
+        "description": "問題演習で定着。1周目は解説熟読、2周目は時間測定",
+        "requiredDays": 20,
+        "prerequisite": 1
+      },
+      {
+        "order": 3,
+        "title": "日商簿記3級 網羅型完全予想問題集",
+        "author": "TAC出版",
+        "coverUrl": "https://m.media-amazon.com/images/I/51ZqVhL._SY445_SX342_.jpg",
+        "affiliateUrl": "https://www.amazon.co.jp/dp/4813299040?tag=YOUR_AFFILIATE_ID",
+        "pages": 240,
+        "description": "本番形式6回分。試験2週間前から毎日1回",
+        "requiredDays": 10,
+        "prerequisite": 2
       }
     ]
   }
