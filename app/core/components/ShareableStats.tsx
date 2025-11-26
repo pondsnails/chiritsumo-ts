@@ -82,6 +82,7 @@ export const ShareableStats: React.FC<ShareableStatsProps> = ({
               <Text style={styles.mainStatLabel}>Today's Progress</Text>
               <Text style={styles.mainStatValue}>{todayLex}</Text>
               <Text style={styles.mainStatUnit}>Lex獲得</Text>
+              <Text style={styles.mainStatHint}>約{Math.round(todayLex / 10)}分</Text>
             </View>
 
             {/* サブ指標 */}
@@ -189,6 +190,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#cbd5e1',
     fontWeight: '600',
+  },
+  mainStatHint: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 6,
   },
   subStats: {
     flexDirection: 'row',
