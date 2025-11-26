@@ -81,10 +81,13 @@ export default function BankScreen() {
       });
 
       await ledgerDB.add({
+        id: Date.now().toString(),
+        userId: 'local',
         date: new Date().toISOString(),
         targetLex: 0,
         earnedLex: sellPrice,
         balance: balance + sellPrice,
+        createdAt: new Date().toISOString(),
       });
 
       await fetchLedger();

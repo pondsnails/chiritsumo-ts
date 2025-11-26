@@ -44,24 +44,17 @@ export async function performDailyRollover(
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const dueCards = cards.filter(card => {
-      const dueDate = typeof card.due === 'string' ? new Date(card.due) : card.due;
-      return dueDate <= new Date();
-    });
+    const dueCount = getDueCardsCount(cards);
+    const lexPerCard = calculateLexPerCard(books);
+    const targetLex = dueCount * lexPerCard;
 
-    let totalTargetLex = 0;
-    for (const card of dueCards) {
-      const book = books.find(b => b.id === card.bookId);
-      if (book) {
-        totalTargetLex += calculateLexPerCard(book.mode);
-      }
-    }
-
-    const newBalance = currentBalance - totalTargetLex;
+    const newBalance = currentBalance - targetLex;
 
     await ledgerDB.add({
+      id: Date.now().toString(),
+      userId: 'local',
       date: new Date().toISOString(),
-      targetLex: totalTargetLex,
+      targetLex,
       earnedLex: 0,
       balance: newBalance,
     });
@@ -71,7 +64,7 @@ export async function performDailyRollover(
     return {
       success: true,
       newBalance,
-      targetLex: totalTargetLex,
+      targetLex,
     };
   } catch (error) {
     console.error('Failed to perform daily rollover:', error);

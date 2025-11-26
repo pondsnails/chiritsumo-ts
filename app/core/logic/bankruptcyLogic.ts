@@ -58,7 +58,7 @@ export async function executeBankruptcy(
   cards: Card[],
   currentBalance: number,
   updateCard: (id: string, updates: Partial<Card>) => Promise<void>,
-  addLedgerEntry: (entry: Omit<LedgerEntry, 'id'>) => Promise<void>
+  addLedgerEntry: (entry: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>
 ): Promise<void> {
   const result = checkBankruptcy(currentBalance, cards);
 
@@ -76,6 +76,7 @@ export async function executeBankruptcy(
   const finalBalance = currentBalance + recoveredAmount - penalty;
 
   await addLedgerEntry({
+    userId: 'local',
     date: new Date().toISOString(),
     targetLex: 0,
     earnedLex: recoveredAmount - penalty,
