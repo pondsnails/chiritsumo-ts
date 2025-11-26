@@ -8,18 +8,20 @@ import {
   ActivityIndicator,
   FlatList,
   TouchableOpacity,
-  Modal,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ShoppingBag, X, TrendingUp, AlertCircle, Clock } from 'lucide-react-native';
-import { ledgerDB, cardsDB } from '@/app/core/database/db';
+import { AlertTriangle, ShoppingBag, ExternalLink } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { ledgerDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
-import { setLastRolloverDate } from '@/app/core/utils/dailyRollover';
-import { getSellPrice } from '@/app/core/logic/bankruptcyLogic';
+import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
+import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
+import recommendedBooksData from '@/app/core/data/recommendedBooks.json';
 import i18n from '@/app/core/i18n';
-import type { LedgerEntry, Card } from '@/app/core/types';
+import type { LedgerEntry } from '@/app/core/types';
 
 export default function BankScreen() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
@@ -27,32 +29,18 @@ export default function BankScreen() {
   const [balance, setBalance] = useState(0);
   const [todayTarget, setTodayTarget] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
-  const [showBlackMarket, setShowBlackMarket] = useState(false);
-  const [sellableCards, setSellableCards] = useState<Card[]>([]);
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const { books } = useBookStore();
+  const { isProUser } = useSubscriptionStore();
+
+  // 学習グッズ取得
+  const learningGoods = recommendedBooksData.books.filter(
+    (book) => book.category === 'goods'
+  );
 
   useEffect(() => {
     fetchLedger();
   }, []);
-
-  // ブラックマーケット表示時のみ売却可能なカードを取得
-  useEffect(() => {
-    if (showBlackMarket) {
-      fetchSellableCards();
-    }
-  }, [showBlackMarket]);
-
-  const fetchSellableCards = async () => {
-    try {
-      // 最適化: state > 0 のカードだけを取得
-      const sellable = await cardsDB.getSellableCards();
-      setSellableCards(sellable);
-    } catch (error) {
-      console.error('Failed to fetch sellable cards:', error);
-    }
-  };
 
   const fetchLedger = async () => {
     try {
@@ -75,99 +63,13 @@ export default function BankScreen() {
 
   const solvencyRatio = todayTarget > 0 ? (todayEarned / todayTarget) * 100 : 0;
 
-  /**
-   * カード売却処理
-   * トランザクションで整合性を保証し、学習機会を保持（翌日に復習可能）
-   */
-  const handleSellCard = async () => {
-    if (!selectedCard) return;
+  // 破産ステータスチェック
+  const bankruptcyStatus = checkBankruptcyStatus(balance, isProUser);
 
-    try {
-      const sellPrice = getSellPrice(selectedCard);
-      const newBalance = balance + sellPrice;
-
-      // 翌日を計算（1年後ではなく学習機会を保持）
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      // トランザクション的に両方の更新を実行
-      // Web版（IndexedDB）にはトランザクションAPIがないため、
-      // エラー時のロールバックは手動で行う
-      let cardUpdateSuccess = false;
-      let ledgerUpdateSuccess = false;
-
-      try {
-        // カードをリセット（翌日復習可能に）
-        await cardsDB.update(selectedCard.id, {
-          state: 0,
-          due: tomorrow.toISOString(),
-        });
-        cardUpdateSuccess = true;
-
-        // 売却収益を記録
-        await ledgerDB.add({
-          id: Date.now().toString(),
-          userId: 'local',
-          date: new Date().toISOString(),
-          targetLex: 0,
-          earnedLex: sellPrice,
-          balance: newBalance,
-          createdAt: new Date().toISOString(),
-        });
-        ledgerUpdateSuccess = true;
-
-        // 成功: UIを更新
-        await fetchLedger();
-        await fetchSellableCards();
-        setSelectedCard(null);
-        setShowBlackMarket(false);
-      } catch (innerError) {
-        // ロールバック処理
-        if (cardUpdateSuccess && !ledgerUpdateSuccess) {
-          // Ledgerの追加に失敗した場合、カードを元に戻す
-          await cardsDB.update(selectedCard.id, {
-            state: selectedCard.state,
-            due: selectedCard.due,
-          });
-        }
-        throw innerError;
-      }
-    } catch (error) {
-      console.error('Failed to sell card:', error);
-      alert('売却に失敗しました');
-    }
-  };
-
-  const handleBuyTimeFreeze = async () => {
-    const FREEZE_PRICE = 500;
-
-    if (balance < FREEZE_PRICE) {
-      alert('残高が不足しています');
-      return;
-    }
-
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-      await ledgerDB.upsert({
-        date: new Date().toISOString().split('T')[0],
-        earnedLex: 0,
-        targetLex: 0,
-        balance: balance - FREEZE_PRICE,
-      });
-
-      await setLastRolloverDate(tomorrowStr);
-
-      await fetchLedger();
-      setShowBlackMarket(false);
-
-      alert('休暇を購入しました。明日のノルマは発生しません。');
-    } catch (error) {
-      console.error('Failed to buy time freeze:', error);
-      alert('購入に失敗しました');
-    }
+  const handleOpenAffiliateLink = (asin: string) => {
+    // 実際のアフィリエイトIDに置き換え
+    const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=YOUR_AFFILIATE_ID`;
+    WebBrowser.openBrowserAsync(affiliateUrl);
   };
 
   const getBookTitle = (bookId: string) => {
@@ -177,6 +79,15 @@ export default function BankScreen() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  const getBankruptcyWarningColor = (level: number) => {
+    switch (level) {
+      case 3: return colors.error;
+      case 2: return colors.warning;
+      case 1: return colors.primary;
+      default: return colors.textSecondary;
+    }
   };
 
   return (
@@ -192,22 +103,47 @@ export default function BankScreen() {
             <ActivityIndicator color={colors.primary} size="large" />
           ) : (
             <>
+              {/* 残高カード */}
               <View style={[glassEffect.containerLarge, styles.balanceCard]}>
                 <Text style={styles.balanceLabel}>残高</Text>
                 <Text style={[styles.balanceValue, { color: balance >= 0 ? colors.success : colors.error }]}>
                   {balance >= 0 ? '+' : ''}{balance} Lex
                 </Text>
-                {balance < 0 && (
-                  <TouchableOpacity
-                    style={styles.blackMarketButton}
-                    onPress={() => setShowBlackMarket(true)}
-                  >
-                    <ShoppingBag color={colors.text} size={16} />
-                    <Text style={styles.blackMarketText}>ブラックマーケット</Text>
-                  </TouchableOpacity>
+
+                {/* 破産警告（Free版のみ） */}
+                {bankruptcyStatus.isInDebt && bankruptcyStatus.warningLevel > 0 && (
+                  <View style={[styles.warningBox, { 
+                    backgroundColor: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) + '20',
+                    borderColor: getBankruptcyWarningColor(bankruptcyStatus.warningLevel),
+                  }]}>
+                    <AlertTriangle 
+                      color={getBankruptcyWarningColor(bankruptcyStatus.warningLevel)} 
+                      size={20} 
+                    />
+                    <View style={styles.warningTextContainer}>
+                      <Text style={[styles.warningTitle, { 
+                        color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
+                      }]}>
+                        {bankruptcyStatus.canBankrupt ? '破産状態' : '借金警告'}
+                      </Text>
+                      <Text style={[styles.warningMessage, { 
+                        color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
+                      }]}>
+                        {bankruptcyStatus.message}
+                      </Text>
+                      {!isProUser && bankruptcyStatus.warningLevel >= 2 && (
+                        <Text style={[styles.warningHint, { 
+                          color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
+                        }]}>
+                          💡 Pro版なら借金上限なし！
+                        </Text>
+                      )}
+                    </View>
+                  </View>
                 )}
               </View>
 
+              {/* 統計カード */}
               <View style={[glassEffect.container, styles.statsCard]}>
                 <View style={styles.statRow}>
                   <Text style={styles.statLabel}>今日の目標</Text>
@@ -225,6 +161,39 @@ export default function BankScreen() {
                 </View>
               </View>
 
+              {/* 学習グッズアフィリエイト */}
+              {learningGoods.length > 0 && balance < 0 && (
+                <View style={styles.goodsSection}>
+                  <View style={styles.goodsHeader}>
+                    <ShoppingBag color={colors.primary} size={20} />
+                    <Text style={styles.goodsTitle}>学習効率アップグッズ</Text>
+                  </View>
+                  <Text style={styles.goodsSubtitle}>
+                    集中力を高めて、Lex獲得を加速しよう
+                  </Text>
+                  
+                  {learningGoods.map((good) => (
+                    <TouchableOpacity
+                      key={good.id}
+                      style={[glassEffect.card, styles.goodCard]}
+                      onPress={() => handleOpenAffiliateLink(good.asin)}
+                    >
+                      <View style={styles.goodContent}>
+                        <View style={styles.goodInfo}>
+                          <Text style={styles.goodTitle}>{good.title}</Text>
+                          <Text style={styles.goodDescription} numberOfLines={2}>
+                            {good.description}
+                          </Text>
+                          <Text style={styles.goodPrice}>¥{good.price.toLocaleString()}</Text>
+                        </View>
+                        <ExternalLink color={colors.primary} size={20} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* 履歴 */}
               <View style={styles.historyHeader}>
                 <Text style={styles.historyTitle}>履歴</Text>
               </View>
@@ -270,110 +239,6 @@ export default function BankScreen() {
             </>
           )}
         </ScrollView>
-
-        <Modal
-          visible={showBlackMarket}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowBlackMarket(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[glassEffect.containerLarge, styles.modalContent]}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalTitleContainer}>
-                  <ShoppingBag color={colors.warning} size={24} />
-                  <Text style={styles.modalTitle}>ブラックマーケット</Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowBlackMarket(false)}>
-                  <X color={colors.text} size={24} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.warningBox}>
-                <AlertCircle color={colors.warning} size={16} />
-                <Text style={styles.warningText}>
-                  カードを売却すると、進捗がリセットされます
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[glassEffect.card, styles.timeFreezeCard]}
-                onPress={handleBuyTimeFreeze}
-              >
-                <View style={styles.timeFreezeContent}>
-                  <View style={styles.timeFreezeIcon}>
-                    <Clock color={colors.primary} size={32} />
-                  </View>
-                  <View style={styles.timeFreezeInfo}>
-                    <Text style={styles.timeFreezeTitle}>Time Freeze (24h)</Text>
-                    <Text style={styles.timeFreezeDescription}>
-                      明日のノルマをスキップします
-                    </Text>
-                  </View>
-                  <View style={styles.timeFreezePrice}>
-                    <Text style={styles.timeFreezePriceText}>500 Lex</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {sellableCards.length === 0 ? (
-                <View style={styles.emptyMarket}>
-                  <Text style={styles.emptyMarketText}>売却可能なカードがありません</Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={sellableCards}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[glassEffect.card, styles.marketCard]}
-                      onPress={() => setSelectedCard(item)}
-                    >
-                      <View style={styles.marketCardContent}>
-                        <View style={styles.marketCardInfo}>
-                          <Text style={styles.marketCardTitle} numberOfLines={1}>
-                            {item.front}
-                          </Text>
-                          <Text style={styles.marketCardBook}>
-                            {getBookTitle(item.bookId)}
-                          </Text>
-                        </View>
-                        <View style={styles.marketCardPrice}>
-                          <TrendingUp color={colors.success} size={16} />
-                          <Text style={styles.marketCardPriceText}>
-                            +{getSellPrice(item)} Lex
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                />
-              )}
-
-              {selectedCard && (
-                <View style={styles.confirmBox}>
-                  <Text style={styles.confirmText}>
-                    「{selectedCard.front}」を {getSellPrice(selectedCard)} Lex で売却しますか？
-                  </Text>
-                  <View style={styles.confirmButtons}>
-                    <TouchableOpacity
-                      style={[styles.confirmButton, styles.cancelButton]}
-                      onPress={() => setSelectedCard(null)}
-                    >
-                      <Text style={styles.cancelButtonText}>キャンセル</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.confirmButton, styles.sellButton]}
-                      onPress={handleSellCard}
-                    >
-                      <Text style={styles.sellButtonText}>売却</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -414,6 +279,32 @@ const styles = StyleSheet.create({
   balanceValue: {
     fontSize: 48,
     fontWeight: '700',
+    marginBottom: 16,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    width: '100%',
+  },
+  warningTextContainer: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  warningMessage: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  warningHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   statsCard: {
     padding: 20,
@@ -433,6 +324,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  goodsSection: {
+    marginBottom: 24,
+  },
+  goodsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  goodsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  goodsSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  goodCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  goodContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  goodInfo: {
+    flex: 1,
+  },
+  goodTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  goodDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  goodPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
   },
   historyHeader: {
     marginBottom: 16,
@@ -482,183 +420,5 @@ const styles = StyleSheet.create({
   ledgerValue: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  blackMarketButton: {
-    marginTop: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: colors.warning + '20',
-    borderRadius: 20,
-    gap: 8,
-  },
-  blackMarketText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: colors.warning + '20',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.warning,
-  },
-  emptyMarket: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
-  emptyMarketText: {
-    fontSize: 14,
-    color: colors.textTertiary,
-  },
-  marketCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  marketCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  marketCardInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  marketCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  marketCardBook: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  marketCardPrice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  marketCardPriceText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  confirmBox: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: colors.surface + '40',
-    borderRadius: 12,
-  },
-  confirmText: {
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  confirmButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  confirmButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: colors.surface,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  sellButton: {
-    backgroundColor: colors.warning,
-  },
-  sellButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.background,
-  },
-  timeFreezeCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  timeFreezeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  timeFreezeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timeFreezeInfo: {
-    flex: 1,
-  },
-  timeFreezeTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  timeFreezeDescription: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  timeFreezePrice: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  timeFreezePriceText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
   },
 });
