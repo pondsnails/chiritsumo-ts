@@ -16,7 +16,7 @@ import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { useCardStore } from '@/app/core/store/cardStore';
 import { calculateLexPerCard } from '@/app/core/logic/lexCalculator';
-import { inventoryPresetsDB } from '@/app/core/database/db';
+import { inventoryPresetsDB, cardsDB } from '@/app/core/database/db';
 import { InventoryFilterChip } from '@/app/core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@/app/core/components/InventoryFilterModal';
 import i18n from '@/app/core/i18n';
@@ -28,6 +28,7 @@ export default function QuestScreen() {
   const { fetchDueCards } = useCardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
+  const [newCards, setNewCards] = useState<Card[]>([]);
   const [presets, setPresets] = useState<InventoryPreset[]>([]);
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -39,6 +40,7 @@ export default function QuestScreen() {
   useEffect(() => {
     if (books.length > 0) {
       loadDueCards();
+      loadNewCards();
     }
   }, [books, activePresetId]);
 
@@ -90,19 +92,53 @@ export default function QuestScreen() {
     }
   };
 
-  const calculateTotalLex = () => {
+  const loadNewCards = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      let bookIdsToQuery: string[];
+
+      if (activePresetId) {
+        const activePreset = presets.find(p => p.id === activePresetId);
+        bookIdsToQuery = activePreset?.bookIds || [];
+      } else {
+        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+      }
+
+      if (bookIdsToQuery.length > 0) {
+        // 今日割り当てられた新規カード（state=0, due=today）を取得
+        const allNewCards = await cardsDB.getNewCards(1000);
+        const todayNewCards = allNewCards.filter(card => {
+          const cardDue = new Date(card.due);
+          cardDue.setHours(0, 0, 0, 0);
+          return cardDue.getTime() === today.getTime() && bookIdsToQuery.includes(card.bookId);
+        });
+        setNewCards(todayNewCards);
+      } else {
+        setNewCards([]);
+      }
+    } catch (error) {
+      console.error('Failed to load new cards:', error);
+      setNewCards([]);
+    }
+  };
+
+  const calculateTotalLex = (cards: Card[]) => {
     const bookModeMap = new Map(books.map(b => [b.id, b.mode]));
-    return dueCards.reduce((total, card) => {
+    return cards.reduce((total, card) => {
       const mode = bookModeMap.get(card.bookId) || 0;
       return total + calculateLexPerCard(mode);
     }, 0);
   };
 
-  const groupCardsByBook = () => {
+  const groupCardsByBook = (cards: Card[]) => {
     const bookMap = new Map(books.map(b => [b.id, b]));
     const grouped = new Map<string, { book: typeof books[0]; cards: Card[] }>();
 
-    dueCards.forEach(card => {
+    cards.forEach(card => {
       const book = bookMap.get(card.bookId);
       if (book) {
         if (!grouped.has(card.bookId)) {
@@ -160,7 +196,8 @@ export default function QuestScreen() {
     );
   }
 
-  const groupedCards = groupCardsByBook();
+  const groupedReviewCards = groupCardsByBook(dueCards);
+  const groupedNewCards = groupCardsByBook(newCards);
 
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
@@ -201,16 +238,18 @@ export default function QuestScreen() {
 
           <View style={styles.summaryContainer}>
             <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>{i18n.t('quest.dueCards')}</Text>
+              <Text style={styles.summaryLabel}>復習</Text>
               <Text style={styles.summaryValue}>{dueCards.length}</Text>
+              <Text style={styles.summaryLex}>+{calculateTotalLex(dueCards)} Lex</Text>
             </View>
             <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>{i18n.t('quest.expectedLex')}</Text>
-              <Text style={styles.summaryValue}>{calculateTotalLex()}</Text>
+              <Text style={styles.summaryLabel}>新規学習</Text>
+              <Text style={styles.summaryValue}>{newCards.length}</Text>
+              <Text style={styles.summaryLex}>+{calculateTotalLex(newCards)} Lex</Text>
             </View>
           </View>
 
-          {groupedCards.length === 0 ? (
+          {groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
               <Text style={styles.emptySubtext}>
@@ -220,33 +259,73 @@ export default function QuestScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.taskList}>
-              {groupedCards.map(({ book, cards }) => (
-                <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                  <View style={styles.taskHeader}>
-                    <View style={styles.taskTitleRow}>
-                      <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                        <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+            <>
+              {groupedNewCards.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>🌱 新規学習クエスト</Text>
+                  <View style={styles.taskList}>
+                    {groupedNewCards.map(({ book, cards }) => (
+                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
+                        <View style={styles.taskHeader}>
+                          <View style={styles.taskTitleRow}>
+                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
+                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+                            </View>
+                            <Text style={styles.taskTitle} numberOfLines={1}>
+                              {book.title}
+                            </Text>
+                          </View>
+                          <View style={styles.taskStats}>
+                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
+                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.startButton}
+                          onPress={() => startStudy(book.id)}
+                        >
+                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
+                        </TouchableOpacity>
                       </View>
-                      <Text style={styles.taskTitle} numberOfLines={1}>
-                        {book.title}
-                      </Text>
-                    </View>
-                    <View style={styles.taskStats}>
-                      <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                      <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
-                    </View>
+                    ))}
                   </View>
-                  <TouchableOpacity
-                    style={styles.startButton}
-                    onPress={() => startStudy(book.id)}
-                  >
-                    <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                    <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
-                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+              )}
+
+              {groupedReviewCards.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>🔄 復習クエスト</Text>
+                  <View style={styles.taskList}>
+                    {groupedReviewCards.map(({ book, cards }) => (
+                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
+                        <View style={styles.taskHeader}>
+                          <View style={styles.taskTitleRow}>
+                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
+                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+                            </View>
+                            <Text style={styles.taskTitle} numberOfLines={1}>
+                              {book.title}
+                            </Text>
+                          </View>
+                          <View style={styles.taskStats}>
+                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
+                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.startButton}
+                          onPress={() => startStudy(book.id)}
+                        >
+                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -335,6 +414,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+  },
+  summaryLex: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 4,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   emptyState: {
     justifyContent: 'center',

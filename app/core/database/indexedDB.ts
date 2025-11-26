@@ -276,6 +276,30 @@ export const indexedCardsDB: ICardsRepository = {
       }));
   },
   
+  getNewCards: async (limit: number): Promise<Card[]> => {
+    const allCards = await getAll<Card>(STORES.CARDS);
+    
+    // state=0 (new) のカードを取得し、bookId順、unitIndex順にソート
+    const newCards = allCards
+      .filter(c => c.state === 0)
+      .sort((a, b) => {
+        // Book IDで優先度を決定（priority付きBookを優先する想定）
+        if (a.bookId !== b.bookId) {
+          return a.bookId.localeCompare(b.bookId);
+        }
+        // 同じBookなら unitIndex順
+        return a.unitIndex - b.unitIndex;
+      })
+      .slice(0, limit)
+      .map(c => ({
+        ...c,
+        due: new Date(c.due),
+        lastReview: c.lastReview ? new Date(c.lastReview) : null,
+      }));
+    
+    return newCards;
+  },
+  
   upsert: (card: Card) => put(STORES.CARDS, card),
   
   bulkUpsert: async (cards: Card[]) => {

@@ -33,6 +33,14 @@ import {
   saveUserGeminiApiKey, 
   deleteUserGeminiApiKey 
 } from '@/app/core/services/aiAffiliate';
+import { 
+  getUserLexSettings,
+  saveUserLexSettings,
+  getDailyLexTarget,
+  getAvailableProfilesForFree,
+  getAllProfiles
+} from '@/app/core/services/lexSettingsService';
+import { LEX_PROFILES } from '@/app/core/types/lexProfile';
 import i18n from '@/app/core/i18n';
 
 export default function SettingsScreen() {
@@ -46,10 +54,14 @@ export default function SettingsScreen() {
   const [lastBackupDate, setLastBackupDate] = useState<Date | null>(null);
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState('moderate');
+  const [customLexTarget, setCustomLexTarget] = useState('200');
+  const [dailyLexTarget, setDailyLexTarget] = useState(200);
 
   useEffect(() => {
     loadAutoBackupStatus();
     loadGeminiApiKey();
+    loadLexSettings();
   }, []);
 
   const loadGeminiApiKey = async () => {
@@ -58,6 +70,18 @@ export default function SettingsScreen() {
       setGeminiApiKey(key);
       setIsApiKeySet(true);
     }
+  };
+
+  const loadLexSettings = async () => {
+    const settings = await getUserLexSettings();
+    setSelectedProfileId(settings.profileId);
+    
+    if (settings.profileId === 'custom' && settings.customTarget) {
+      setCustomLexTarget(settings.customTarget.toString());
+    }
+    
+    const target = await getDailyLexTarget();
+    setDailyLexTarget(target);
   };
 
   const loadAutoBackupStatus = async () => {
@@ -243,6 +267,62 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleLexProfileChange = async (profileId: string) => {
+    const profile = LEX_PROFILES.find(p => p.id === profileId);
+    
+    // Pro限定プロファイルチェック
+    if (profile?.isPro && !isProUser) {
+      Alert.alert(
+        'Pro Plan限定',
+        `「${profile.name}」プロファイルはPro Planでのみ利用可能です。`,
+        [
+          { text: i18n.t('common.cancel'), style: 'cancel' },
+          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
+        ]
+      );
+      return;
+    }
+    
+    try {
+      await saveUserLexSettings({ profileId });
+      setSelectedProfileId(profileId);
+      await loadLexSettings();
+      Alert.alert('設定完了', `Lex目標を「${profile?.name}」に変更しました。`);
+    } catch (error) {
+      Alert.alert(i18n.t('common.error'), '設定の保存に失敗しました');
+    }
+  };
+
+  const handleCustomLexSave = async () => {
+    if (!isProUser) {
+      Alert.alert(
+        'Pro Plan限定',
+        'カスタムLex目標はPro Planでのみ利用可能です。',
+        [
+          { text: i18n.t('common.cancel'), style: 'cancel' },
+          { text: 'Pro Planを見る', onPress: () => router.push('/paywall') },
+        ]
+      );
+      return;
+    }
+    
+    const target = parseInt(customLexTarget, 10);
+    
+    if (isNaN(target) || target < 50 || target > 1000) {
+      Alert.alert('エラー', 'Lex目標は50〜1000の範囲で入力してください');
+      return;
+    }
+    
+    try {
+      await saveUserLexSettings({ profileId: 'custom', customTarget: target });
+      setSelectedProfileId('custom');
+      await loadLexSettings();
+      Alert.alert('設定完了', `カスタムLex目標（${target} Lex/日）を保存しました。`);
+    } catch (error) {
+      Alert.alert(i18n.t('common.error'), '設定の保存に失敗しました');
+    }
+  };
+
   const handleUpgradeToPro = () => {
     router.push('/paywall');
   };
@@ -254,6 +334,74 @@ export default function SettingsScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>{i18n.t('settings.title')}</Text>
             <Text style={styles.subtitle}>{i18n.t('settings.subtitle')}</Text>
+          </View>
+
+          {/* Lex目標設定セクション */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>学習目標設定</Text>
+            <View style={[glassEffect.card, styles.lexProfileCard]}>
+              <Text style={styles.lexProfileTitle}>日次Lex目標: {dailyLexTarget} Lex</Text>
+              <Text style={styles.lexProfileHint}>あなたの学習スタイルに合わせて目標を選択してください</Text>
+              
+              {/* プリセットプロファイル選択 */}
+              {(isProUser ? getAllProfiles() : getAvailableProfilesForFree()).map((profile) => (
+                <TouchableOpacity
+                  key={profile.id}
+                  style={[
+                    styles.profileOption,
+                    selectedProfileId === profile.id && styles.profileOptionSelected,
+                  ]}
+                  onPress={() => handleLexProfileChange(profile.id)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[
+                        styles.profileName,
+                        selectedProfileId === profile.id && styles.profileNameSelected,
+                      ]}>
+                        {profile.name}
+                      </Text>
+                      {profile.isPro && (
+                        <View style={styles.proChip}>
+                          <Text style={styles.proChipText}>Pro</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.profileDescription}>{profile.description}</Text>
+                    <Text style={styles.profileTarget}>{profile.dailyLexTarget} Lex/日</Text>
+                  </View>
+                  {selectedProfileId === profile.id && (
+                    <View style={styles.checkmark}>
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+              
+              {/* カスタム設定（Pro版のみ） */}
+              {isProUser && (
+                <View style={styles.customLexSection}>
+                  <Text style={styles.customLexTitle}>カスタム設定（Pro版）</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TextInput
+                      style={styles.customLexInput}
+                      placeholder="50〜1000"
+                      placeholderTextColor={colors.textTertiary}
+                      value={customLexTarget}
+                      onChangeText={setCustomLexTarget}
+                      keyboardType="number-pad"
+                    />
+                    <Text style={styles.customLexUnit}>Lex/日</Text>
+                    <TouchableOpacity
+                      style={styles.customLexButton}
+                      onPress={handleCustomLexSave}
+                    >
+                      <Text style={styles.customLexButtonText}>設定</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* AI機能設定セクション */}
@@ -639,5 +787,119 @@ const styles = StyleSheet.create({
   apiKeyDeleteText: {
     fontSize: 12,
     color: colors.error,
+  },
+  lexProfileCard: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  lexProfileTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  lexProfileHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  profileOption: {
+    backgroundColor: colors.surface + '20',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  profileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  profileNameSelected: {
+    color: colors.primary,
+  },
+  profileDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  profileTarget: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  proChip: {
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  proChipText: {
+    fontSize: 10,
+    color: colors.warning,
+    fontWeight: '700',
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmarkText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  customLexSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
+  },
+  customLexTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  customLexInput: {
+    flex: 1,
+    backgroundColor: colors.surface + '40',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: colors.text,
+  },
+  customLexUnit: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  customLexButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  customLexButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
   },
 });

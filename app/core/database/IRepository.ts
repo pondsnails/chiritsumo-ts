@@ -24,6 +24,7 @@ export interface ICardsRepository {
   getByBookId(bookId: string): Promise<Card[]>;
   getByState(state: number): Promise<Card[]>;
   getDueCards(bookIds: string[]): Promise<Card[]>;
+  getNewCards(limit: number): Promise<Card[]>; // state=0の新規カードを優先度順に取得
   getSellableCards(): Promise<Card[]>; // state > 0
   upsert(card: Card): Promise<void>;
   bulkUpsert(cards: Card[]): Promise<void>;
