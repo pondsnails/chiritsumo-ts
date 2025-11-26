@@ -11,7 +11,6 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Image,
   Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,13 +22,12 @@ import recommendedRoutes from '@/app/core/data/recommendedRoutes.json';
 
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
-interface Book {
-  title: string;
-  author: string;
-  coverUrl: string;
-  affiliateUrl: string;
-  pages: number;
+interface RouteStep {
+  order: number;
+  label: string;
+  searchQuery: string;
   description: string;
+  requiredDays: number;
 }
 
 interface Route {
@@ -38,7 +36,8 @@ interface Route {
   description: string;
   difficulty: DifficultyLevel;
   estimatedMonths: number;
-  books: Book[];
+  targetScore?: string;
+  steps: RouteStep[];
 }
 
 const DIFFICULTY_LABELS: Record<DifficultyLevel, { label: string; color: string }> = {
@@ -47,19 +46,15 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, { label: string; color: string 
   advanced: { label: '上級', color: colors.error },
 };
 
+const AFFILIATE_TAG = 'chiritsumo-22';
+
 export default function RecommendedRoutesScreen() {
   const router = useRouter();
   const routes = recommendedRoutes as Route[];
 
-  const handleOpenAffiliateLink = async (url: string, bookTitle: string) => {
-    try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      }
-    } catch (error) {
-      console.error(`Failed to open affiliate link for ${bookTitle}:`, error);
-    }
+  const handleSearchPress = (searchQuery: string) => {
+    const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(searchQuery)}&tag=${AFFILIATE_TAG}`;
+    Linking.openURL(url);
   };
 
   return (
@@ -112,32 +107,33 @@ export default function RecommendedRoutesScreen() {
                 </View>
                 <View style={styles.infoItem}>
                   <BarChart3 color={colors.textSecondary} size={16} strokeWidth={2} />
-                  <Text style={styles.infoText}>{route.books.length}冊</Text>
+                  <Text style={styles.infoText}>{route.steps.length}冊</Text>
                 </View>
               </View>
 
-              {/* 書籍リスト */}
-              {route.books.map((book, index) => (
+              {/* ステップリスト */}
+              {route.steps.map((step, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.bookCard}
-                  onPress={() => handleOpenAffiliateLink(book.affiliateUrl, book.title)}
+                  onPress={() => handleSearchPress(step.searchQuery)}
                   activeOpacity={0.7}
                 >
-                  <Image source={{ uri: book.coverUrl }} style={styles.bookCover} />
+                  <View style={styles.stepOrder}>
+                    <Text style={styles.stepOrderText}>{step.order}</Text>
+                  </View>
                   <View style={styles.bookInfo}>
-                    <Text style={styles.bookTitle} numberOfLines={2}>
-                      {book.title}
+                    <Text style={styles.bookTitle}>
+                      {step.label}
                     </Text>
-                    <Text style={styles.bookAuthor}>{book.author}</Text>
-                    <Text style={styles.bookDescription} numberOfLines={2}>
-                      {book.description}
+                    <Text style={styles.bookDescription}>
+                      {step.description}
                     </Text>
                     <View style={styles.bookMeta}>
-                      <Text style={styles.bookPages}>{book.pages}ページ</Text>
+                      <Text style={styles.bookPages}>⏱️ 目安: {step.requiredDays}日</Text>
                       <View style={styles.externalLinkBadge}>
                         <ExternalLink color={colors.primary} size={12} strokeWidth={2} />
-                        <Text style={styles.externalLinkText}>Amazon</Text>
+                        <Text style={styles.externalLinkText}>Amazonで最新版を探す</Text>
                       </View>
                     </View>
                   </View>
@@ -243,11 +239,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 12,
   },
-  bookCover: {
-    width: 60,
-    height: 80,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
+  stepOrder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  stepOrderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
   },
   bookInfo: {
     flex: 1,
@@ -257,11 +261,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
-  },
-  bookAuthor: {
-    fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
   bookDescription: {

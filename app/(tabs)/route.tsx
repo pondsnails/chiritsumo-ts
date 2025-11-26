@@ -11,11 +11,10 @@ import {
   FlatList,
   InteractionManager,
   Linking,
-  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { BookOpen, X, ExternalLink, CheckCircle, Lock, Trophy } from 'lucide-react-native';
+import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
 import { booksDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
@@ -29,16 +28,12 @@ import recommendedRoutesData from '@/app/core/data/recommendedRoutes.json';
 
 type TabType = 'myRoute' | 'presetRoute';
 
-interface PresetBook {
+interface RouteStep {
   order: number;
-  title: string;
-  author: string;
-  coverUrl: string;
-  affiliateUrl: string;
-  pages: number;
+  label: string;
+  searchQuery: string;
   description: string;
   requiredDays: number;
-  prerequisite: number | null;
 }
 
 interface PresetRoute {
@@ -48,7 +43,7 @@ interface PresetRoute {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedMonths: number;
   targetScore: string;
-  books: PresetBook[];
+  steps: RouteStep[];
 }
 
 export default function RouteScreen() {
@@ -134,18 +129,12 @@ export default function RouteScreen() {
 
   const presetRoutes = recommendedRoutesData as PresetRoute[];
 
-  const checkBookOwnership = (bookTitle: string): boolean => {
-    return books.some(book => 
-      book.title.includes(bookTitle.substring(0, 10)) || 
-      bookTitle.includes(book.title.substring(0, 10))
-    );
-  };
+  // アフィリエイトタグ（あなたのタグに置き換えてください）
+  const AFFILIATE_TAG = 'chiritsumo-22';
 
-  const handlePresetBookPress = (book: PresetBook) => {
-    const isOwned = checkBookOwnership(book.title);
-    if (!isOwned) {
-      Linking.openURL(book.affiliateUrl);
-    }
+  const handleSearchPress = (searchQuery: string) => {
+    const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(searchQuery)}&tag=${AFFILIATE_TAG}`;
+    Linking.openURL(url);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -278,65 +267,36 @@ export default function RouteScreen() {
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
               <View style={styles.booksTimeline}>
-                {selectedRoute.books.map((book, index) => {
-                  const isOwned = checkBookOwnership(book.title);
-                  const prerequisiteCompleted = book.prerequisite === null || 
-                    checkBookOwnership(selectedRoute.books[book.prerequisite - 1]?.title || '');
-                  
-                  return (
-                    <View key={index} style={styles.timelineItem}>
-                      {index > 0 && (
-                        <View style={[styles.timelineConnector, !prerequisiteCompleted && styles.timelineConnectorLocked]} />
-                      )}
+                {selectedRoute.steps.map((step, index) => (
+                  <View key={index} style={styles.timelineItem}>
+                    {index > 0 && (
+                      <View style={styles.timelineConnector} />
+                    )}
+                    
+                    <TouchableOpacity
+                      style={[glassEffect.card, styles.presetBookCard]}
+                      onPress={() => handleSearchPress(step.searchQuery)}
+                    >
+                      <View style={styles.bookOrder}>
+                        <Text style={styles.bookOrderText}>{step.order}</Text>
+                      </View>
                       
-                      <TouchableOpacity
-                        style={[
-                          glassEffect.card,
-                          styles.presetBookCard,
-                          !isOwned && styles.presetBookCardUnowned,
-                          !prerequisiteCompleted && styles.presetBookCardLocked,
-                        ]}
-                        onPress={() => handlePresetBookPress(book)}
-                        disabled={prerequisiteCompleted && isOwned}
-                      >
-                        <View style={styles.bookOrder}>
-                          {isOwned ? (
-                            <CheckCircle color={colors.success} size={20} strokeWidth={2.5} />
-                          ) : !prerequisiteCompleted ? (
-                            <Lock color={colors.textTertiary} size={20} strokeWidth={2} />
-                          ) : (
-                            <Text style={styles.bookOrderText}>{book.order}</Text>
-                          )}
-                        </View>
-
-                        <Image source={{ uri: book.coverUrl }} style={styles.presetBookCover} />
+                      <View style={styles.presetBookInfo}>
+                        <Text style={styles.presetBookTitle}>{step.label}</Text>
+                        <Text style={styles.presetBookDescription}>{step.description}</Text>
                         
-                        <View style={styles.presetBookInfo}>
-                          <Text style={[styles.presetBookTitle, !isOwned && styles.presetBookTitleUnowned]}>
-                            {book.title}
-                          </Text>
-                          <Text style={styles.presetBookAuthor}>{book.author}</Text>
-                          <Text style={styles.presetBookDescription}>{book.description}</Text>
-                          
-                          <View style={styles.presetBookMeta}>
-                            <Text style={styles.presetBookMetaText}>📄 {book.pages}ページ</Text>
-                            <Text style={styles.presetBookMetaText}>⏱️ {book.requiredDays}日</Text>
-                          </View>
-
-                          {!isOwned && prerequisiteCompleted && (
-                            <View style={styles.externalLinkBadge}>
-                              <ExternalLink color={colors.primary} size={14} strokeWidth={2} />
-                              <Text style={styles.externalLinkText}>Amazon で購入</Text>
-                            </View>
-                          )}
-                          {!prerequisiteCompleted && (
-                            <Text style={styles.lockedText}>前の本を完了すると解放されます</Text>
-                          )}
+                        <View style={styles.presetBookMeta}>
+                          <Text style={styles.presetBookMetaText}>⏱️ 目安: {step.requiredDays}日</Text>
                         </View>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
+
+                        <View style={styles.externalLinkBadge}>
+                          <ExternalLink color={colors.primary} size={14} strokeWidth={2} />
+                          <Text style={styles.externalLinkText}>Amazonで最新版を探す</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
             </ScrollView>
           </View>
@@ -366,7 +326,7 @@ export default function RouteScreen() {
                       <Text style={styles.routeCardMetaText}>{route.targetScore}</Text>
                     </View>
                     <View style={styles.routeCardMetaItem}>
-                      <Text style={styles.routeCardMetaText}>📚 {route.books.length}冊</Text>
+                      <Text style={styles.routeCardMetaText}>📚 {route.steps.length}冊</Text>
                     </View>
                     <View style={styles.routeCardMetaItem}>
                       <Text style={styles.routeCardMetaText}>⏱️ {route.estimatedMonths}ヶ月</Text>
@@ -657,9 +617,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     opacity: 0.3,
   },
-  timelineConnectorLocked: {
-    backgroundColor: colors.textTertiary,
-  },
   presetBookCard: {
     padding: 16,
     borderRadius: 16,
@@ -667,13 +624,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 2,
     borderColor: 'transparent',
-  },
-  presetBookCardUnowned: {
-    borderColor: colors.primary + '40',
-  },
-  presetBookCardLocked: {
-    opacity: 0.4,
-    borderColor: colors.textTertiary + '20',
   },
   bookOrder: {
     width: 32,
@@ -689,12 +639,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
-  presetBookCover: {
-    width: 60,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-  },
   presetBookInfo: {
     flex: 1,
   },
@@ -704,14 +648,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
     lineHeight: 18,
-  },
-  presetBookTitleUnowned: {
-    color: colors.textSecondary,
-  },
-  presetBookAuthor: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginBottom: 6,
   },
   presetBookDescription: {
     fontSize: 12,
@@ -738,10 +674,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
-  },
-  lockedText: {
-    fontSize: 11,
-    color: colors.textTertiary,
-    fontStyle: 'italic',
   },
 });

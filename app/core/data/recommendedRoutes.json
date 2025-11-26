@@ -6,39 +6,27 @@
     "difficulty": "advanced",
     "estimatedMonths": 3,
     "targetScore": "900点",
-    "books": [
+    "steps": [
       {
         "order": 1,
-        "title": "TOEIC L&R TEST 出る単特急 金のフレーズ",
-        "author": "TEX加藤",
-        "coverUrl": "https://m.media-amazon.com/images/I/51Mwie3GWFL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4023315680?tag=YOUR_AFFILIATE_ID",
-        "pages": 288,
-        "description": "TOEIC頻出1000語を厳選。毎日50語×6週間で基礎完成",
-        "requiredDays": 42,
-        "prerequisite": null
+        "label": "【単語】金のフレーズ",
+        "searchQuery": "TOEIC 金のフレーズ",
+        "description": "TOEIC頻出語彙を網羅。最新版を選んでください。毎日50語×6週間で基礎完成",
+        "requiredDays": 42
       },
       {
         "order": 2,
-        "title": "TOEIC L&Rテスト 文法問題 でる1000問",
-        "author": "TEX加藤",
-        "coverUrl": "https://m.media-amazon.com/images/I/51Z7gKXqVkL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4757430604?tag=YOUR_AFFILIATE_ID",
-        "pages": 656,
-        "description": "Part5対策の決定版。1日50問×20日で完走",
-        "requiredDays": 20,
-        "prerequisite": 1
+        "label": "【文法】でる1000問",
+        "searchQuery": "TOEIC 文法問題 でる1000",
+        "description": "Part5対策の決定版。圧倒的な演習量で定着させます。1日50問×20日で完走",
+        "requiredDays": 20
       },
       {
         "order": 3,
-        "title": "公式TOEIC Listening & Reading 問題集 10",
-        "author": "ETS",
-        "coverUrl": "https://m.media-amazon.com/images/I/51hN+qQiSPL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4906033644?tag=YOUR_AFFILIATE_ID",
-        "pages": 230,
-        "description": "本番形式模試2回分。1回目は実力測定、2回目は本番前仕上げ",
-        "requiredDays": 10,
-        "prerequisite": 2
+        "label": "【模試】公式問題集（最新版）",
+        "searchQuery": "TOEIC 公式問題集",
+        "description": "本番形式の模試。番号が一番新しいものを2冊ほど解きましょう。",
+        "requiredDays": 10
       }
     ]
   },
@@ -49,50 +37,34 @@
     "difficulty": "intermediate",
     "estimatedMonths": 6,
     "targetScore": "共通テスト7割",
-    "books": [
+    "steps": [
       {
         "order": 1,
-        "title": "白チャート数学I+A",
-        "author": "チャート研究所",
-        "coverUrl": "https://m.media-amazon.com/images/I/51yHOKF3vfL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108743?tag=YOUR_AFFILIATE_ID",
-        "pages": 480,
-        "description": "基礎の基礎から。例題理解→類題演習で確実に",
-        "requiredDays": 60,
-        "prerequisite": null
+        "label": "【基礎】白チャート数学I+A",
+        "searchQuery": "白チャート 数学IA",
+        "description": "基礎の基礎から。例題理解→類題演習で確実に定着",
+        "requiredDays": 60
       },
       {
         "order": 2,
-        "title": "黄チャート数学I+A",
-        "author": "チャート研究所",
-        "coverUrl": "https://m.media-amazon.com/images/I/51XJZK8qVhL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108778?tag=YOUR_AFFILIATE_ID",
-        "pages": 560,
+        "label": "【応用】黄チャート数学I+A",
+        "searchQuery": "黄チャート 数学IA",
         "description": "共通テスト〜MARCH標準レベル。白チャート完了後に",
-        "requiredDays": 70,
-        "prerequisite": 1
+        "requiredDays": 70
       },
       {
         "order": 3,
-        "title": "白チャート数学II+B",
-        "author": "チャート研究所",
-        "coverUrl": "https://m.media-amazon.com/images/I/51g2oNzn3DL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/441010876X?tag=YOUR_AFFILIATE_ID",
-        "pages": 576,
+        "label": "【基礎】白チャート数学II+B",
+        "searchQuery": "白チャート 数学IIB",
         "description": "数II・B基礎固め。数IAと並行可",
-        "requiredDays": 60,
-        "prerequisite": null
+        "requiredDays": 60
       },
       {
         "order": 4,
-        "title": "黄チャート数学II+B",
-        "author": "チャート研究所",
-        "coverUrl": "https://m.media-amazon.com/images/I/51oYzKqVhL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4410108786?tag=YOUR_AFFILIATE_ID",
-        "pages": 640,
+        "label": "【応用】黄チャート数学II+B",
+        "searchQuery": "黄チャート 数学IIB",
         "description": "仕上げ。過去問演習前の最終段階",
-        "requiredDays": 80,
-        "prerequisite": 3
+        "requiredDays": 80
       }
     ]
   },
@@ -103,50 +75,34 @@
     "difficulty": "intermediate",
     "estimatedMonths": 3,
     "targetScore": "実務レベル",
-    "books": [
+    "steps": [
       {
         "order": 1,
-        "title": "スッキリわかるJava入門 第4版",
-        "author": "中山清喬",
-        "coverUrl": "https://m.media-amazon.com/images/I/51GvP+FE8qL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4295013803?tag=YOUR_AFFILIATE_ID",
-        "pages": 768,
+        "label": "【基礎】Java入門書",
+        "searchQuery": "スッキリわかるJava入門",
         "description": "プログラミングの基礎をJavaで習得。型システム理解",
-        "requiredDays": 30,
-        "prerequisite": null
+        "requiredDays": 30
       },
       {
         "order": 2,
-        "title": "JavaScriptの絵本",
-        "author": "株式会社アンク",
-        "coverUrl": "https://m.media-amazon.com/images/I/51VQnxKqYsL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4798161934?tag=YOUR_AFFILIATE_ID",
-        "pages": 208,
+        "label": "【Web基礎】JavaScriptの絵本",
+        "searchQuery": "JavaScriptの絵本",
         "description": "Web必須言語の基礎。イラストで直感的理解",
-        "requiredDays": 14,
-        "prerequisite": 1
+        "requiredDays": 14
       },
       {
         "order": 3,
-        "title": "プロを目指す人のためのTypeScript入門",
-        "author": "鈴木僚太",
-        "coverUrl": "https://m.media-amazon.com/images/I/51Z1Z8qVhL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4297127474?tag=YOUR_AFFILIATE_ID",
-        "pages": 472,
-        "description": "TypeScript完全マスター。実務必須",
-        "requiredDays": 20,
-        "prerequisite": 2
+        "label": "【型システム】TypeScript入門",
+        "searchQuery": "TypeScript入門",
+        "description": "TypeScript完全マスター。実務必須スキル",
+        "requiredDays": 20
       },
       {
         "order": 4,
-        "title": "モダンJavaScriptの基本から始める React実践の教科書",
-        "author": "じゃけぇ",
-        "coverUrl": "https://m.media-amazon.com/images/I/51XqVhL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4815615365?tag=YOUR_AFFILIATE_ID",
-        "pages": 368,
+        "label": "【実践】React実践の教科書",
+        "searchQuery": "React 実践の教科書",
         "description": "React完全理解。ポートフォリオ作成可能レベルへ",
-        "requiredDays": 25,
-        "prerequisite": 3
+        "requiredDays": 25
       }
     ]
   },
@@ -157,39 +113,27 @@
     "difficulty": "beginner",
     "estimatedMonths": 2,
     "targetScore": "合格",
-    "books": [
+    "steps": [
       {
         "order": 1,
-        "title": "スッキリわかる日商簿記3級",
-        "author": "滝澤ななみ",
-        "coverUrl": "https://m.media-amazon.com/images/I/51VH3ZQHAVL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4813298990?tag=YOUR_AFFILIATE_ID",
-        "pages": 356,
+        "label": "【テキスト】スッキリわかる簿記3級",
+        "searchQuery": "スッキリわかる 日商簿記3級",
         "description": "テキスト+問題集一体型。ゼロから理解",
-        "requiredDays": 30,
-        "prerequisite": null
+        "requiredDays": 30
       },
       {
         "order": 2,
-        "title": "合格トレーニング 日商簿記3級",
-        "author": "TAC簿記検定講座",
-        "coverUrl": "https://m.media-amazon.com/images/I/51P-xRVnP9L._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4813299032?tag=YOUR_AFFILIATE_ID",
-        "pages": 320,
+        "label": "【問題演習】合格トレーニング",
+        "searchQuery": "合格トレーニング 日商簿記3級",
         "description": "問題演習で定着。1周目は解説熟読、2周目は時間測定",
-        "requiredDays": 20,
-        "prerequisite": 1
+        "requiredDays": 20
       },
       {
         "order": 3,
-        "title": "日商簿記3級 網羅型完全予想問題集",
-        "author": "TAC出版",
-        "coverUrl": "https://m.media-amazon.com/images/I/51ZqVhL._SY445_SX342_.jpg",
-        "affiliateUrl": "https://www.amazon.co.jp/dp/4813299040?tag=YOUR_AFFILIATE_ID",
-        "pages": 240,
+        "label": "【模試】網羅型完全予想問題集",
+        "searchQuery": "日商簿記3級 予想問題集",
         "description": "本番形式6回分。試験2週間前から毎日1回",
-        "requiredDays": 10,
-        "prerequisite": 2
+        "requiredDays": 10
       }
     ]
   }
