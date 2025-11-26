@@ -289,6 +289,13 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>データ管理</Text>
             
+            {/* バックアップ方針の説明 */}
+            <View style={[glassEffect.card, styles.policyCard]}>
+              <Text style={styles.policyText}>
+                本アプリは手動バックアップのみ対応（自動/クラウド連携なし）。定期的にエクスポートし、任意のクラウドドライブへ保存してください。
+              </Text>
+            </View>
+            
             <TouchableOpacity
               style={[glassEffect.card, styles.menuItem]}
               onPress={handleExport}
@@ -637,5 +644,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSecondary,
+  },
+  policyCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: colors.surface + '20',
+  },
+  policyText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });
