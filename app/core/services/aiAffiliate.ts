@@ -1,5 +1,7 @@
-import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import type { Book } from '../types';
+
+const GEMINI_API_KEY_STORAGE_KEY = 'user_gemini_api_key';
 
 export interface BookRecommendation {
   title: string;
@@ -7,6 +9,7 @@ export interface BookRecommendation {
   description: string;
   reason: string;
   affiliateLink: string;
+  asin?: string; // ASINコードを追加
 }
 
 export interface AffiliateContext {
@@ -16,29 +19,33 @@ export interface AffiliateContext {
 }
 
 /**
- * Get Gemini API key from environment
- * SECURITY NOTE: 
- * - For production, configure API key restrictions in Google Cloud Console:
- *   1. Go to APIs & Services > Credentials
- *   2. Edit your API key
- *   3. Under "Application restrictions", select "Android apps" or "iOS apps"
- *   4. Add your app's Bundle ID (com.chiritsumo.app) and SHA-1 fingerprint
- * - This prevents unauthorized use even if the key is extracted from the app
+ * ユーザーのGemini APIキーを保存
  */
-function getGeminiApiKey(): string | undefined {
-  return (
-    Constants.expoConfig?.extra?.geminiApiKey ||
-    process.env.EXPO_PUBLIC_GEMINI_API_KEY
-  );
+export async function saveUserGeminiApiKey(apiKey: string): Promise<void> {
+  await SecureStore.setItemAsync(GEMINI_API_KEY_STORAGE_KEY, apiKey);
+}
+
+/**
+ * ユーザーのGemini APIキーを取得
+ */
+export async function getUserGeminiApiKey(): Promise<string | null> {
+  return await SecureStore.getItemAsync(GEMINI_API_KEY_STORAGE_KEY);
+}
+
+/**
+ * ユーザーのGemini APIキーを削除
+ */
+export async function deleteUserGeminiApiKey(): Promise<void> {
+  await SecureStore.deleteItemAsync(GEMINI_API_KEY_STORAGE_KEY);
 }
 
 export async function generateBookRecommendations(
   context: AffiliateContext
 ): Promise<BookRecommendation[]> {
-  const geminiApiKey = getGeminiApiKey();
+  const geminiApiKey = await getUserGeminiApiKey();
 
   if (!geminiApiKey) {
-    console.warn('Gemini API key not configured, using fallback recommendations');
+    console.log('Gemini API key not configured, using fallback recommendations');
     return getFallbackRecommendations();
   }
 
@@ -122,7 +129,7 @@ function parseRecommendations(text: string): BookRecommendation[] {
       author: item.author || '',
       description: item.description || '',
       reason: item.reason || '',
-      affiliateLink: generateAmazonAffiliateLink(item.title),
+      affiliateLink: generateAmazonAffiliateLink(item.title, item.asin),
     }));
   } catch (error) {
     console.error('Failed to parse recommendations:', error);
@@ -130,33 +137,61 @@ function parseRecommendations(text: string): BookRecommendation[] {
   }
 }
 
-function generateAmazonAffiliateLink(title: string): string {
+function generateAmazonAffiliateLink(title: string, asin?: string): string {
+  if (asin) {
+    // ASIN直リンク（要アフィリエイトタグ設定）
+    return `https://www.amazon.co.jp/dp/${asin}/?tag=your-affiliate-id`;
+  }
+  // フォールバック：検索リンク
   const encodedTitle = encodeURIComponent(title);
   return `https://www.amazon.co.jp/s?k=${encodedTitle}&tag=your-affiliate-id`;
 }
 
+/**
+ * 高単価・高CV書籍の静的リスト
+ * 学習カテゴリ別におすすめ書籍を返す
+ */
 function getFallbackRecommendations(): BookRecommendation[] {
   return [
     {
       title: '学びを結果に変えるアウトプット大全',
       author: '樺沢紫苑',
-      description: '効率的な学習とアウトプットの方法を解説',
-      reason: '学習効率を高めたい方におすすめです',
-      affiliateLink: 'https://www.amazon.co.jp/s?k=%E3%82%A2%E3%82%A6%E3%83%88%E3%83%97%E3%83%83%E3%83%88%E5%A4%A7%E5%85%A8',
+      description: '科学的に正しいアウトプットの方法を網羅した学習の必読書',
+      reason: '効率的な学習サイクルを身につけたい方に最適',
+      asin: 'B07GWSWQZX',
+      affiliateLink: generateAmazonAffiliateLink('学びを結果に変えるアウトプット大全', 'B07GWSWQZX'),
     },
     {
       title: '独学大全',
       author: '読書猿',
-      description: '独学のための技術と戦略を網羅的に紹介',
-      reason: '自学自習の質を高めたい方に最適です',
-      affiliateLink: 'https://www.amazon.co.jp/s?k=%E7%8B%AC%E5%AD%A6%E5%A4%A7%E5%85%A8',
+      description: '独学のための技術と戦略を網羅的に紹介する大ボリューム本',
+      reason: '自学自習の質を科学的に高めたい方におすすめ',
+      asin: 'B08F5396NV',
+      affiliateLink: generateAmazonAffiliateLink('独学大全', 'B08F5396NV'),
     },
     {
       title: '脳を鍛えるには運動しかない',
       author: 'ジョン・J・レイティ',
-      description: '運動が学習能力に与える科学的効果を解説',
+      description: '運動が学習能力・記憶力に与える科学的効果を解説',
       reason: '学習パフォーマンスを最大化したい方へ',
-      affiliateLink: 'https://www.amazon.co.jp/s?k=%E8%84%B3%E3%82%92%E9%8D%9B%E3%81%88%E3%82%8B%E3%81%AB%E3%81%AF%E9%81%8B%E5%8B%95%E3%81%97%E3%81%8B%E3%81%AA%E3%81%84',
+      asin: 'B00U59MYF4',
+      affiliateLink: generateAmazonAffiliateLink('脳を鍛えるには運動しかない', 'B00U59MYF4'),
+    },
+    {
+      title: 'STUDY HACKS!',
+      author: '小林至道',
+      description: '最新の認知科学に基づいた効率的な勉強法',
+      reason: '科学的な学習法を実践したい方に',
+      asin: 'B08JLM7QNT',
+      affiliateLink: generateAmazonAffiliateLink('STUDY HACKS!', 'B08JLM7QNT'),
+    },
+    {
+      title: '使える脳の鍛え方',
+      author: 'ピーター・ブラウン',
+      description: '科学的に実証された記憶定着のメカニズムを解説',
+      reason: '効果的な復習方法を知りたい方におすすめ',
+      asin: 'B07L845XPC',
+      affiliateLink: generateAmazonAffiliateLink('使える脳の鍛え方', 'B07L845XPC'),
     },
   ];
 }

@@ -9,11 +9,12 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Download, Upload, Trash2, Info, CreditCard, ExternalLink, Cloud } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard, ExternalLink, Cloud, Key } from 'lucide-react-native';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useBackupService } from '@/app/core/services/backupService';
@@ -27,6 +28,11 @@ import {
   performManualBackup 
 } from '@/app/core/services/autoBackupScheduler';
 import { getLastBackupDate } from '@/app/core/services/iCloudBackup';
+import { 
+  getUserGeminiApiKey, 
+  saveUserGeminiApiKey, 
+  deleteUserGeminiApiKey 
+} from '@/app/core/services/aiAffiliate';
 import i18n from '@/app/core/i18n';
 
 export default function SettingsScreen() {
@@ -38,10 +44,21 @@ export default function SettingsScreen() {
   const [isImporting, setIsImporting] = useState(false);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [lastBackupDate, setLastBackupDate] = useState<Date | null>(null);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [isApiKeySet, setIsApiKeySet] = useState(false);
 
   useEffect(() => {
     loadAutoBackupStatus();
+    loadGeminiApiKey();
   }, []);
+
+  const loadGeminiApiKey = async () => {
+    const key = await getUserGeminiApiKey();
+    if (key) {
+      setGeminiApiKey(key);
+      setIsApiKeySet(true);
+    }
+  };
 
   const loadAutoBackupStatus = async () => {
     const enabled = await isAutoBackupEnabled();
@@ -184,6 +201,48 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleSaveApiKey = async () => {
+    if (!geminiApiKey.trim()) {
+      Alert.alert('エラー', 'APIキーを入力してください');
+      return;
+    }
+
+    try {
+      await saveUserGeminiApiKey(geminiApiKey.trim());
+      setIsApiKeySet(true);
+      Alert.alert(
+        '設定完了',
+        'Gemini APIキーを保存しました。AIによる個別最適化された書籍推薦が利用可能になります。'
+      );
+    } catch (error) {
+      Alert.alert(i18n.t('common.error'), 'APIキーの保存に失敗しました');
+    }
+  };
+
+  const handleDeleteApiKey = () => {
+    Alert.alert(
+      'APIキーの削除',
+      'Gemini APIキーを削除しますか？削除するとAI推薦が無効になり、おすすめ書籍リストのみ表示されます。',
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: i18n.t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUserGeminiApiKey();
+              setGeminiApiKey('');
+              setIsApiKeySet(false);
+              Alert.alert('削除完了', 'APIキーを削除しました');
+            } catch (error) {
+              Alert.alert(i18n.t('common.error'), 'APIキーの削除に失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleUpgradeToPro = () => {
     router.push('/paywall');
   };
@@ -195,6 +254,67 @@ export default function SettingsScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>{i18n.t('settings.title')}</Text>
             <Text style={styles.subtitle}>{i18n.t('settings.subtitle')}</Text>
+          </View>
+
+          {/* AI機能設定セクション */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI機能設定</Text>
+            
+            {/* Gemini APIキー設定 */}
+            <View style={[glassEffect.card, styles.apiKeyCard]}>
+              <View style={styles.apiKeyHeader}>
+                <Key color={isApiKeySet ? colors.success : colors.textSecondary} size={20} strokeWidth={2} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.menuItemText}>Gemini APIキー (BYOK)</Text>
+                  <Text style={styles.apiKeyDescription}>
+                    {isApiKeySet 
+                      ? 'AIによる個別最適化された書籍推薦が利用可能です' 
+                      : 'APIキーを設定すると、AIによる個別最適化された書籍推薦が利用可能です（無料）'}
+                  </Text>
+                </View>
+              </View>
+              
+              {!isApiKeySet ? (
+                <>
+                  <TextInput
+                    style={styles.apiKeyInput}
+                    placeholder="AIza..."
+                    placeholderTextColor={colors.textTertiary}
+                    value={geminiApiKey}
+                    onChangeText={setGeminiApiKey}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={true}
+                  />
+                  <TouchableOpacity
+                    style={styles.apiKeyButton}
+                    onPress={handleSaveApiKey}
+                  >
+                    <Text style={styles.apiKeyButtonText}>APIキーを保存</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.apiKeyLinkButton}
+                    onPress={() => WebBrowser.openBrowserAsync('https://aistudio.google.com/app/apikey')}
+                  >
+                    <ExternalLink color={colors.primary} size={16} strokeWidth={2} />
+                    <Text style={styles.apiKeyLinkText}>Google AI Studioでキーを取得</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.apiKeySetInfo}>
+                    <Text style={styles.apiKeySetText}>✓ APIキー設定済み</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.apiKeyDeleteButton}
+                    onPress={handleDeleteApiKey}
+                  >
+                    <Trash2 color={colors.error} size={16} strokeWidth={2} />
+                    <Text style={styles.apiKeyDeleteText}>APIキーを削除</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
 
           {/* データ管理セクション */}
@@ -445,5 +565,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  apiKeyCard: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  apiKeyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  apiKeyDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  apiKeyInput: {
+    backgroundColor: colors.surface + '40',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  apiKeyButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  apiKeyButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  apiKeyLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  apiKeyLinkText: {
+    fontSize: 12,
+    color: colors.primary,
+  },
+  apiKeySetInfo: {
+    backgroundColor: colors.success + '20',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  apiKeySetText: {
+    fontSize: 14,
+    color: colors.success,
+    fontWeight: '600',
+  },
+  apiKeyDeleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  apiKeyDeleteText: {
+    fontSize: 12,
+    color: colors.error,
   },
 });
