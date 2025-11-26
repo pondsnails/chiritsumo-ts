@@ -1,7 +1,34 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type { Book } from '../types';
 
 const GEMINI_API_KEY_STORAGE_KEY = 'user_gemini_api_key';
+
+// Web版用のフォールバック（LocalStorageを使用）
+const isWeb = Platform.OS === 'web';
+
+async function secureStoreGetItem(key: string): Promise<string | null> {
+  if (isWeb) {
+    return localStorage.getItem(key);
+  }
+  return await SecureStore.getItemAsync(key);
+}
+
+async function secureStoreSetItem(key: string, value: string): Promise<void> {
+  if (isWeb) {
+    localStorage.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function secureStoreDeleteItem(key: string): Promise<void> {
+  if (isWeb) {
+    localStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+}
 
 export interface BookRecommendation {
   title: string;
@@ -22,21 +49,21 @@ export interface AffiliateContext {
  * ユーザーのGemini APIキーを保存
  */
 export async function saveUserGeminiApiKey(apiKey: string): Promise<void> {
-  await SecureStore.setItemAsync(GEMINI_API_KEY_STORAGE_KEY, apiKey);
+  await secureStoreSetItem(GEMINI_API_KEY_STORAGE_KEY, apiKey);
 }
 
 /**
  * ユーザーのGemini APIキーを取得
  */
 export async function getUserGeminiApiKey(): Promise<string | null> {
-  return await SecureStore.getItemAsync(GEMINI_API_KEY_STORAGE_KEY);
+  return await secureStoreGetItem(GEMINI_API_KEY_STORAGE_KEY);
 }
 
 /**
  * ユーザーのGemini APIキーを削除
  */
 export async function deleteUserGeminiApiKey(): Promise<void> {
-  await SecureStore.deleteItemAsync(GEMINI_API_KEY_STORAGE_KEY);
+  await secureStoreDeleteItem(GEMINI_API_KEY_STORAGE_KEY);
 }
 
 export async function generateBookRecommendations(
