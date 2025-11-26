@@ -21,6 +21,7 @@ import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@/app/core/components/BrainAnalyticsDashboard';
 import { ShareableStats } from '@/app/core/components/ShareableStats';
+import { calculateCurrentStreak } from '@/app/core/utils/streakCalculator';
 import i18n from '@/app/core/i18n';
 import type { LedgerEntry } from '@/app/core/types';
 
@@ -31,6 +32,7 @@ export default function BankScreen() {
   const [balance, setBalance] = useState(0);
   const [todayTarget, setTodayTarget] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
+    const [currentStreak, setCurrentStreak] = useState(0);
 
   const { books } = useBookStore();
   const { isProUser } = useSubscriptionStore();
@@ -51,6 +53,10 @@ export default function BankScreen() {
         setTodayTarget(today.targetLex);
         setTodayEarned(today.earnedLex);
       }
+
+        // ストリーク計算
+        const streak = await calculateCurrentStreak();
+        setCurrentStreak(streak);
     } catch (error) {
       console.error('Failed to fetch ledger:', error);
     } finally {
@@ -155,7 +161,7 @@ export default function BankScreen() {
               {/* シェア機能 */}
               <ShareableStats
                 todayLex={todayEarned}
-                currentStreak={0} // TODO: ストリーク機能実装時に置き換え
+                  currentStreak={currentStreak}
                 totalBooks={books.filter(b => b.status === 0).length}
                 completionRate={Math.round(solvencyRatio)}
               />
