@@ -27,6 +27,7 @@ export const booksDB = {
         isbn: book.isbn,
         mode: book.mode,
         totalUnit: book.total_unit,
+        chunkSize: book.chunk_size || 1,
         completedUnit: book.completed_unit || 0,
         status: book.status,
         previousBookId: book.previous_book_id,
@@ -60,6 +61,7 @@ export const booksDB = {
         isbn: data.isbn,
         mode: data.mode,
         totalUnit: data.total_unit,
+        chunkSize: data.chunk_size || 1,
         completedUnit: data.completed_unit || 0,
         status: data.status,
         previousBookId: data.previous_book_id,
@@ -83,6 +85,7 @@ export const booksDB = {
       isbn: book.isbn || null,
       mode: book.mode,
       total_unit: book.totalUnit,
+      chunk_size: book.chunkSize || 1,
       completed_unit: book.completedUnit || 0,
       status: book.status,
       previous_book_id: book.previousBookId,
@@ -103,6 +106,7 @@ export const booksDB = {
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.mode !== undefined) dbUpdates.mode = updates.mode;
     if (updates.totalUnit !== undefined) dbUpdates.total_unit = updates.totalUnit;
+    if (updates.chunkSize !== undefined) dbUpdates.chunk_size = updates.chunkSize;
     if (updates.completedUnit !== undefined) dbUpdates.completed_unit = updates.completedUnit;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.previousBookId !== undefined) dbUpdates.previous_book_id = updates.previousBookId;
@@ -254,6 +258,41 @@ export const ledgerDB = {
     } catch (error) {
       console.error('Failed to get ledger:', error);
       return [];
+    }
+  },
+
+  getSummary: async (): Promise<{ balance: number; earnedToday: number; targetToday: number }> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { balance: 0, earnedToday: 0, targetToday: 0 };
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('ledger')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const { data: todayData } = await supabase
+        .from('ledger')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .maybeSingle();
+
+      return {
+        balance: data?.balance || 0,
+        earnedToday: todayData?.earned_lex || 0,
+        targetToday: todayData?.target_lex || 0,
+      };
+    } catch (error) {
+      console.error('Failed to get ledger summary:', error);
+      return { balance: 0, earnedToday: 0, targetToday: 0 };
     }
   },
 

@@ -36,7 +36,47 @@ export class MetroLayoutEngine {
       this.childrenMap.get(parentId)!.push(book);
     });
 
+    this.validateCycles();
     this.calculateDepths();
+  }
+
+  private validateCycles(): void {
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    const detectCycle = (bookId: string): boolean => {
+      visited.add(bookId);
+      recursionStack.add(bookId);
+
+      const children = this.childrenMap.get(bookId) || [];
+      for (const child of children) {
+        if (!visited.has(child.id)) {
+          if (detectCycle(child.id)) return true;
+        } else if (recursionStack.has(child.id)) {
+          console.error(`Circular reference detected: ${child.title} (${child.id})`);
+          const book = this.bookMap.get(child.id);
+          if (book) {
+            book.previousBookId = null;
+            this.childrenMap.get(book.previousBookId)!.push(book);
+            const oldParent = Array.from(this.childrenMap.entries()).find(
+              ([_, children]) => children.some(c => c.id === child.id && c.previousBookId !== null)
+            );
+            if (oldParent) {
+              this.childrenMap.set(oldParent[0], oldParent[1].filter(c => c.id !== child.id));
+            }
+          }
+          return true;
+        }
+      }
+      recursionStack.delete(bookId);
+      return false;
+    };
+
+    for (const book of this.bookMap.values()) {
+      if (!visited.has(book.id)) {
+        detectCycle(book.id);
+      }
+    }
   }
 
   private calculateDepths() {

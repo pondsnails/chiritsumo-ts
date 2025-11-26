@@ -10,6 +10,7 @@ export interface Book {
   isbn?: string | null;
   mode: 0 | 1 | 2;
   totalUnit: number;
+  chunkSize?: number;
   completedUnit?: number;
   status: 0 | 1 | 2;
   previousBookId: string | null;

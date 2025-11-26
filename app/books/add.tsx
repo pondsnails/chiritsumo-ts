@@ -21,6 +21,7 @@ export default function AddBookScreen() {
   const { addBook, books, fetchBooks } = useBookStore();
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
+  const [chunkSize, setChunkSize] = useState('1');
   const [mode, setMode] = useState<0 | 1 | 2>(0);
   const [previousBookId, setPreviousBookId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -42,6 +43,7 @@ export default function AddBookScreen() {
         userId: 'local',
         title: title.trim(),
         totalUnit: parseInt(totalUnit),
+        chunkSize: parseInt(chunkSize) || 1,
         completedUnit: 0,
         mode,
         status: 0,
@@ -93,6 +95,23 @@ export default function AddBookScreen() {
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
               />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>単位のまとめ数（1カードあたり）</Text>
+              <TextInput
+                style={styles.input}
+                value={chunkSize}
+                onChangeText={setChunkSize}
+                placeholder="例: 10"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="numeric"
+              />
+              <Text style={styles.helpText}>
+                {totalUnit && chunkSize
+                  ? `生成されるカード数: ${Math.ceil(parseInt(totalUnit) / (parseInt(chunkSize) || 1))}枚`
+                  : '※ 1を設定すると1単位につき1カードが作成されます'}
+              </Text>
             </View>
 
             <View style={styles.formGroup}>
@@ -330,5 +349,10 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: 16,
     color: colors.text,
+  },
+  helpText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
 });

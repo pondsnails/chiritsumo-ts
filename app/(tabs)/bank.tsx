@@ -11,12 +11,13 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ShoppingBag, X, TrendingUp, AlertCircle } from 'lucide-react-native';
+import { ShoppingBag, X, TrendingUp, AlertCircle, Clock } from 'lucide-react-native';
 import { ledgerDB, cardsDB } from '@/app/core/database/db';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import { useCardStore } from '@/app/core/store/cardStore';
 import { useBookStore } from '@/app/core/store/bookStore';
+import { setLastRolloverDate } from '@/app/core/utils/dailyRollover';
 import type { LedgerEntry, Card } from '@/app/core/types';
 
 export default function BankScreen() {
@@ -96,6 +97,38 @@ export default function BankScreen() {
       setShowBlackMarket(false);
     } catch (error) {
       console.error('Failed to sell card:', error);
+    }
+  };
+
+  const handleBuyTimeFreeze = async () => {
+    const FREEZE_PRICE = 500;
+
+    if (balance < FREEZE_PRICE) {
+      alert('残高が不足しています');
+      return;
+    }
+
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      await ledgerDB.upsert({
+        date: new Date().toISOString().split('T')[0],
+        earnedLex: 0,
+        targetLex: 0,
+        balance: balance - FREEZE_PRICE,
+      });
+
+      await setLastRolloverDate(tomorrowStr);
+
+      await fetchLedger();
+      setShowBlackMarket(false);
+
+      alert('休暇を購入しました。明日のノルマは発生しません。');
+    } catch (error) {
+      console.error('Failed to buy time freeze:', error);
+      alert('購入に失敗しました');
     }
   };
 
@@ -224,6 +257,26 @@ export default function BankScreen() {
                   カードを売却すると、進捗がリセットされます
                 </Text>
               </View>
+
+              <TouchableOpacity
+                style={[glassEffect.card, styles.timeFreezeCard]}
+                onPress={handleBuyTimeFreeze}
+              >
+                <View style={styles.timeFreezeContent}>
+                  <View style={styles.timeFreezeIcon}>
+                    <Clock color={colors.primary} size={32} />
+                  </View>
+                  <View style={styles.timeFreezeInfo}>
+                    <Text style={styles.timeFreezeTitle}>Time Freeze (24h)</Text>
+                    <Text style={styles.timeFreezeDescription}>
+                      明日のノルマをスキップします
+                    </Text>
+                  </View>
+                  <View style={styles.timeFreezePrice}>
+                    <Text style={styles.timeFreezePriceText}>500 Lex</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
               {sellableCards.length === 0 ? (
                 <View style={styles.emptyMarket}>
@@ -528,5 +581,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.background,
+  },
+  timeFreezeCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  timeFreezeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  timeFreezeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeFreezeInfo: {
+    flex: 1,
+  },
+  timeFreezeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  timeFreezeDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  timeFreezePrice: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  timeFreezePriceText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });
