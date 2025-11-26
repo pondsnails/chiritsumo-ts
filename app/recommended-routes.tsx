@@ -19,26 +19,9 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
 import recommendedRoutes from '@/app/core/data/recommendedRoutes.json';
+import type { RouteStep, PresetRoute } from '@/app/core/types';
 
 type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
-
-interface RouteStep {
-  order: number;
-  label: string;
-  searchQuery: string;
-  description: string;
-  requiredDays: number;
-}
-
-interface Route {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: DifficultyLevel;
-  estimatedMonths: number;
-  targetScore?: string;
-  steps: RouteStep[];
-}
 
 const DIFFICULTY_LABELS: Record<DifficultyLevel, { label: string; color: string }> = {
   beginner: { label: '初級', color: colors.success },
@@ -50,7 +33,7 @@ const AFFILIATE_TAG = 'chiritsumo-22';
 
 export default function RecommendedRoutesScreen() {
   const router = useRouter();
-  const routes = recommendedRoutes as Route[];
+  const routes = recommendedRoutes as PresetRoute[];
 
   const handleSearchPress = (searchQuery: string) => {
     const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(searchQuery)}&tag=${AFFILIATE_TAG}`;

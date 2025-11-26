@@ -66,3 +66,22 @@ export interface FSRSResult {
   nextState: 0 | 1 | 2 | 3;
   interval: number;
 }
+
+// ルートプリセット関連の型定義
+export interface RouteStep {
+  order: number;
+  label: string;
+  searchQuery: string;
+  description: string;
+  requiredDays: number;
+}
+
+export interface PresetRoute {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedMonths: number;
+  targetScore: string;
+  steps: RouteStep[];
+}

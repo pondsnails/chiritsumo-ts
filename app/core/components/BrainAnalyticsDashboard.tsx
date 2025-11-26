@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, Circle, Path } from 'react-native-svg';
 import { Brain, TrendingUp, Clock, Target } from 'lucide-react-native';
@@ -56,28 +56,30 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     }
   };
 
-  const generateHeatmapData = (cards: Card[]): DailyActivity[] => {
-    const now = new Date();
+  const generateHeatmapData = useMemo(() => (cards: Card[]): DailyActivity[] => {
+    const now = Date.now();
+    const oneDayMs = 1000 * 60 * 60 * 24;
     const data: DailyActivity[] = [];
     
+    // カードの復習日をMapで管理（O(1)アクセス）
+    const reviewCountByDate = new Map<string, number>();
+    cards.forEach(card => {
+      if (!card.lastReview) return;
+      const reviewDate = new Date(card.lastReview).toISOString().split('T')[0];
+      reviewCountByDate.set(reviewDate, (reviewCountByDate.get(reviewDate) || 0) + 1);
+    });
+    
     for (let i = 89; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
+      const date = new Date(now - i * oneDayMs);
       const dateString = date.toISOString().split('T')[0];
-      
-      const count = cards.filter(card => {
-        if (!card.lastReview) return false;
-        const reviewDate = new Date(card.lastReview).toISOString().split('T')[0];
-        return reviewDate === dateString;
-      }).length;
-      
+      const count = reviewCountByDate.get(dateString) || 0;
       data.push({ date: dateString, count });
     }
     
     return data;
-  };
+  }, []);
 
-  const generateForgettingCurve = (cards: Card[]): RetentionData[] => {
+  const generateForgettingCurve = useMemo(() => (cards: Card[]): RetentionData[] => {
     // 復習済みカードのみ抽出
     const reviewedCards = cards.filter(c => c.lastReview && c.reps > 0);
     
@@ -118,9 +120,9 @@ export const BrainAnalyticsDashboard: React.FC = () => {
       
       return { daysElapsed: i, retention: avgRetention };
     });
-  };
+  }, []);
 
-  const calculateAverageRetention = (cards: Card[]): number => {
+  const calculateAverageRetention = useMemo(() => (cards: Card[]): number => {
     const reviewedCards = cards.filter(c => c.lastReview && c.reps > 0);
     
     if (reviewedCards.length === 0) return 0;
@@ -134,9 +136,9 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     }, 0);
     
     return totalRetention / reviewedCards.length;
-  };
+  }, []);
 
-  const renderHeatmap = () => {
+  const renderHeatmap = useCallback(() => {
     const cellSize = 10;
     const gap = 2;
     const cols = 13; // 週数
@@ -211,9 +213,9 @@ export const BrainAnalyticsDashboard: React.FC = () => {
         </View>
       </View>
     );
-  };
+  }, [heatmapData]);
 
-  const renderForgettingCurve = () => {
+  const renderForgettingCurve = useCallback(() => {
     const width = SCREEN_WIDTH - 64;
     const height = 180;
     const padding = { top: 20, right: 20, bottom: 30, left: 40 };
@@ -322,9 +324,9 @@ export const BrainAnalyticsDashboard: React.FC = () => {
         </Text>
       </View>
     );
-  };
+  }, [forgettingCurve]);
 
-  const renderStats = () => (
+  const renderStats = useCallback(() => (
     <View style={styles.statsGrid}>
       <View style={[glassEffect.card, styles.statCard]}>
         <Target color={colors.primary} size={24} strokeWidth={2} />
@@ -338,7 +340,7 @@ export const BrainAnalyticsDashboard: React.FC = () => {
         <Text style={styles.statLabel}>平均保持率</Text>
       </View>
     </View>
-  );
+  ), [totalCards, avgRetention]);
 
   if (isLoading) {
     return (

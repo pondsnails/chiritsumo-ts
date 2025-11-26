@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,29 +22,11 @@ import { MetroLayoutEngine } from '@/app/core/layout/metroLayout';
 import { MetroLine } from '@/app/core/components/MetroLine';
 import { BookNode } from '@/app/core/components/BookNode';
 import i18n from '@/app/core/i18n';
-import type { Book } from '@/app/core/types';
+import type { Book, RouteStep, PresetRoute } from '@/app/core/types';
 import type { NodePosition } from '@/app/core/layout/metroLayout';
 import recommendedRoutesData from '@/app/core/data/recommendedRoutes.json';
 
 type TabType = 'myRoute' | 'presetRoute';
-
-interface RouteStep {
-  order: number;
-  label: string;
-  searchQuery: string;
-  description: string;
-  requiredDays: number;
-}
-
-interface PresetRoute {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedMonths: number;
-  targetScore: string;
-  steps: RouteStep[];
-}
 
 export default function RouteScreen() {
   const router = useRouter();
@@ -127,17 +109,15 @@ export default function RouteScreen() {
     600
   );
 
-  const presetRoutes = recommendedRoutesData as PresetRoute[];
+  const presetRoutes = useMemo(() => recommendedRoutesData as PresetRoute[], []);
+  const AFFILIATE_TAG = useMemo(() => 'chiritsumo-22', []);
 
-  // アフィリエイトタグ（あなたのタグに置き換えてください）
-  const AFFILIATE_TAG = 'chiritsumo-22';
-
-  const handleSearchPress = (searchQuery: string) => {
+  const handleSearchPress = useCallback((searchQuery: string) => {
     const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(searchQuery)}&tag=${AFFILIATE_TAG}`;
     Linking.openURL(url);
-  };
+  }, [AFFILIATE_TAG]);
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyColor = useCallback((difficulty: string) => {
     switch (difficulty) {
       case 'beginner':
         return colors.success;
@@ -148,9 +128,9 @@ export default function RouteScreen() {
       default:
         return colors.textSecondary;
     }
-  };
+  }, []);
 
-  const getDifficultyLabel = (difficulty: string) => {
+  const getDifficultyLabel = useCallback((difficulty: string) => {
     switch (difficulty) {
       case 'beginner':
         return '入門';
@@ -161,7 +141,7 @@ export default function RouteScreen() {
       default:
         return '';
     }
-  };
+  }, []);
 
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
