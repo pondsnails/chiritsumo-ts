@@ -280,9 +280,24 @@ export default function SettingsScreen() {
           {/* Lex目標設定セクション */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>学習目標設定</Text>
+            
+            {/* Velocity設定へのリンク（推奨） */}
+            <TouchableOpacity
+              style={[glassEffect.card, styles.velocityCard]}
+              onPress={() => router.push('/velocity-settings' as any)}
+            >
+              <View style={styles.velocityContent}>
+                <Text style={styles.velocityBadge}>推奨</Text>
+                <Text style={styles.velocityTitle}>学習速度ベースの目標設定</Text>
+                <Text style={styles.velocityDescription}>
+                  あなたの実際の学習ペースを計測し、「1日何分勉強したいか」から自動的に目標を算出します
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
             <View style={[glassEffect.card, styles.lexProfileCard]}>
               <Text style={styles.lexProfileTitle}>日次Lex目標: {dailyLexTarget} Lex</Text>
-              <Text style={styles.lexProfileHint}>あなたの学習スタイルに合わせて目標を選択してください</Text>
+              <Text style={styles.lexProfileHint}>または従来のプリセットから選択</Text>
               
               {/* プリセットプロファイル選択 */}
               {(isProUser ? getAllProfiles() : getAvailableProfilesForFree()).map((profile) => (
@@ -778,5 +793,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontWeight: '600',
+  },
+  velocityCard: {
+    padding: 20,
+    marginBottom: 16,
+  },
+  velocityContent: {
+    gap: 8,
+  },
+  velocityBadge: {
+    backgroundColor: colors.success + '20',
+    color: colors.success,
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  velocityTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  velocityDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
 });
