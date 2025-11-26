@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, BookOpen } from 'lucide-react-native';
+import { Plus, BookOpen, Sparkles } from 'lucide-react-native';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';

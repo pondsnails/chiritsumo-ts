@@ -53,10 +53,8 @@ export const exportBackup = async (): Promise<void> => {
     const fileName = `chiritsumo_backup_${new Date().getTime()}.json`;
     const file = new File(Paths.cache, fileName);
     
-    // ファイルに書き込み（Blob APIを使用）
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const buffer = await blob.arrayBuffer();
-    await file.write(new Uint8Array(buffer));
+    // ファイルに書き込み（文字列を直接書き込み）
+    await file.write(jsonString);
     
     // シェア機能で保存
     await Sharing.shareAsync(file.uri, {
