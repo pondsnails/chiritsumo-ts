@@ -23,11 +23,13 @@ export interface Card {
   id: string;
   bookId: string;
   unitIndex: number;
+  front: string;
+  back: string;
   state: 0 | 1 | 2 | 3;
   stability: number;
   difficulty: number;
-  due: Date;
-  lastReview: Date | null;
+  due: Date | string;
+  lastReview: Date | string | null;
   reps: number;
   photoPath: string | null;
 }

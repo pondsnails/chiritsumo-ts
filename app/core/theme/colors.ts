@@ -3,6 +3,7 @@ export const colors = {
   backgroundDark: '#000000',
   surface: 'rgba(255, 255, 255, 0.08)',
   surfaceBorder: 'rgba(255, 255, 255, 0.15)',
+  border: 'rgba(255, 255, 255, 0.15)',
   text: '#FFFFFF',
   textSecondary: 'rgba(255, 255, 255, 0.7)',
   textTertiary: 'rgba(255, 255, 255, 0.5)',

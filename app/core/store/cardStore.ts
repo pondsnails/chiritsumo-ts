@@ -8,15 +8,27 @@ interface CardState {
   cards: Card[];
   isLoading: boolean;
   error: string | null;
+  fetchCards: () => Promise<void>;
   fetchDueCards: (bookIds: string[]) => Promise<Card[]>;
   updateCardReview: (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => Promise<void>;
   bulkUpdateCardReviews: (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => Promise<void>;
 }
 
-export const useCardStore = create<CardState>((set) => ({
+export const useCardStore = create<CardState>((set, get) => ({
   cards: [],
   isLoading: false,
   error: null,
+
+  fetchCards: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      const allCards = await cardsDB.getAll();
+      set({ cards: allCards, isLoading: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch cards';
+      set({ error: message, isLoading: false });
+    }
+  },
 
   fetchDueCards: async (bookIds: string[]) => {
     try {

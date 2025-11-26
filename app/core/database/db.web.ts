@@ -130,6 +130,39 @@ export const booksDB = {
 };
 
 export const cardsDB = {
+  getAll: async (): Promise<Card[]> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*, books!inner(user_id)')
+        .eq('books.user_id', user.id)
+        .order('due', { ascending: true });
+
+      if (error) throw error;
+
+      return (data || []).map(card => ({
+        id: card.id,
+        bookId: card.book_id,
+        unitIndex: card.unit_index,
+        front: card.front || '',
+        back: card.back || '',
+        state: card.state,
+        stability: card.stability,
+        difficulty: card.difficulty,
+        due: card.due,
+        lastReview: card.last_review || null,
+        reps: card.reps,
+        photoPath: card.photo_path,
+      }));
+    } catch (error) {
+      console.error('Failed to get all cards:', error);
+      return [];
+    }
+  },
+
   getByBookId: async (bookId: string): Promise<Card[]> => {
     try {
       const { data, error } = await supabase
@@ -144,6 +177,8 @@ export const cardsDB = {
         id: card.id,
         bookId: card.book_id,
         unitIndex: card.unit_index,
+        front: card.front || '',
+        back: card.back || '',
         state: card.state,
         stability: card.stability,
         difficulty: card.difficulty,
@@ -176,6 +211,8 @@ export const cardsDB = {
         id: card.id,
         bookId: card.book_id,
         unitIndex: card.unit_index,
+        front: card.front || '',
+        back: card.back || '',
         state: card.state,
         stability: card.stability,
         difficulty: card.difficulty,
@@ -195,15 +232,47 @@ export const cardsDB = {
       id: card.id,
       book_id: card.bookId,
       unit_index: card.unitIndex,
+      front: card.front || '',
+      back: card.back || '',
       state: card.state,
       stability: card.stability,
       difficulty: card.difficulty,
-      due: card.due.toISOString(),
-      last_review: card.lastReview ? card.lastReview.toISOString() : null,
+      due: typeof card.due === 'string' ? card.due : card.due.toISOString(),
+      last_review: card.lastReview
+        ? (typeof card.lastReview === 'string' ? card.lastReview : card.lastReview.toISOString())
+        : null,
       reps: card.reps,
       photo_path: card.photoPath,
       updated_at: new Date().toISOString(),
     });
+
+    if (error) throw error;
+  },
+
+  update: async (id: string, updates: Partial<Card>): Promise<void> => {
+    const dbUpdates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.state !== undefined) dbUpdates.state = updates.state;
+    if (updates.stability !== undefined) dbUpdates.stability = updates.stability;
+    if (updates.difficulty !== undefined) dbUpdates.difficulty = updates.difficulty;
+    if (updates.due !== undefined) {
+      dbUpdates.due = typeof updates.due === 'string' ? updates.due : updates.due.toISOString();
+    }
+    if (updates.lastReview !== undefined) {
+      dbUpdates.last_review = updates.lastReview
+        ? (typeof updates.lastReview === 'string' ? updates.lastReview : updates.lastReview.toISOString())
+        : null;
+    }
+    if (updates.reps !== undefined) dbUpdates.reps = updates.reps;
+    if (updates.front !== undefined) dbUpdates.front = updates.front;
+    if (updates.back !== undefined) dbUpdates.back = updates.back;
+
+    const { error } = await supabase
+      .from('cards')
+      .update(dbUpdates)
+      .eq('id', id);
 
     if (error) throw error;
   },
@@ -216,8 +285,10 @@ export const cardsDB = {
       state: card.state,
       stability: card.stability,
       difficulty: card.difficulty,
-      due: card.due.toISOString(),
-      last_review: card.lastReview ? card.lastReview.toISOString() : null,
+      due: typeof card.due === 'string' ? card.due : card.due.toISOString(),
+      last_review: card.lastReview
+        ? (typeof card.lastReview === 'string' ? card.lastReview : card.lastReview.toISOString())
+        : null,
       reps: card.reps,
       photo_path: card.photoPath,
       updated_at: new Date().toISOString(),
@@ -257,6 +328,21 @@ export const ledgerDB = {
     }
   },
 
+  add: async (entry: Omit<LedgerEntry, 'id'>): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase.from('ledger').insert({
+      user_id: user.id,
+      date: entry.date,
+      earned_lex: entry.earnedLex,
+      target_lex: entry.targetLex,
+      balance: entry.balance,
+    });
+
+    if (error) throw error;
+  },
+
   upsert: async (entry: Omit<LedgerEntry, 'id'>): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -272,6 +358,35 @@ export const ledgerDB = {
     });
 
     if (error) throw error;
+  },
+
+  getSummary: async (): Promise<{ balance: number; totalEarned: number; totalTarget: number }> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { balance: 0, totalEarned: 0, totalTarget: 0 };
+
+      const { data, error } = await supabase
+        .from('ledger')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return { balance: 0, totalEarned: 0, totalTarget: 0 };
+      }
+
+      return {
+        balance: data[0].balance,
+        totalEarned: data[0].earned_lex,
+        totalTarget: data[0].target_lex,
+      };
+    } catch (error) {
+      console.error('Failed to get ledger summary:', error);
+      return { balance: 0, totalEarned: 0, totalTarget: 0 };
+    }
   },
 };
 

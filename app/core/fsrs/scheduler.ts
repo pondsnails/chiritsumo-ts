@@ -27,6 +27,8 @@ export class FSRSScheduler {
       id,
       bookId,
       unitIndex,
+      front: '',
+      back: '',
       state: 0,
       stability: 0,
       difficulty: 0,
@@ -95,4 +97,12 @@ export class FSRSScheduler {
 
 export function createScheduler(mode: 0 | 1 | 2): FSRSScheduler {
   return new FSRSScheduler(mode);
+}
+
+export function getDueCardsCount(cards: Card[]): number {
+  const now = new Date();
+  return cards.filter(card => {
+    const dueDate = typeof card.due === 'string' ? new Date(card.due) : card.due;
+    return dueDate <= now;
+  }).length;
 }
