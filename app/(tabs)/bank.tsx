@@ -20,6 +20,7 @@ import { useBookStore } from '@/app/core/store/bookStore';
 import { useSubscriptionStore } from '@/app/core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@/app/core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@/app/core/components/BrainAnalyticsDashboard';
+import { ShareableStats } from '@/app/core/components/ShareableStats';
 import i18n from '@/app/core/i18n';
 import type { LedgerEntry } from '@/app/core/types';
 
@@ -150,6 +151,14 @@ export default function BankScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* シェア機能 */}
+              <ShareableStats
+                todayLex={todayEarned}
+                currentStreak={0} // TODO: ストリーク機能実装時に置き換え
+                totalBooks={books.filter(b => b.status === 0).length}
+                completionRate={Math.round(solvencyRatio)}
+              />
 
               {/* Pro版専用: 脳内分析ダッシュボード */}
               {isProUser ? (
