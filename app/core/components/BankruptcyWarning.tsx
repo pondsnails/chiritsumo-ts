@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { AlertTriangle, X, TrendingDown } from 'lucide-react-native';
+import { AlertTriangle, X, Lock, BookOpen } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
 import type { BankruptcyResult } from '../logic/bankruptcyLogic';
@@ -9,16 +9,32 @@ interface BankruptcyWarningProps {
   visible: boolean;
   result: BankruptcyResult;
   onClose: () => void;
-  onConfirm: () => void;
 }
 
 export function BankruptcyWarning({
   visible,
   result,
   onClose,
-  onConfirm,
 }: BankruptcyWarningProps) {
-  if (!result.isBankrupt) return null;
+  if (!result.isInDebt) return null;
+
+  const getDebtLevelColor = () => {
+    switch (result.debtLevel) {
+      case 3: return colors.error;
+      case 2: return colors.warning;
+      case 1: return colors.primary;
+      default: return colors.textSecondary;
+    }
+  };
+
+  const getDebtLevelText = () => {
+    switch (result.debtLevel) {
+      case 3: return '重度の借金';
+      case 2: return '中程度の借金';
+      case 1: return '軽度の借金';
+      default: return '正常';
+    }
+  };
 
   return (
     <Modal
@@ -30,70 +46,64 @@ export function BankruptcyWarning({
       <View style={styles.overlay}>
         <View style={[glassEffect.containerLarge, styles.container]}>
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <AlertTriangle color={colors.error} size={32} />
+            <View style={[styles.iconContainer, { backgroundColor: getDebtLevelColor() + '20' }]}>
+              {result.debtLevel >= 2 ? (
+                <Lock color={getDebtLevelColor()} size={32} />
+              ) : (
+                <AlertTriangle color={getDebtLevelColor()} size={32} />
+              )}
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X color={colors.text} size={24} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title}>破産警告</Text>
+          <Text style={styles.title}>借金状態</Text>
           <Text style={styles.description}>
-            LEX残高が不足しています。自動的にカードが売却され、進捗がリセットされます。
+            LEX残高がマイナスになっています。学習を続けて返済しましょう！
           </Text>
 
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>現在の不足額</Text>
+              <Text style={styles.detailLabel}>借金レベル</Text>
+              <Text style={[styles.detailValue, { color: getDebtLevelColor() }]}>
+                {getDebtLevelText()}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>借金額</Text>
               <Text style={[styles.detailValue, { color: colors.error }]}>
                 {result.deficit} Lex
               </Text>
             </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>売却されるカード数</Text>
-              <Text style={styles.detailValue}>
-                {result.cardsToReset.length}枚
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>回収予定額</Text>
-              <Text style={[styles.detailValue, { color: colors.warning }]}>
-                +{result.estimatedRecovery} Lex
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>ペナルティ</Text>
-              <Text style={[styles.detailValue, { color: colors.error }]}>
-                -{Math.floor(result.deficit * 0.5)} Lex
-              </Text>
-            </View>
           </View>
 
-          <View style={styles.warningBox}>
-            <TrendingDown color={colors.error} size={16} />
-            <Text style={styles.warningText}>
-              売却後もLEXが不足する場合、追加のペナルティが課せられます
+          {result.restrictions.length > 0 && (
+            <View style={styles.restrictionsBox}>
+              <Text style={styles.restrictionsTitle}>機能制限</Text>
+              {result.restrictions.map((restriction, index) => (
+                <View key={index} style={styles.restrictionRow}>
+                  <Text style={styles.restrictionBullet}>•</Text>
+                  <Text style={styles.restrictionText}>{restriction}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.tipsBox}>
+            <BookOpen color={colors.primary} size={16} />
+            <Text style={styles.tipsText}>
+              学習してLexを稼ぎ、借金を返済すると制限が解除されます
             </Text>
           </View>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={onClose}
-            >
-              <Text style={styles.cancelButtonText}>キャンセル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.confirmButton]}
-              onPress={onConfirm}
-            >
-              <Text style={styles.confirmButtonText}>実行</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.button, styles.confirmButton]}
+            onPress={onClose}
+          >
+            <Text style={styles.confirmButtonText}>学習を続ける</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -163,38 +173,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  warningBox: {
+  restrictionsBox: {
+    backgroundColor: colors.warning + '15',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  restrictionsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.warning,
+    marginBottom: 12,
+  },
+  restrictionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  restrictionBullet: {
+    fontSize: 14,
+    color: colors.warning,
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  restrictionText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  tipsBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     padding: 12,
-    backgroundColor: colors.error + '20',
+    backgroundColor: colors.primary + '20',
     borderRadius: 8,
     marginBottom: 24,
   },
-  warningText: {
+  tipsText: {
     flex: 1,
     fontSize: 12,
-    color: colors.error,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 12,
+    color: colors.primary,
   },
   button: {
-    flex: 1,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: colors.surface,
+  confirmButton: {
+    backgroundColor: colors.primary,
   },
-  cancelButtonText: {
+  confirmButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: '700',
+    color: colors.background,
   },
+});
   confirmButton: {
     backgroundColor: colors.error,
   },
