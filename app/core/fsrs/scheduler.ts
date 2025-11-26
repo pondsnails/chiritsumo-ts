@@ -96,3 +96,8 @@ export class FSRSScheduler {
 export function createScheduler(mode: 0 | 1 | 2): FSRSScheduler {
   return new FSRSScheduler(mode);
 }
+
+export function getDueCardsCount(cards: Card[]): number {
+  const now = new Date();
+  return cards.filter(card => card.due <= now).length;
+}

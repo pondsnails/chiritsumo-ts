@@ -1,12 +1,5 @@
 /**
- * Platform-specific Database Export
- * Web: IndexedDB / Native: SQLite
+ * Database Export - SQLite (Native Only)
  */
-import { Platform } from 'react-native';
-
-if (Platform.OS === 'web') {
-  module.exports = require('./db.web');
-} else {
-  module.exports = require('./db.native');
-}
+export * from './db.native';
 
