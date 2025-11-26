@@ -17,6 +17,7 @@ import { useSubscriptionStore, canAddBook } from '@/app/core/store/subscriptionS
 import { validateBookAddition } from '@/app/core/utils/circularReferenceDetector';
 import { colors } from '@/app/core/theme/colors';
 import { glassEffect } from '@/app/core/theme/glassEffect';
+import i18n from '@/app/core/i18n';
 import type { Book } from '@/app/core/types';
 
 export default function AddBookScreen() {
@@ -37,19 +38,19 @@ export default function AddBookScreen() {
 
   const handleSave = async () => {
     if (!title.trim() || !totalUnit.trim()) {
-      Alert.alert('入力エラー', 'タイトルとUnit数を入力してください');
+      Alert.alert(i18n.t('books.inputError'), i18n.t('books.inputErrorMessage'));
       return;
     }
 
     // Free Planの制限チェック
     if (!canAddBook(books.length, isProUser)) {
       Alert.alert(
-        '登録制限',
-        'Free Planでは参考書を3冊まで登録できます。\nPro Planにアップグレードすると無制限に登録できます。',
+        i18n.t('books.limitTitle'),
+        i18n.t('books.limitMessage'),
         [
-          { text: 'キャンセル', style: 'cancel' },
+          { text: i18n.t('common.cancel'), style: 'cancel' },
           {
-            text: 'Pro Planを見る',
+            text: i18n.t('books.viewProPlan'),
             onPress: () => router.push('/paywall'),
           },
         ]
@@ -66,7 +67,7 @@ export default function AddBookScreen() {
 
     const validationError = validateBookAddition(newBookData, books);
     if (validationError) {
-      Alert.alert('エラー', validationError);
+      Alert.alert(i18n.t('common.error'), validationError);
       return;
     }
 
@@ -88,7 +89,7 @@ export default function AddBookScreen() {
       router.back();
     } catch (error) {
       console.error('Failed to add book:', error);
-      Alert.alert('エラー', '参考書の追加に失敗しました');
+      Alert.alert(i18n.t('common.error'), i18n.t('books.addError'));
     } finally {
       setIsSaving(false);
     }
@@ -102,61 +103,61 @@ export default function AddBookScreen() {
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ArrowLeft color={colors.text} size={24} strokeWidth={2} />
             </TouchableOpacity>
-            <Text style={styles.title}>参考書を追加</Text>
+            <Text style={styles.title}>{i18n.t('books.addBook')}</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <View style={[glassEffect.container, styles.formContainer]}>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>タイトル</Text>
+              <Text style={styles.label}>{i18n.t('books.titleLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="例: 基本情報技術者試験"
+                placeholder={i18n.t('books.titlePlaceholder')}
                 placeholderTextColor={colors.textTertiary}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>総単位数</Text>
+              <Text style={styles.label}>{i18n.t('books.totalUnitsLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={totalUnit}
                 onChangeText={setTotalUnit}
-                placeholder="例: 100"
+                placeholder={i18n.t('books.totalUnitsPlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>単位のまとめ数（1カードあたり）</Text>
+              <Text style={styles.label}>{i18n.t('books.chunkSizeLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={chunkSize}
                 onChangeText={setChunkSize}
-                placeholder="例: 10"
+                placeholder={i18n.t('books.chunkSizePlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
               />
               <Text style={styles.helpText}>
                 {totalUnit && chunkSize
-                  ? `生成されるカード数: ${Math.ceil(parseInt(totalUnit) / (parseInt(chunkSize) || 1))}枚`
-                  : '※ 1を設定すると1単位につき1カードが作成されます'}
+                  ? i18n.t('books.generatedCards', { count: Math.ceil(parseInt(totalUnit) / (parseInt(chunkSize) || 1)) })
+                  : i18n.t('books.chunkSizeHelp')}
               </Text>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>前提となる教材（任意）</Text>
+              <Text style={styles.label}>{i18n.t('books.previousBookLabel')}</Text>
               <TouchableOpacity
                 style={styles.pickerButton}
                 onPress={() => setShowPicker(!showPicker)}
               >
                 <Text style={[styles.pickerText, !previousBookId && styles.placeholderText]}>
                   {previousBookId
-                    ? books.find(b => b.id === previousBookId)?.title || 'なし'
-                    : 'なし（始発駅）'}
+                    ? books.find(b => b.id === previousBookId)?.title || i18n.t('books.previousBookNone')
+                    : i18n.t('books.previousBookNone')}
                 </Text>
               </TouchableOpacity>
               {showPicker && (
@@ -168,7 +169,7 @@ export default function AddBookScreen() {
                       setShowPicker(false);
                     }}
                   >
-                    <Text style={styles.pickerItemText}>なし（始発駅）</Text>
+                    <Text style={styles.pickerItemText}>{i18n.t('books.previousBookNone')}</Text>
                   </TouchableOpacity>
                   {books.map(book => (
                     <TouchableOpacity
@@ -187,7 +188,7 @@ export default function AddBookScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>モード</Text>
+              <Text style={styles.label}>{i18n.t('books.modeLabel')}</Text>
               <View style={styles.modeContainer}>
                 <TouchableOpacity
                   style={[
@@ -197,10 +198,10 @@ export default function AddBookScreen() {
                   onPress={() => setMode(0)}
                 >
                   <Text style={[styles.modeButtonText, mode === 0 && styles.modeButtonTextActive]}>
-                    読
+                    {i18n.t('common.modeRead')}
                   </Text>
                   <Text style={[styles.modeLabel, mode === 0 && styles.modeLabelActive]}>
-                    読む
+                    {i18n.t('books.modeRead')}
                   </Text>
                 </TouchableOpacity>
 
@@ -212,10 +213,10 @@ export default function AddBookScreen() {
                   onPress={() => setMode(1)}
                 >
                   <Text style={[styles.modeButtonText, mode === 1 && styles.modeButtonTextActive]}>
-                    解
+                    {i18n.t('common.modeSolve')}
                   </Text>
                   <Text style={[styles.modeLabel, mode === 1 && styles.modeLabelActive]}>
-                    解く
+                    {i18n.t('books.modeSolve')}
                   </Text>
                 </TouchableOpacity>
 
@@ -227,10 +228,10 @@ export default function AddBookScreen() {
                   onPress={() => setMode(2)}
                 >
                   <Text style={[styles.modeButtonText, mode === 2 && styles.modeButtonTextActive]}>
-                    暗
+                    {i18n.t('common.modeMemo')}
                   </Text>
                   <Text style={[styles.modeLabel, mode === 2 && styles.modeLabelActive]}>
-                    暗記
+                    {i18n.t('books.modeMemo')}
                   </Text>
                 </TouchableOpacity>
               </View>

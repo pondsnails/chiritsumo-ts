@@ -22,6 +22,7 @@ import { useCardStore } from '@/app/core/store/cardStore';
 import { useBookStore } from '@/app/core/store/bookStore';
 import { colors } from '@/app/core/theme/colors';
 import { cardsDB } from '@/app/core/database/db';
+import i18n from '@/app/core/i18n';
 import type { Card, Book } from '@/app/core/types';
 
 const { width, height } = Dimensions.get('window');
@@ -125,7 +126,7 @@ export default function StudyScreen() {
     if (!permission) {
       const { status } = await requestPermission();
       if (status !== 'granted') {
-        Alert.alert('エラー', 'カメラの権限が必要です');
+        Alert.alert(i18n.t('common.error'), i18n.t('study.cameraPermissionError'));
         return;
       }
     }
@@ -159,10 +160,10 @@ export default function StudyScreen() {
         // 永続パスを保存
         await cardsDB.upsert({ ...card, photoPath: permanentFile.uri });
         setShowCamera(false);
-        Alert.alert('保存完了', '写真メモを保存しました');
+        Alert.alert(i18n.t('study.saveCompleted'), i18n.t('study.photoSaved'));
       } catch (error) {
         console.error('Failed to take picture:', error);
-        Alert.alert('エラー', '写真の保存に失敗しました');
+        Alert.alert(i18n.t('common.error'), i18n.t('study.photoSaveFailed'));
       }
     }
   };
@@ -181,9 +182,9 @@ export default function StudyScreen() {
     return (
       <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
         <SafeAreaView style={styles.center}>
-          <Text style={styles.emptyText}>学習カードがありません</Text>
+          <Text style={styles.emptyText}>{i18n.t('study.noCards')}</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>戻る</Text>
+            <Text style={styles.backButtonText}>{i18n.t('study.back')}</Text>
           </TouchableOpacity>
         </SafeAreaView>
       </LinearGradient>
