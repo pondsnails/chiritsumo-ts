@@ -169,6 +169,13 @@ app/
   - [ ] Entitlement設定
   - [ ] API Key差し替え
 
+- [ ] **Gemini API セキュリティ設定**
+  - [ ] Google Cloud Console > APIs & Services > Credentials
+  - [ ] API制限を「Android apps」「iOS apps」に設定
+  - [ ] Bundle ID: `com.chiritsumo.app` を登録
+  - [ ] SHA-1フィンガープリントを登録
+  - [ ] (参考: https://cloud.google.com/docs/authentication/api-keys)
+
 - [ ] **プライバシーポリシーホスティング**
   - [ ] HTMLをデプロイ
   - [ ] URLをアプリに反映
@@ -176,6 +183,49 @@ app/
 - [ ] **審査提出**
   - [ ] App Store Connect
   - [ ] Google Play Console
+
+## 🔐 Security Best Practices
+
+### API Key Protection
+
+**Gemini API Key制限設定（必須）**
+
+1. Google Cloud Consoleにアクセス
+2. 「APIs & Services」→「認証情報」
+3. 使用中のAPI Keyを編集
+4. 「アプリケーションの制限」セクション：
+   - ✅ 「Android apps」または「iOS apps」を選択
+   - ❌ 「なし」は選択しない（セキュリティリスク）
+5. **iOS apps**の場合：
+   - Bundle ID: `com.chiritsumo.app` を追加
+6. **Android apps**の場合：
+   - Package name: `com.chiritsumo.app`
+   - SHA-1フィンガープリント: （keystoreから取得）
+7. 「保存」
+
+これにより、APIキーがアプリから抽出されても、他のアプリやWebサイトから不正利用されることを防げます。
+
+### Environment Variables Setup
+
+`.env` ファイルを作成（`.gitignore`に含める）:
+
+```env
+EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
+```
+
+または `app.json` の `extra` セクション:
+
+```json
+{
+  "expo": {
+    "extra": {
+      "geminiApiKey": "your_api_key_here"
+    }
+  }
+}
+```
+
+⚠️ **注意**: APIキーはGitにコミットしないでください！
 
 ## 🎨 デザインシステム: "Aurora Glass"
 

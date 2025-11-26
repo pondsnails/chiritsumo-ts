@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import type { Book } from '../types';
 
 export interface BookRecommendation {
@@ -14,11 +15,30 @@ export interface AffiliateContext {
   interests: string[];
 }
 
+/**
+ * Get Gemini API key from environment
+ * SECURITY NOTE: 
+ * - For production, configure API key restrictions in Google Cloud Console:
+ *   1. Go to APIs & Services > Credentials
+ *   2. Edit your API key
+ *   3. Under "Application restrictions", select "Android apps" or "iOS apps"
+ *   4. Add your app's Bundle ID (com.chiritsumo.app) and SHA-1 fingerprint
+ * - This prevents unauthorized use even if the key is extracted from the app
+ */
+function getGeminiApiKey(): string | undefined {
+  return (
+    Constants.expoConfig?.extra?.geminiApiKey ||
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY
+  );
+}
+
 export async function generateBookRecommendations(
-  context: AffiliateContext,
-  geminiApiKey?: string
+  context: AffiliateContext
 ): Promise<BookRecommendation[]> {
+  const geminiApiKey = getGeminiApiKey();
+
   if (!geminiApiKey) {
+    console.warn('Gemini API key not configured, using fallback recommendations');
     return getFallbackRecommendations();
   }
 
@@ -51,7 +71,7 @@ export async function generateBookRecommendations(
     );
 
     if (!response.ok) {
-      throw new Error('Failed to fetch recommendations from Gemini');
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
