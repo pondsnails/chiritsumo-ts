@@ -4,16 +4,16 @@ export type CardState = 'new' | 'learning' | 'review' | 'relearning';
 
 export interface Book {
   id: string;
-  userId: string;
-  subjectId?: number;
+  subjectId: number;
   title: string;
-  isbn?: string;
+  isbn: string;
   mode: 0 | 1 | 2;
   totalUnit: number;
-  status: 0 | 1 | 2 | 3;
-  previousBookId?: string;
+  completedUnit: number;
+  status: 0 | 1 | 2;
+  previousBookId: string | null;
   priority: 0 | 1;
-  coverPath?: string;
+  coverPath: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,32 +25,26 @@ export interface Card {
   state: 0 | 1 | 2 | 3;
   stability: number;
   difficulty: number;
-  due: string;
-  lastReview?: string;
+  due: Date;
+  lastReview: Date | null;
   reps: number;
-  photoPath?: string;
-  createdAt: string;
-  updatedAt: string;
+  photoPath: string | null;
 }
 
 export interface LedgerEntry {
   id: number;
-  userId: string;
   date: string;
   earnedLex: number;
   targetLex: number;
   balance: number;
-  createdAt: string;
 }
 
 export interface InventoryPreset {
   id: number;
-  userId: string;
   label: string;
   iconCode: number;
   bookIds: string[];
   isDefault: boolean;
-  createdAt: string;
 }
 
 export interface FSRSParams {
