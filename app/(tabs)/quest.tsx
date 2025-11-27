@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Play, Settings } from 'lucide-react-native';
+import { Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
@@ -21,17 +21,15 @@ import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
-import { createScheduler } from '@core/fsrs/scheduler';
 import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
-import ProgressBar from '@core/components/ProgressBar';
-import { RotateCcw, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
+import { SummaryCards, ReviewSection, NewSection } from '@core/components/quest';
 import i18n from '@core/i18n';
 import type { Card, InventoryPreset } from '@core/types';
 
@@ -57,9 +55,6 @@ export default function QuestScreen() {
   const [initialDueCount, setInitialDueCount] = useState<number>(0);
   const [celebrate, setCelebrate] = useState(false);
   const [showCompletionToast, setShowCompletionToast] = useState(false);
-  // 詳細表示トグル（初期は非表示で認知負荷を下げる）
-  const [showAdvancedReview, setShowAdvancedReview] = useState(false);
-  const [showAdvancedNew, setShowAdvancedNew] = useState(false);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -361,25 +356,15 @@ export default function QuestScreen() {
             <Text style={styles.bannerTitle}>今日の流れ</Text>
             <Text style={styles.bannerText}>1. 復習を全部終わらせる → 2. 不足Lex分を新規で補う → 3. 余裕があれば追加割り当て</Text>
           </View>
-          <View style={styles.summaryContainer}>
-            <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>復習</Text>
-              <Text style={styles.summaryValue}>{dueCards.length}</Text>
-              <Text style={styles.summaryLex}>+{reviewLex} Lex</Text>
-            </View>
-            <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>新規学習</Text>
-              <Text style={styles.summaryValue}>{newCards.length}</Text>
-              <Text style={styles.summaryLex}>+{newLexCurrent} Lex</Text>
-            </View>
-            <View style={[glassEffect.card, styles.summaryCard]}>
-              <Text style={styles.summaryLabel}>目標</Text>
-              <Text style={styles.summaryValue}>{targetLex}</Text>
-              <Text style={[styles.summaryLex, { color: combinedLex >= targetLex ? colors.success : colors.error }]}>
-                {combinedLex >= targetLex ? '達成済み' : `不足 ${targetLex - combinedLex} Lex`}
-              </Text>
-            </View>
-          </View>
+
+          <SummaryCards
+            dueCount={dueCards.length}
+            reviewLex={reviewLex}
+            newCount={newCards.length}
+            newLex={newLexCurrent}
+            targetLex={targetLex}
+            combinedLex={combinedLex}
+          />
 
           {groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
             <View style={styles.emptyState}>
@@ -433,145 +418,37 @@ export default function QuestScreen() {
           ) : (
             <>
               {groupedReviewCards.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🔄 復習（何も考えず評価するだけ）</Text>
-                  <View style={styles.progressWrap}>
-                    <ProgressBar value={initialDueCount === 0 ? 0 : (initialDueCount - dueCards.length) / Math.max(1, initialDueCount)} />
-                    <Text style={styles.progressLabel}>残り {dueCards.length} / 初期 {initialDueCount}</Text>
-                  </View>
-                  {/* グローバル次カード */}
-                  <View style={[glassEffect.card, styles.taskCard]}>    
-                    {globalNext && globalNextBook ? (
-                      <View style={styles.globalNextWrap}>
-                        <Text style={styles.globalNextTitle}>{globalNextBook.title}</Text>
-                        {(() => {
-                          const chunkSize = globalNextBook.chunkSize && globalNextBook.chunkSize > 0 ? globalNextBook.chunkSize : 1;
-                          const start = (globalNext.unitIndex - 1) * chunkSize + 1;
-                          const end = Math.min(globalNext.unitIndex * chunkSize, globalNextBook.totalUnit);
-                          return (
-                            <Text style={styles.globalNextSub}>
-                              学習単位 {globalNext.unitIndex}
-                              {chunkSize > 1 ? ` (${start}–${end})` : ''}
-                            </Text>
-                          );
-                        })()}
-                        <Text style={styles.chunkHint}>学習単位＝書籍を chunkSize({globalNextBook.chunkSize || 1}) ごとに区切ったまとまり</Text>
-                        <View style={styles.reviewButtons}>
-                            <TouchableOpacity
-                            style={[styles.ratingBtn, styles.ratingAgain]}
-                            onPress={async () => {
-                              try {
-                                const scheduler = createScheduler(globalNextBook.mode);
-                                const updated = scheduler.reviewAgain(globalNext);
-                                await cardRepo.update(updated.id, updated);
-                                await loadDueCards();
-                                  Haptics.selectionAsync();
-                              } catch (e) { console.error('global review again failed', e); }
-                            }}
-                          >
-                            <RotateCcw size={16} color={colors.text} />
-                            <Text style={styles.ratingText}>もう一度</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.ratingBtn, styles.ratingHard]}
-                            onPress={async () => {
-                              try {
-                                const scheduler = createScheduler(globalNextBook.mode);
-                                const updated = scheduler.reviewHard(globalNext);
-                                await cardRepo.update(updated.id, updated);
-                                await loadDueCards();
-                                Haptics.selectionAsync();
-                              } catch (e) { console.error('global review hard failed', e); }
-                            }}
-                          >
-                            <AlertTriangle size={16} color={colors.text} />
-                            <Text style={styles.ratingText}>難しい</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.ratingBtn, styles.ratingGood]}
-                            onPress={async () => {
-                              try {
-                                const scheduler = createScheduler(globalNextBook.mode);
-                                const updated = scheduler.reviewGood(globalNext);
-                                await cardRepo.update(updated.id, updated);
-                                await loadDueCards();
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                if (dueCards.length - 1 <= 0) {
-                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                }
-                              } catch (e) { console.error('global review good failed', e); }
-                            }}
-                          >
-                            <CheckCircle size={16} color={colors.text} />
-                            <Text style={styles.ratingText}>できた</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      <Text style={styles.reviewDone}>今日の復習は全て完了しました 🎉</Text>
-                    )}
-                    <TouchableOpacity
-                      style={styles.advancedToggle}
-                      onPress={() => setShowAdvancedReview(prev => !prev)}
-                    >
-                      <Text style={styles.advancedToggleText}>{showAdvancedReview ? '詳細を閉じる' : '書籍別の残りを見る'}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {showAdvancedReview && (
-                    <View style={styles.taskList}>
-                      {groupedReviewCards.map(({ book, cards }) => {
-                        const now = new Date();
-                        const dueList = cards.filter(c => c.due <= now);
-                        return (
-                          <View key={book.id} style={[glassEffect.card, styles.simpleBookCard]}>
-                            <Text style={styles.simpleBookTitle} numberOfLines={1}>{book.title}</Text>
-                            <Text style={styles.simpleBookCount}>残り {dueList.length} 枚</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
+                <ReviewSection
+                  dueCards={dueCards}
+                  initialDueCount={initialDueCount}
+                  groupedReviewCards={groupedReviewCards}
+                  globalNext={globalNext}
+                  globalNextBook={globalNextBook}
+                  onReviewComplete={loadDueCards}
+                />
               )}
 
-              <View style={[styles.section, (newDeemphasized || hasReviewPending) && styles.dimSection]}>
-                <Text style={styles.sectionTitle}>🌱 新規{hasReviewPending ? '（復習完了後に推奨）' : ''}</Text>
-                <View style={[glassEffect.card, styles.taskCard]}>
-                  <Text style={styles.emptyText}>不足 {Math.max(0, targetLex - combinedLex)} Lex / 推奨 {recommended.total} 枚</Text>
-                  <TouchableOpacity
-                    style={[styles.startButton, (recommended.total === 0 || hasReviewPending) && { opacity: 0.5 }]}
-                    disabled={recommended.total === 0 || hasReviewPending}
-                    onPress={async () => {
-                      try {
-                        const created = await assignNewCardsByAllocation(books, recommended.perBook);
-                        if (created > 0) {
-                          await loadDueCards();
-                          await loadNewCards();
-                          await loadDailyTarget();
-                        }
-                      } catch (e) {
-                        console.error('Assign recommended new failed', e);
-                      }
-                    }}
-                  >
-                    <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                    <Text style={styles.startButtonText}>推奨を割り当てる</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvancedNew(p => !p)}>
-                    <Text style={styles.advancedToggleText}>{showAdvancedNew ? '詳細を閉じる' : '書籍別を見る'}</Text>
-                  </TouchableOpacity>
-                </View>
-                {showAdvancedNew && groupedNewCards.length > 0 && (
-                  <View style={styles.taskList}>
-                    {groupedNewCards.map(({ book, cards }) => (
-                      <View key={book.id} style={[glassEffect.card, styles.simpleBookCard]}>
-                        <Text style={styles.simpleBookTitle} numberOfLines={1}>{book.title}</Text>
-                        <Text style={styles.simpleBookCount}>割り当て済 {cards.length} 枚 / 推奨 {(recommended.perBook[book.id] || 0)} 枚</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
+              <NewSection
+                newDeemphasized={newDeemphasized}
+                hasReviewPending={hasReviewPending}
+                targetLex={targetLex}
+                combinedLex={combinedLex}
+                recommendedTotal={recommended.total}
+                recommendedPerBook={recommended.perBook}
+                groupedNewCards={groupedNewCards}
+                onAssignRecommended={async () => {
+                  try {
+                    const created = await assignNewCardsByAllocation(books, recommended.perBook);
+                    if (created > 0) {
+                      await loadDueCards();
+                      await loadNewCards();
+                      await loadDailyTarget();
+                    }
+                  } catch (e) {
+                    console.error('Assign recommended new failed', e);
+                  }
+                }}
+              />
             </>
           )}
         </ScrollView>
@@ -739,33 +616,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 16,
   },
-  summaryContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 24,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: 16,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  summaryLex: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: 4,
-  },
   section: {
     marginBottom: 24,
   },
@@ -803,118 +653,6 @@ const styles = StyleSheet.create({
   },
   taskCard: {
     padding: 16,
-  },
-  taskHeader: {
-    marginBottom: 12,
-  },
-  taskTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  modeBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modeBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  taskTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  taskStats: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  taskCount: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  taskLex: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  inlineActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  smallBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    alignItems: 'center',
-  },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  smallBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    gap: 8,
-  },
-  reviewInfo: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  reviewButtons: { flexDirection: 'row', gap: 6 },
-  ratingBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingAgain: { backgroundColor: '#552222' },
-  ratingHard: { backgroundColor: '#554d22' },
-  ratingGood: { backgroundColor: '#225522' },
-  ratingText: { fontSize: 13, fontWeight: '700', color: colors.text },
-  reviewDone: { fontSize: 12, color: colors.success, marginBottom: 8, fontWeight: '600' },
-  progressWrap: { marginHorizontal: 16, marginBottom: 8, gap: 4 },
-  progressLabel: { fontSize: 11, color: colors.textSecondary, textAlign: 'right' },
-  globalNextWrap: { gap: 8 },
-  globalNextTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  globalNextSub: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  advancedToggle: { marginTop: 12, alignSelf: 'flex-end' },
-  advancedToggleText: { fontSize: 11, fontWeight: '600', color: colors.primary },
-  simpleBookCard: { padding: 12, gap: 4 },
-  simpleBookTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
-  simpleBookCount: { fontSize: 12, color: colors.textSecondary },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
   },
   quickStartButton: {
     marginTop: 8,
