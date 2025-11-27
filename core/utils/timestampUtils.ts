@@ -133,6 +133,18 @@ export function formatTimestamp(timestamp: number): string {
 }
 
 /**
+ * Unix TimestampをYYYY-MM-DD形式に変換（ローカルタイムゾーン）
+ * BrainAnalyticsDashboard等で使用
+ */
+export function formatTimestampToDate(timestamp: number): string {
+  const date = timestampToDate(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * 相対時間表示（"3分前"、"2日前"など）
  */
 export function getRelativeTime(timestamp: number): string {

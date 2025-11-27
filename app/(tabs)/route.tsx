@@ -25,6 +25,7 @@ import { MetroLayoutEngine } from '@core/layout/metroLayout';
 import { computeLayoutAsync } from '@core/layout/metroLayoutCache';
 import { MetroLine } from '@core/components/MetroLine';
 import { BookNode } from '@core/components/BookNode';
+import { BookMode } from '@core/constants/enums';
 import i18n from '@core/i18n';
 import type { Book, RouteStep, PresetRoute } from '@core/types';
 import type { NodePosition } from '@core/layout/metroLayout';

@@ -16,6 +16,7 @@ import { ArrowLeft, Save, Calendar, Target, TrendingUp, Share2 } from 'lucide-re
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useStores } from '@core/hooks/useStores';
 import { useServices } from '@core/di/ServicesProvider';
+import { BookMode } from '@core/constants/enums';
 import { colors } from '@core/theme/colors';
 import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';

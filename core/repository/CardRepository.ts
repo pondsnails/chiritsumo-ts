@@ -314,23 +314,24 @@ export class DrizzleCardRepository implements ICardRepository {
 
   /**
    * 日付ごとの復習カード数を取得（ヒートマップ用）
+   * last_reviewはUNIX Timestamp（秒）なので、unixepoch修飾子が必須
    */
   async getReviewCountByDate(startDate: string, endDate: string): Promise<{ date: string; count: number }[]> {
     const db = await this.db();
     const result = await db
       .select({
-        date: sql<string>`DATE(${cards.last_review})`,
+        date: sql<string>`DATE(${cards.last_review}, 'unixepoch')`,
         count: sql<number>`count(*)`,
       })
       .from(cards)
       .where(
         and(
           sql`${cards.last_review} IS NOT NULL`,
-          sql`DATE(${cards.last_review}) >= ${startDate}`,
-          sql`DATE(${cards.last_review}) <= ${endDate}`
+          sql`DATE(${cards.last_review}, 'unixepoch') >= ${startDate}`,
+          sql`DATE(${cards.last_review}, 'unixepoch') <= ${endDate}`
         )
       )
-      .groupBy(sql`DATE(${cards.last_review})`)
+      .groupBy(sql`DATE(${cards.last_review}, 'unixepoch')`)
       .all();
     
     return result.map(r => ({

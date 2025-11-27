@@ -19,6 +19,7 @@ import { useStores } from '@core/hooks/useStores';
 import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore';
 import { validateBookAddition } from '@core/utils/circularReferenceDetector';
 import { getBookTitleFromBarcode } from '@core/services/bookDataService';
+import { BookMode } from '@core/constants/enums';
 import { colors } from '@core/theme/colors';
 import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';

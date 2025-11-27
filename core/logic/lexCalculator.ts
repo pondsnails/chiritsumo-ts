@@ -1,3 +1,8 @@
+/**
+ * Lex計算ロジック
+ * 学習モード（読む・解く・暗記）ごとの基準Lexとチャンクサイズによる調整
+ */
+import { BookMode } from '@core/constants/enums';
 import type { Book, Card } from '../types';
 import { BASE_LEX, DIFFICULTY_MULTIPLIER, RETENTION_BONUS_THRESHOLD } from '../constants/lexProfile';
 
@@ -16,7 +21,7 @@ export function calculateDynamicLex(
   stability: number,
   daysSinceLastReview: number
 ): number {
-  const baseLex = mode === 0 ? BASE_LEX.read : mode === 1 ? BASE_LEX.solve : BASE_LEX.memo;
+  const baseLex = mode === BookMode.READ ? BASE_LEX.read : mode === BookMode.SOLVE ? BASE_LEX.solve : BASE_LEX.memo;
   
   // 難易度ボーナス（難しいカードほど高報酬）
   const difficultyBonus = 1 + (difficulty / 10) * DIFFICULTY_MULTIPLIER;
@@ -57,14 +62,22 @@ export function calculateLexForCard(mode: 0 | 1 | 2, card: Card): number {
  * 後方互換性のための固定値計算（旧ロジック）
  * rolloverLogicなどで平均値計算に使用
  */
-export function calculateLexPerCard(mode: 0 | 1 | 2): number {
-  if (mode === 0) return BASE_LEX.read;
-  if (mode === 1) return BASE_LEX.solve;
+export function getModeLex(mode: 0 | 1 | 2): number {
+  if (mode === BookMode.READ) return BASE_LEX.read;
+  if (mode === BookMode.SOLVE) return BASE_LEX.solve;
   return BASE_LEX.memo;
 }
 
 /**
- * 書籍の総Lex計算（固定値版）
+ * モードごとの基本 Lex を取得（add/edit画面で使用）
+ * @deprecated Use getModeLex instead
+ */
+export function calculateLexPerCard(mode: 0 | 1 | 2): number {
+  return getModeLex(mode);
+}
+
+/**
+ * 書籍の総 Lex 計算（固定値版）
  */
 export function calculateLex(book: Book, cardCount: number): number {
   const lexPerCard = calculateLexPerCard(book.mode);

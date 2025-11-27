@@ -38,8 +38,8 @@ export function BookNode({ book, isHub, hubCount, onPress, onLongPress }: BookNo
   };
 
   const getModeColor = () => {
-    if (book.mode === 0) return colors.read;
-    if (book.mode === 1) return colors.solve;
+    if (book.mode === BookMode.READ) return colors.read;
+    if (book.mode === BookMode.SOLVE) return colors.solve;
     return colors.memo;
   };
 

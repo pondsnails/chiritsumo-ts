@@ -25,11 +25,53 @@ const BookBackupSchema = z.object({
   chunk_size: z.number().int().positive().optional(),
   completedUnit: z.number().int().min(0).optional(),
   completed_unit: z.number().int().min(0).optional(),
-  updatedAt: z.string().optional(),
-  updated_at: z.string().optional(),
-  createdAt: z.string().optional(),
-  created_at: z.string().optional(),
-}).passthrough();
+  userId: z.string().optional(),
+  user_id: z.string().optional(),
+  subjectId: z.string().nullish(),
+  subject_id: z.string().nullish(),
+  isbn: z.string().nullish(),
+  status: z.number().int().optional(),
+  previousBookId: z.string().nullish(),
+  previous_book_id: z.string().nullish(),
+  priority: z.number().int().optional(),
+  coverPath: z.string().nullish(),
+  cover_path: z.string().nullish(),
+  targetCompletionDate: z.union([z.string(), z.number()]).nullish(),
+  target_completion_date: z.union([z.string(), z.number()]).nullish(),
+  updatedAt: z.union([z.string(), z.number()]).optional(),
+  updated_at: z.union([z.string(), z.number()]).optional(),
+  createdAt: z.union([z.string(), z.number()]).optional(),
+  created_at: z.union([z.string(), z.number()]).optional(),
+}).passthrough().transform(b => {
+  const toUnixNullable = (v: any): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return v;
+    const d = new Date(v);
+    return Math.floor(d.getTime()/1000);
+  };
+  const toUnix = (v: any): number => {
+    const r = toUnixNullable(v);
+    return r ?? Math.floor(Date.now()/1000);
+  };
+  return {
+    id: b.id,
+    userId: b.userId ?? b.user_id ?? 'local-user',
+    subjectId: b.subjectId ?? b.subject_id ?? null,
+    title: b.title,
+    isbn: b.isbn ?? null,
+    mode: b.mode ?? 1,
+    totalUnit: b.totalUnit ?? b.total_unit ?? 0,
+    chunkSize: b.chunkSize ?? b.chunk_size ?? 1,
+    completedUnit: b.completedUnit ?? b.completed_unit ?? 0,
+    status: b.status ?? 0,
+    previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
+    priority: b.priority ?? 1,
+    coverPath: b.coverPath ?? b.cover_path ?? null,
+    targetCompletionDate: toUnixNullable(b.targetCompletionDate ?? b.target_completion_date),
+    createdAt: toUnix(b.createdAt ?? b.created_at),
+    updatedAt: toUnix(b.updatedAt ?? b.updated_at ?? b.createdAt ?? b.created_at),
+  };
+});
 
 const CardBackupSchema = z.object({
   id: z.string(),
@@ -37,19 +79,68 @@ const CardBackupSchema = z.object({
   book_id: z.string().optional(),
   unitIndex: z.number().int().min(0).optional(),
   unit_index: z.number().int().min(0).optional(),
-  due: z.union([z.string(), z.date()]),
-  lastReview: z.union([z.string(), z.date()]).nullish(),
-  last_review: z.union([z.string(), z.date()]).nullish().optional(),
-}).passthrough();
+  state: z.number().int().optional(),
+  stability: z.number().optional(),
+  difficulty: z.number().optional(),
+  elapsed_days: z.number().int().optional(),
+  elapsedDays: z.number().int().optional(),
+  scheduled_days: z.number().int().optional(),
+  scheduledDays: z.number().int().optional(),
+  reps: z.number().int().optional(),
+  lapses: z.number().int().optional(),
+  photoPath: z.string().nullish(),
+  photo_path: z.string().nullish(),
+  due: z.union([z.string(), z.date(), z.number()]),
+  lastReview: z.union([z.string(), z.date(), z.number()]).nullish(),
+  last_review: z.union([z.string(), z.date(), z.number()]).nullish(),
+}).passthrough().transform(c => {
+  const toUnixNullable = (v: any): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return v;
+    const d = new Date(v);
+    return Math.floor(d.getTime()/1000);
+  };
+  const toUnix = (v: any): number => {
+    const r = toUnixNullable(v);
+    return r ?? Math.floor(Date.now()/1000);
+  };
+  return {
+    id: c.id,
+    bookId: c.bookId ?? c.book_id ?? '',
+    unitIndex: c.unitIndex ?? c.unit_index ?? 0,
+    state: c.state ?? 0,
+    stability: c.stability ?? 0,
+    difficulty: c.difficulty ?? 0,
+    elapsed_days: c.elapsed_days ?? c.elapsedDays ?? 0,
+    scheduled_days: c.scheduled_days ?? c.scheduledDays ?? 0,
+    reps: c.reps ?? 0,
+    lapses: c.lapses ?? 0,
+    due: toUnix(c.due),
+    lastReview: toUnixNullable(c.lastReview ?? c.last_review),
+    photoPath: c.photoPath ?? c.photo_path ?? null,
+  };
+});
 
 const LedgerBackupSchema = z.object({
-  date: z.string(),
+  date: z.union([z.string(), z.number()]),
   earnedLex: z.number().optional(),
   earned_lex: z.number().optional(),
   targetLex: z.number().optional(),
   target_lex: z.number().optional(),
   balance: z.number().optional(),
-}).passthrough();
+}).passthrough().transform(l => {
+  const toUnix = (v: any): number => {
+    if (typeof v === 'number') return v;
+    const d = new Date(v);
+    return Math.floor(d.getTime()/1000);
+  };
+  return {
+    date: toUnix(l.date),
+    earnedLex: l.earnedLex ?? l.earned_lex ?? 0,
+    targetLex: l.targetLex ?? l.target_lex ?? 0,
+    balance: l.balance ?? 0,
+  };
+});
 
 const SystemSettingBackupSchema = z.object({
   key: z.string(),
@@ -69,63 +160,15 @@ const BackupSchema = z.object({
   ledger: z.array(LedgerBackupSchema),
   systemSettings: z.array(SystemSettingBackupSchema).optional(),
   presetBooks: z.array(PresetBookLinkSchema).optional(),
-}).transform(data => {
-  const toUnixNullable = (v: any): number | null => {
-    if (v === null || v === undefined || v === '') return null;
-    if (typeof v === 'number') return v;
-    const d = new Date(v);
-    return Math.floor(d.getTime()/1000);
-  };
-  const toUnix = (v: any): number => {
-    const r = toUnixNullable(v);
-    return r ?? Math.floor(Date.now()/1000);
-  };
-  return {
-    version: data.version ?? '1.0.0',
-    exportedAt: data.exportedAt ?? new Date().toISOString(),
-    books: data.books.map(b => ({
-      id: b.id,
-      userId: (b as any).userId ?? (b as any).user_id ?? 'local-user',
-      subjectId: (b as any).subjectId ?? (b as any).subject_id ?? null,
-      title: b.title,
-      isbn: (b as any).isbn ?? null,
-      mode: (b as any).mode ?? 1,
-      totalUnit: (b as any).totalUnit ?? (b as any).total_unit ?? 0,
-      chunkSize: (b as any).chunkSize ?? (b as any).chunk_size ?? 1,
-      completedUnit: (b as any).completedUnit ?? (b as any).completed_unit ?? 0,
-      status: (b as any).status ?? 0,
-      previousBookId: (b as any).previousBookId ?? (b as any).previous_book_id ?? null,
-      priority: (b as any).priority ?? 1,
-      coverPath: (b as any).coverPath ?? (b as any).cover_path ?? null,
-      targetCompletionDate: toUnixNullable((b as any).targetCompletionDate ?? (b as any).target_completion_date),
-      createdAt: toUnix((b as any).createdAt ?? (b as any).created_at),
-      updatedAt: toUnix((b as any).updatedAt ?? (b as any).updated_at ?? (b as any).createdAt ?? (b as any).created_at),
-    })),
-    cards: data.cards.map(c => ({
-      id: c.id,
-      bookId: (c as any).bookId ?? (c as any).book_id ?? '',
-      unitIndex: (c as any).unitIndex ?? (c as any).unit_index ?? 0,
-      state: (c as any).state ?? 0,
-      stability: (c as any).stability ?? 0,
-      difficulty: (c as any).difficulty ?? 0,
-      elapsed_days: (c as any).elapsed_days ?? (c as any).elapsedDays ?? 0,
-      scheduled_days: (c as any).scheduled_days ?? (c as any).scheduledDays ?? 0,
-      reps: (c as any).reps ?? 0,
-      lapses: (c as any).lapses ?? 0,
-      due: toUnix((c as any).due),
-      lastReview: toUnixNullable((c as any).lastReview ?? (c as any).last_review),
-      photoPath: (c as any).photoPath ?? (c as any).photo_path ?? null,
-    })),
-    ledger: data.ledger.map(l => ({
-      date: toUnix((l as any).date),
-      earnedLex: (l as any).earnedLex ?? (l as any).earned_lex ?? 0,
-      targetLex: (l as any).targetLex ?? (l as any).target_lex ?? 0,
-      balance: (l as any).balance ?? 0,
-    })),
-    systemSettings: data.systemSettings ?? [],
-    presetBooks: data.presetBooks ?? [],
-  };
-});
+}).transform(data => ({
+  version: data.version ?? '1.0.0',
+  exportedAt: data.exportedAt ?? new Date().toISOString(),
+  books: data.books,
+  cards: data.cards,
+  ledger: data.ledger,
+  systemSettings: data.systemSettings ?? [],
+  presetBooks: data.presetBooks ?? [],
+}));
 
 export type RawBackupData = z.input<typeof BackupSchema>;
 export type NormalizedBackupData = z.infer<typeof BackupSchema>;
