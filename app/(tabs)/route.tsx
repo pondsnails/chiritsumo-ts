@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
 import { DrizzleBookRepository } from '@core/repository/BookRepository';
+import { sortBooksByDependency } from '@core/utils/bookSorting';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { MetroLayoutEngine } from '@core/layout/metroLayout';
@@ -44,107 +45,31 @@ export default function RouteScreen() {
   const [nodes, setNodes] = useState<NodePosition[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [circularRefs, setCircularRefs] = useState<string[]>([]); // 循環参照の警告メッセージ
+  const [bookRoutes, setBookRoutes] = useState<Book[][]>([]);
 
-  // 依存関係に基づいて書籍をソート（トポロジカルソート + 循環検出）
-  const sortBooksByDependency = useCallback((books: Book[]) => {
-    const bookMap = new Map(books.map(b => [b.id, b]));
-    const routes: Book[][] = [];
-    const globalVisited = new Set<string>(); // 全体で訪問済みのノード
-    const detectedCircularRefs: string[] = []; // 検出された循環参照
-    
-    // ルートノード（previousBookIdがnullまたは存在しない書籍）を探す
-    const getRootBooks = () => {
-      return books.filter(b => 
-        !b.previousBookId || !bookMap.has(b.previousBookId)
-      );
-    };
-    
-    // 循環参照検出と深さ優先探索
-    const buildChainsFromBook = (
-      startBook: Book,
-      currentPath: Set<string> = new Set() // 現在のパスで訪問中のノード（循環検出用）
-    ): Book[][] => {
-      // 循環検出：現在のパスに既に含まれている
-      if (currentPath.has(startBook.id)) {
-        const pathArray = Array.from(currentPath);
-        const cycleStart = pathArray.indexOf(startBook.id);
-        const cycle = [...pathArray.slice(cycleStart), startBook.id]
-          .map(id => bookMap.get(id)?.title || id)
-          .join(' → ');
-        detectedCircularRefs.push(cycle);
-        console.warn(`循環参照を検出: ${cycle}`);
-        return []; // 循環を打ち切る
-      }
-      
-      // このパスに追加
-      const newPath = new Set(currentPath);
-      newPath.add(startBook.id);
-      
-      // このstartBookを前提としている書籍を全て探す
-      const children = books.filter(b => b.previousBookId === startBook.id);
-      
-      if (children.length === 0) {
-        // 末端ノード：このブック単体でチェーン終了
-        return [[startBook]];
-      }
-      
-      // 各子ブックから再帰的にチェーンを構築
-      const allChains: Book[][] = [];
-      children.forEach(child => {
-        const childChains = buildChainsFromBook(child, newPath);
-        childChains.forEach(childChain => {
-          // startBookを先頭に追加
-          allChains.push([startBook, ...childChain]);
-        });
-      });
-      
-      // 子が全て循環で打ち切られた場合、このノード単体を返す
-      if (allChains.length === 0) {
-        return [[startBook]];
-      }
-      
-      return allChains;
-    };
-    
-    // 各ルートからチェーンを構築
-    const rootBooks = getRootBooks();
-    
-    // ルートが多すぎる場合の警告（パフォーマンス対策）
-    if (rootBooks.length > 10) {
-      console.warn(`ルート数が多い (${rootBooks.length}個): 表示が遅くなる可能性があります`);
+  // 重い依存関係ソートは描画後に遅延実行
+  useEffect(() => {
+    if (books.length === 0) {
+      setBookRoutes([]);
+      setCircularRefs([]);
+      return;
     }
-    
-    rootBooks.forEach(root => {
-      if (!globalVisited.has(root.id)) {
-        const chains = buildChainsFromBook(root);
-        
-        // チェーンが多すぎる場合の制限（最大20ルート）
-        const limitedChains = chains.slice(0, 20);
-        if (chains.length > 20) {
-          console.warn(`${root.title}から${chains.length}個のルートが生成されました。最初の20個のみ表示します`);
-        }
-        
-        routes.push(...limitedChains);
-        
-        // このルートツリー全体を訪問済みにマーク
-        chains.forEach(chain => {
-          chain.forEach(book => globalVisited.add(book.id));
-        });
+    setIsCalculating(true);
+    const task = InteractionManager.runAfterInteractions(() => {
+      try {
+        const { routes, circularRefs } = sortBooksByDependency(books);
+        setBookRoutes(routes);
+        setCircularRefs(circularRefs);
+      } catch (e) {
+        console.error('[RouteScreen] dependency sort failed', e);
+        setBookRoutes([]);
+        setCircularRefs([]);
+      } finally {
+        setIsCalculating(false);
       }
     });
-    
-    // 総ルート数の警告
-    if (routes.length > 50) {
-      console.warn(`総ルート数: ${routes.length}個 - パフォーマンスに影響する可能性があります`);
-    }
-    
-    // 循環参照があればUIに反映
-    setCircularRefs(detectedCircularRefs);
-    
-    return routes;
-  }, []);
-
-  const bookRoutes = useMemo(() => sortBooksByDependency(books), [books, sortBooksByDependency]);
+    return () => task.cancel();
+  }, [books]);
 
   const fetchAllBooks = async () => {
     try {

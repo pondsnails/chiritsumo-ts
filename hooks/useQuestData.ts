@@ -9,10 +9,7 @@
  */
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useBookStore } from '@core/store/bookStore';
-import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
-import { DrizzleCardRepository } from '@core/repository/CardRepository';
-import { DrizzleBookRepository } from '@core/repository/BookRepository';
-import { QuestService } from '@core/services/QuestService';
+import { useServices } from '@core/di/ServicesProvider';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import type { Card, InventoryPreset } from '@core/types';
@@ -53,16 +50,8 @@ export function useQuestData(): QuestData {
   
   const isInitialized = useRef(false);
 
-  // Repository を直接インスタンス化（実運用環境）
-  const cardRepo = useMemo(() => new DrizzleCardRepository(), []);
-  const bookRepo = useMemo(() => new DrizzleBookRepository(), []);
-  const presetRepo = useMemo(() => new DrizzleInventoryPresetRepository(), []);
-  
-  // QuestService をインスタンス化（Repository注入）
-  const questService = useMemo(
-    () => new QuestService(cardRepo, bookRepo, presetRepo),
-    [cardRepo, bookRepo, presetRepo]
-  );
+  // DIコンテキストからサービス取得（Repositoryの直接newを排除）
+  const { questService } = useServices();
 
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
