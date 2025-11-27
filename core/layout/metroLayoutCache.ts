@@ -6,6 +6,7 @@
 import type { Book } from '../types';
 import type { NodePosition, Edge } from './metroLayout';
 import { MetroLayoutEngine } from './metroLayout';
+import { logError, ErrorCategory } from '../utils/errorHandler';
 
 interface CachedLayout {
   nodes: NodePosition[];
@@ -104,7 +105,11 @@ export async function computeLayoutAsync(
 
         resolve({ nodes, edges });
       } catch (error) {
-        console.error('[LayoutCache] Computation error:', error);
+        logError(error, {
+          category: ErrorCategory.LAYOUT,
+          operation: 'computeLayoutAsync',
+          metadata: { bookCount: books.length },
+        });
         // エラー時は空の結果を返す
         resolve({ nodes: [], edges: [] });
       }

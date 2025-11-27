@@ -3,25 +3,32 @@ import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRep
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import { getTodayDateString } from './dateUtils';
+import { logError, ErrorCategory, safeExecute } from './errorHandler';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
 const settingsRepo = new DrizzleSystemSettingsRepository();
 const cardRepo = new DrizzleCardRepository();
 
 export async function getLastRolloverDate(): Promise<string | null> {
-  try {
-    return await settingsRepo.get(LAST_ROLLOVER_KEY);
-  } catch (error) {
-    console.error('Failed to get last rollover date:', error);
-    return null;
-  }
+  return safeExecute(
+    () => settingsRepo.get(LAST_ROLLOVER_KEY),
+    {
+      category: ErrorCategory.DATABASE,
+      operationName: 'getLastRolloverDate',
+      fallbackValue: null,
+    }
+  );
 }
 
 export async function setLastRolloverDate(date: string): Promise<void> {
   try {
     await settingsRepo.set(LAST_ROLLOVER_KEY, date);
   } catch (error) {
-    console.error('Failed to set last rollover date:', error);
+    logError(error, {
+      category: ErrorCategory.DATABASE,
+      operation: 'setLastRolloverDate',
+      metadata: { date },
+    });
   }
 }
 
@@ -76,7 +83,11 @@ export async function performDailyRollover(
       targetLex,
     };
   } catch (error) {
-    console.error('Failed to perform daily rollover:', error);
+    logError(error, {
+      category: ErrorCategory.DATABASE,
+      operation: 'performDailyRollover',
+      metadata: { currentBalance },
+    });
     return {
       success: false,
       newBalance: currentBalance,

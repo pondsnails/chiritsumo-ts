@@ -18,6 +18,7 @@ import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
+import { logError, ErrorCategory, getUserFriendlyMessage } from '../utils/errorHandler';
 
 // チャンクサイズ定数（メモリ使用量とパフォーマンスのトレードオフ）
 const CHUNK_SIZE = 1000;
@@ -176,8 +177,11 @@ export const exportBackupStreaming = async (): Promise<void> => {
     console.log('[BackupStreaming] Export completed successfully');
     console.log(`  Books: ${totalBooks}, Cards: ${totalCards}, Ledger: ${ledgerData.length}`);
   } catch (error) {
-    console.error('[BackupStreaming] Export failed:', error);
-    throw error;
+    logError(error, {
+      category: ErrorCategory.BACKUP,
+      operation: 'exportBackupStreaming',
+    });
+    throw new Error(getUserFriendlyMessage(error, 'バックアップのエクスポートに失敗しました'));
   }
 };
 
@@ -368,8 +372,11 @@ export const importBackupStreaming = async (
       systemSettingsRestored,
     };
   } catch (error) {
-    console.error('[BackupStreaming] Import failed:', error);
-    throw error;
+    logError(error, {
+      category: ErrorCategory.BACKUP,
+      operation: 'importBackupStreaming',
+    });
+    throw new Error(getUserFriendlyMessage(error, 'バックアップのインポートに失敗しました'));
   }
 };
 
