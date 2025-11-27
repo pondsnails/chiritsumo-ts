@@ -97,7 +97,13 @@ export default function SettingsScreen() {
               const result = await importBackup({ mode: 'merge' });
               await Promise.all([fetchBooks(), fetchCards()]);
               const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
-              Alert.alert(i18n.t('common.success'), `バックアップをマージしました。\n\n${msg}`);
+              Alert.alert(
+                i18n.t('common.success'),
+                `バックアップをマージしました。\n\n${msg}`,
+                [
+                  { text: 'OK', onPress: () => router.push('/(tabs)/route' as any) }
+                ]
+              );
             } catch (error) {
               console.error('Import failed:', error);
               Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));
@@ -115,7 +121,13 @@ export default function SettingsScreen() {
               const result = await importBackup({ mode: 'replace' });
               await Promise.all([fetchBooks(), fetchCards()]);
               const msg = `書籍: +${result.booksAdded}（置換）\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
-              Alert.alert(i18n.t('common.success'), `完全復元が完了しました。\n\n${msg}`);
+              Alert.alert(
+                i18n.t('common.success'),
+                `完全復元が完了しました。\n\n${msg}`,
+                [
+                  { text: 'OK', onPress: () => router.push('/(tabs)/route' as any) }
+                ]
+              );
             } catch (error) {
               console.error('Import failed:', error);
               Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));
