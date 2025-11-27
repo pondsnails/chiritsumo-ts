@@ -158,49 +158,67 @@ export const importBackup = async (
         await cardsDB.deleteAll();
         await booksDB.deleteAll();
         await ledgerDB.deleteAll();
-      }
 
-      // 書籍データをマージ（replace時は全追加、merge時は比較）
-      for (const book of normalizedBooks) {
-        if (mode === 'replace') {
-          await booksDB.add(book);
-          booksAdded += 1;
-          continue;
-        }
-        const existing = existingBooksMap.get(book.id);
-        if (!existing) {
-          await booksDB.add(book);
-          booksAdded += 1;
-        } else {
-          const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
-          const importTime = new Date(book.updatedAt || book.createdAt).getTime();
-          if (importTime > existingTime) {
-            await booksDB.update(book.id, book);
-            booksUpdated += 1;
-          }
-        }
-      }
-
-      // カードはupsert（既にマージ対応）
-      for (const card of normalizedCards) {
-        await cardsDB.upsert(card);
-        cardsUpserted += 1;
-      }
-
-      // 台帳は日付単位でユニーク
-      const existingLedger = await ledgerDB.getAll();
-      const existingDates = new Set(existingLedger.map(e => e.date));
-      for (const entryRaw of backup.ledger) {
-        const entry = {
+        // 一括挿入で高速化
+        await booksDB.bulkUpsert(normalizedBooks);
+        booksAdded = normalizedBooks.length;
+        await cardsDB.bulkUpsert(normalizedCards);
+        cardsUpserted = normalizedCards.length;
+        const normalizedLedger = backup.ledger.map((entryRaw: any) => ({
           date: entryRaw.date,
           earnedLex: Number(entryRaw.earnedLex ?? entryRaw.earned_lex ?? 0),
           targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
           balance: Number(entryRaw.balance ?? 0),
-        };
-        if (mode === 'replace' || !existingDates.has(entry.date)) {
-          await ledgerDB.add(entry);
-          ledgerAdded += 1;
+        }));
+        await ledgerDB.bulkAdd(normalizedLedger);
+        ledgerAdded = normalizedLedger.length;
+
+        console.log('Backup replaced successfully (Native)');
+        return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded };
+      }
+
+      // 書籍データをマージ（比較）: 追加・更新を事前に振り分け、一括実行
+      const booksToAdd: any[] = [];
+      const booksToUpdate: any[] = [];
+      for (const book of normalizedBooks) {
+        const existing = existingBooksMap.get(book.id);
+        if (!existing) {
+          booksToAdd.push(book);
+        } else {
+          const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
+          const importTime = new Date(book.updatedAt || book.createdAt).getTime();
+          if (importTime > existingTime) {
+            booksToUpdate.push(book);
+          }
         }
+      }
+      if (booksToAdd.length > 0) {
+        await booksDB.bulkUpsert(booksToAdd);
+        booksAdded += booksToAdd.length;
+      }
+      if (booksToUpdate.length > 0) {
+        await booksDB.bulkUpsert(booksToUpdate);
+        booksUpdated += booksToUpdate.length;
+      }
+
+      // カードは一括upsert
+      if (normalizedCards.length > 0) {
+        await cardsDB.bulkUpsert(normalizedCards);
+        cardsUpserted = normalizedCards.length;
+      }
+
+      // 台帳は日付単位でユニーク → 追加対象のみ抽出して一括追加
+      const existingLedger = await ledgerDB.getAll();
+      const existingDates = new Set(existingLedger.map(e => e.date));
+      const ledgerToAdd = backup.ledger.map((entryRaw: any) => ({
+        date: entryRaw.date,
+        earnedLex: Number(entryRaw.earnedLex ?? entryRaw.earned_lex ?? 0),
+        targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
+        balance: Number(entryRaw.balance ?? 0),
+      })).filter((e: any) => !existingDates.has(e.date));
+      if (ledgerToAdd.length > 0) {
+        await ledgerDB.bulkAdd(ledgerToAdd);
+        ledgerAdded = ledgerToAdd.length;
       }
 
       console.log('Backup merged successfully (Native)');

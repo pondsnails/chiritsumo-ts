@@ -152,6 +152,38 @@ export const booksDB = {
       ]
     );
   },
+  async bulkUpsert(books: Book[]): Promise<void> {
+    await initDB();
+    db.withTransactionSync(() => {
+      for (const book of books) {
+        db.runSync(
+          `INSERT OR REPLACE INTO books (
+            id, user_id, subject_id, title, isbn, mode, total_unit, chunk_size,
+            completed_unit, status, previous_book_id, priority, cover_path,
+            target_completion_date, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            book.id,
+            book.userId || 'local-user',
+            book.subjectId ?? null,
+            book.title,
+            book.isbn ?? null,
+            book.mode,
+            book.totalUnit,
+            book.chunkSize ?? 1,
+            book.completedUnit ?? 0,
+            book.status,
+            book.previousBookId ?? null,
+            book.priority ?? 0,
+            book.coverPath ?? null,
+            book.targetCompletionDate ?? null,
+            book.createdAt,
+            book.updatedAt
+          ]
+        );
+      }
+    });
+  },
 
   async delete(id: string): Promise<void> {
     await initDB();
@@ -359,6 +391,18 @@ export const ledgerDB = {
        VALUES (?, ?, ?, ?)`,
       [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
     );
+  },
+  async bulkAdd(entries: Omit<LedgerEntry, 'id'>[]): Promise<void> {
+    await initDB();
+    db.withTransactionSync(() => {
+      for (const entry of entries) {
+        db.runSync(
+          `INSERT OR IGNORE INTO ledger (date, earned_lex, target_lex, balance)
+           VALUES (?, ?, ?, ?)`,
+          [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
+        );
+      }
+    });
   },
   async deleteAll(): Promise<void> {
     await initDB();
