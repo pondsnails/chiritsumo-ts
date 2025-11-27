@@ -225,20 +225,33 @@ export default function QuestScreen() {
     await loadDueCards();
   };
 
-  if (isLoading) {
-    return (
-      <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
-        <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-    );
-  }
+  // 書籍ごとのレビュー/新規を統合（一冊につき一表示）
+  const combinedBookEntries = useMemo(() => {
+    const reviewMap = new Map<string, Card[]>();
+    dueCards.forEach(c => {
+      if (!reviewMap.has(c.bookId)) reviewMap.set(c.bookId, []);
+      reviewMap.get(c.bookId)!.push(c);
+    });
+    const newMap = new Map<string, Card[]>();
+    newCards.forEach(c => {
+      if (!newMap.has(c.bookId)) newMap.set(c.bookId, []);
+      newMap.get(c.bookId)!.push(c);
+    });
 
-  const groupedReviewCards = groupCardsByBook(dueCards);
-  const groupedNewCards = groupCardsByBook(newCards);
+    const bookMap = new Map(books.map(b => [b.id, b]));
+    const ids = new Set<string>();
+    reviewMap.forEach((_, id) => ids.add(id));
+    newMap.forEach((_, id) => ids.add(id));
+    // 選択中の書籍でフィルタ（存在しない場合はそのまま）
+    const filterSet = new Set(selectedBookIds);
+    const filtered = Array.from(ids).filter(id => filterSet.size === 0 || filterSet.has(id));
+
+    return filtered.map(id => ({
+      book: bookMap.get(id)!,
+      reviewCards: reviewMap.get(id) || [],
+      newCards: newMap.get(id) || [],
+    })).sort((a, b) => (b.book.priority || 0) - (a.book.priority || 0));
+  }, [dueCards, newCards, books, selectedBookIds]);
 
   // 目標と不足の計算
   const reviewLex = useMemo(() => calculateTotalLex(dueCards), [dueCards, books]);
@@ -265,6 +278,18 @@ export default function QuestScreen() {
   }, [books, selectedBookIds, reviewLex, newLexCurrent, targetLex]);
 
   const newDeemphasized = combinedLex >= targetLex;
+
+  if (isLoading) {
+    return (
+      <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
@@ -323,7 +348,7 @@ export default function QuestScreen() {
             </View>
           </View>
 
-          {groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
+          {combinedBookEntries.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
               <Text style={styles.emptySubtext}>
@@ -373,100 +398,61 @@ export default function QuestScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <>
-              <View style={[styles.section, newDeemphasized && styles.dimSection]}>
-                <Text style={styles.sectionTitle}>🌱 新規学習クエスト</Text>
-                {groupedNewCards.length > 0 ? (
-                  <View style={styles.taskList}>
-                    {groupedNewCards.map(({ book, cards }) => (
+            <View style={[styles.section, newDeemphasized && styles.dimSection]}>
+              <Text style={styles.sectionTitle}>📚 学習クエスト</Text>
+              {combinedBookEntries.length > 0 && (
+                <View style={styles.taskList}>
+                  {combinedBookEntries.map(({ book, reviewCards, newCards }) => {
+                    const newLex = calculateLexPerCard(book.mode) * newCards.length;
+                    const reviewLexBook = calculateLexPerCard(book.mode) * reviewCards.length;
+                    return (
                       <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
                         <View style={styles.taskHeader}>
                           <View style={styles.taskTitleRow}>
                             <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
                               <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
                             </View>
-                            <Text style={styles.taskTitle} numberOfLines={1}>
-                              {book.title}
-                            </Text>
+                            <Text style={styles.taskTitle} numberOfLines={1}>{book.title}</Text>
                           </View>
-                          <View style={styles.taskStats}>
-                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                          <View style={{ gap: 4 }}>
+                            <Text style={styles.taskCount}>復習 {reviewCards.length} 枚 / +{reviewLexBook} Lex</Text>
+                            <Text style={styles.taskCount}>新規 {newCards.length} 枚 / +{newLex} Lex</Text>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          style={styles.startButton}
-                          onPress={() => startStudy(book.id)}
-                        >
+                        <TouchableOpacity style={styles.startButton} onPress={() => startStudy(book.id)}>
                           <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
                           <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
                         </TouchableOpacity>
                       </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.taskList}>
-                    <View style={[glassEffect.card, styles.taskCard]}>
-                      <Text style={styles.emptyText}>
-                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚
-                      </Text>
-                      <TouchableOpacity
-                        style={[styles.startButton, recommended.total === 0 && { opacity: 0.5 }]}
-                        disabled={recommended.total === 0}
-                        onPress={async () => {
-                          try {
-                            const created = await assignNewCardsByAllocation(books, recommended.perBook);
-                            if (created > 0) {
-                              await loadDueCards();
-                              await loadNewCards();
-                              await loadDailyTarget();
-                            }
-                          } catch (e) {
-                            console.error('Assign recommended new failed', e);
-                          }
-                        }}
-                      >
-                        <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                        <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {groupedReviewCards.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🔄 復習クエスト</Text>
-                  <View style={styles.taskList}>
-                    {groupedReviewCards.map(({ book, cards }) => (
-                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                        <View style={styles.taskHeader}>
-                          <View style={styles.taskTitleRow}>
-                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
-                            </View>
-                            <Text style={styles.taskTitle} numberOfLines={1}>
-                              {book.title}
-                            </Text>
-                          </View>
-                          <View style={styles.taskStats}>
-                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          style={styles.startButton}
-                          onPress={() => startStudy(book.id)}
-                        >
-                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
+                    );
+                  })}
                 </View>
               )}
-            </>
+              {recommended.total > 0 && newCards.length === 0 && (
+                <View style={[glassEffect.card, styles.taskCard, { marginTop: 12 }]}>
+                  <Text style={styles.emptyText}>目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚</Text>
+                  <TouchableOpacity
+                    style={[styles.startButton, recommended.total === 0 && { opacity: 0.5 }]}
+                    disabled={recommended.total === 0}
+                    onPress={async () => {
+                      try {
+                        const created = await assignNewCardsByAllocation(books, recommended.perBook);
+                        if (created > 0) {
+                          await loadDueCards();
+                          await loadNewCards();
+                          await loadDailyTarget();
+                        }
+                      } catch (e) {
+                        console.error('Assign recommended new failed', e);
+                      }
+                    }}
+                  >
+                    <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                    <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>
