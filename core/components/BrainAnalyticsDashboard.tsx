@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, Circle, Path } from 'react-native-svg';
 import { Brain, TrendingUp, Clock, Target } from 'lucide-react-native';
@@ -6,7 +6,6 @@ import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { formatDate } from '@core/utils/dateUtils';
-import type { Card } from '@core/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,22 +34,30 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // 全カードデータ取得
       const cardRepo = new DrizzleCardRepository();
-      const allCards = await cardRepo.findAll();
-      setTotalCards(allCards.length);
+      
+      // 総カード数を取得
+      const totalCount = await cardRepo.countCards();
+      setTotalCards(totalCount);
 
-      // ヒートマップデータ生成（過去90日間）
-      const heatmap = generateHeatmapData(allCards);
+      // ヒートマップデータ生成（過去90日間）- SQL集計
+      const now = new Date();
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      const startDate = formatDate(ninetyDaysAgo);
+      const endDate = formatDate(now);
+      
+      const reviewCounts = await cardRepo.getReviewCountByDate(startDate, endDate);
+      const heatmap = generateHeatmapFromCounts(reviewCounts, startDate, endDate);
       setHeatmapData(heatmap);
 
-      // 忘却曲線データ生成
-      const curve = generateForgettingCurve(allCards);
+      // 忘却曲線データ生成 - SQL集計
+      const retentionData = await cardRepo.getRetentionByElapsedDays(30);
+      const curve = generateForgettingCurveFromData(retentionData);
       setForgettingCurve(curve);
 
-      // 平均保持率計算
-      const retention = calculateAverageRetention(allCards);
-      setAvgRetention(retention);
+      // 平均保持率計算 - SQL集計
+      const stats = await cardRepo.getAverageRetentionStats();
+      setAvgRetention(stats.avgRetention);
     } catch (error) {
       console.error('Failed to load analytics:', error);
     } finally {
@@ -58,87 +65,50 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     }
   };
 
-  const generateHeatmapData = useMemo(() => (cards: Card[]): DailyActivity[] => {
-    const now = Date.now();
-    const oneDayMs = 1000 * 60 * 60 * 24;
+  /**
+   * SQL集計結果から90日分のヒートマップデータを生成
+   */
+  const generateHeatmapFromCounts = (
+    reviewCounts: { date: string; count: number }[],
+    startDate: string,
+    endDate: string
+  ): DailyActivity[] => {
+    const countMap = new Map(reviewCounts.map(r => [r.date, r.count]));
     const data: DailyActivity[] = [];
     
-    // カードの復習日をMapで管理（O(1)アクセス）
-    const reviewCountByDate = new Map<string, number>();
-    cards.forEach(card => {
-      if (!card.lastReview) return;
-      const reviewDate = formatDate(new Date(card.lastReview));
-      reviewCountByDate.set(reviewDate, (reviewCountByDate.get(reviewDate) || 0) + 1);
-    });
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const oneDayMs = 1000 * 60 * 60 * 24;
     
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date(now - i * oneDayMs);
-      const dateString = formatDate(date);
-      const count = reviewCountByDate.get(dateString) || 0;
-      data.push({ date: dateString, count });
+    for (let d = new Date(start); d <= end; d = new Date(d.getTime() + oneDayMs)) {
+      const dateStr = formatDate(d);
+      data.push({ date: dateStr, count: countMap.get(dateStr) || 0 });
     }
     
     return data;
-  }, []);
+  };
 
-  const generateForgettingCurve = useMemo(() => (cards: Card[]): RetentionData[] => {
-    // 復習済みカードのみ抽出
-    const reviewedCards = cards.filter(c => c.lastReview && c.reps > 0);
-    
-    if (reviewedCards.length === 0) {
+  /**
+   * SQL集計結果から忘却曲線データを生成
+   */
+  const generateForgettingCurveFromData = (
+    retentionData: { daysElapsed: number; avgRetention: number; cardCount: number }[]
+  ): RetentionData[] => {
+    if (retentionData.length === 0) {
+      // デフォルト曲線
       return Array.from({ length: 31 }, (_, i) => ({
         daysElapsed: i,
-        retention: 100 - (i * 2.5), // デフォルト曲線
+        retention: 100 - (i * 2.5),
       }));
     }
 
-    // 日数ごとの保持率計算
-    const retentionByDay: { [key: number]: number[] } = {};
+    const dataMap = new Map(retentionData.map(r => [r.daysElapsed, r.avgRetention]));
     
-    reviewedCards.forEach(card => {
-      if (!card.lastReview) return;
-      
-      const daysSinceReview = Math.floor(
-        (Date.now() - new Date(card.lastReview).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      
-      if (daysSinceReview > 30) return;
-      
-      // FSRS安定性から保持率推定
-      const estimatedRetention = Math.min(100, (card.stability / (daysSinceReview + 1)) * 100);
-      
-      if (!retentionByDay[daysSinceReview]) {
-        retentionByDay[daysSinceReview] = [];
-      }
-      retentionByDay[daysSinceReview].push(estimatedRetention);
-    });
-
-    // 平均化
-    return Array.from({ length: 31 }, (_, i) => {
-      const values = retentionByDay[i] || [];
-      const avgRetention = values.length > 0
-        ? values.reduce((sum, v) => sum + v, 0) / values.length
-        : Math.max(0, 100 - (i * 3));
-      
-      return { daysElapsed: i, retention: avgRetention };
-    });
-  }, []);
-
-  const calculateAverageRetention = useMemo(() => (cards: Card[]): number => {
-    const reviewedCards = cards.filter(c => c.lastReview && c.reps > 0);
-    
-    if (reviewedCards.length === 0) return 0;
-    
-    const totalRetention = reviewedCards.reduce((sum, card) => {
-      const daysSinceReview = Math.floor(
-        (Date.now() - new Date(card.lastReview!).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      const retention = Math.min(100, (card.stability / (daysSinceReview + 1)) * 100);
-      return sum + retention;
-    }, 0);
-    
-    return totalRetention / reviewedCards.length;
-  }, []);
+    return Array.from({ length: 31 }, (_, i) => ({
+      daysElapsed: i,
+      retention: dataMap.get(i) || Math.max(0, 100 - (i * 3)),
+    }));
+  };
 
   const renderHeatmap = useCallback(() => {
     const cellSize = 10;

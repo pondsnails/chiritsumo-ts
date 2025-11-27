@@ -19,6 +19,11 @@ export interface ICardRepository {
   deleteAll(): Promise<void>;
   resetAll(): Promise<void>; // Reset all cards to New state
   getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]>;
+  
+  // Analytics aggregation methods
+  getReviewCountByDate(startDate: string, endDate: string): Promise<{ date: string; count: number }[]>;
+  getAverageRetentionStats(): Promise<{ avgRetention: number; totalReviewedCards: number }>;
+  getRetentionByElapsedDays(maxDays: number): Promise<{ daysElapsed: number; avgRetention: number; cardCount: number }[]>;
 }
 
 function mapRow(row: RawCard): Card {
@@ -253,6 +258,106 @@ export class DrizzleCardRepository implements ICardRepository {
     return result.map(r => ({
       mode: r.mode as 0 | 1 | 2,
       count: Number(r.count),
+    }));
+  }
+
+  /**
+   * 日付ごとの復習カード数を取得（ヒートマップ用）
+   */
+  async getReviewCountByDate(startDate: string, endDate: string): Promise<{ date: string; count: number }[]> {
+    const db = await this.db();
+    const result = await db
+      .select({
+        date: sql<string>`DATE(${cards.last_review})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(cards)
+      .where(
+        and(
+          sql`${cards.last_review} IS NOT NULL`,
+          sql`DATE(${cards.last_review}) >= ${startDate}`,
+          sql`DATE(${cards.last_review}) <= ${endDate}`
+        )
+      )
+      .groupBy(sql`DATE(${cards.last_review})`)
+      .all();
+    
+    return result.map(r => ({
+      date: r.date,
+      count: Number(r.count),
+    }));
+  }
+
+  /**
+   * 平均保持率統計を取得
+   */
+  async getAverageRetentionStats(): Promise<{ avgRetention: number; totalReviewedCards: number }> {
+    const db = await this.db();
+    
+    // 復習済みカード（reps > 0）の統計を計算
+    const result = await db
+      .select({
+        totalCards: sql<number>`count(*)`,
+        // FSRS保持率推定: MIN(100, stability / (days_since_review + 1) * 100)
+        avgRetention: sql<number>`
+          AVG(
+            MIN(100, 
+              ${cards.stability} / 
+              (CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER) + 1) * 100
+            )
+          )
+        `,
+      })
+      .from(cards)
+      .where(
+        and(
+          sql`${cards.reps} > 0`,
+          sql`${cards.last_review} IS NOT NULL`
+        )
+      )
+      .get();
+    
+    return {
+      avgRetention: result ? Number(result.avgRetention || 0) : 0,
+      totalReviewedCards: result ? Number(result.totalCards || 0) : 0,
+    };
+  }
+
+  /**
+   * 経過日数ごとの平均保持率を取得（忘却曲線用）
+   */
+  async getRetentionByElapsedDays(maxDays: number): Promise<{ daysElapsed: number; avgRetention: number; cardCount: number }[]> {
+    const db = await this.db();
+    
+    const result = await db
+      .select({
+        daysElapsed: sql<number>`CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER)`,
+        avgRetention: sql<number>`
+          AVG(
+            MIN(100, 
+              ${cards.stability} / 
+              (CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER) + 1) * 100
+            )
+          )
+        `,
+        cardCount: sql<number>`count(*)`,
+      })
+      .from(cards)
+      .where(
+        and(
+          sql`${cards.reps} > 0`,
+          sql`${cards.last_review} IS NOT NULL`,
+          sql`CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER) <= ${maxDays}`
+        )
+      )
+      .groupBy(sql`CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER)`)
+      .orderBy(sql`CAST((julianday('now') - julianday(${cards.last_review})) AS INTEGER)`)
+      .all();
+    
+    return result.map(r => ({
+      daysElapsed: Number(r.daysElapsed),
+      avgRetention: Number(r.avgRetention || 0),
+      cardCount: Number(r.cardCount),
     }));
   }
 }
