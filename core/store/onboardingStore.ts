@@ -17,15 +17,21 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   isLoading: true,
 
   checkOnboardingStatus: async () => {
+    console.log('[OnboardingStore] Starting check...');
     try {
       const value = await settingsRepo.get(ONBOARDING_KEY);
+      console.log('[OnboardingStore] Got value:', value);
       set({ 
         hasCompletedOnboarding: value === 'true',
         isLoading: false 
       });
+      console.log('[OnboardingStore] State updated');
     } catch (error) {
-      console.error('Failed to check onboarding status:', error);
-      set({ isLoading: false });
+      console.error('[OnboardingStore] Error:', error);
+      set({ 
+        hasCompletedOnboarding: false,
+        isLoading: false 
+      });
     }
   },
 

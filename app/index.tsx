@@ -17,49 +17,61 @@ export default function Index() {
   const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
 
   useEffect(() => {
+    let mounted = true;
+    
     const initialize = async () => {
+      console.log('[Index] Step 1: Check onboarding');
       try {
         await checkOnboardingStatus();
       } catch (error) {
-        console.error('Failed to initialize:', error);
-        // エラーでもオンボーディングへ遷移
-        router.replace('/onboarding');
+        console.error('[Index] Onboarding check failed:', error);
+        if (mounted) router.replace('/onboarding');
+        return;
+      }
+      
+      if (!mounted) return;
+      
+      console.log('[Index] Step 2: Navigate');
+      const { hasCompletedOnboarding } = useOnboardingStore.getState();
+      
+      if (hasCompletedOnboarding) {
+        console.log('[Index] User completed onboarding, checking rollover');
+        try {
+          await checkRollover();
+        } catch (error) {
+          console.error('[Index] Rollover failed:', error);
+        }
+        console.log('[Index] Navigating to /(tabs)/quest');
+        if (mounted) router.replace('/(tabs)/quest');
+      } else {
+        console.log('[Index] Navigating to /onboarding');
+        if (mounted) router.replace('/onboarding');
       }
     };
+    
     initialize();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (isLoading) return;
-    
-    const navigate = async () => {
-      try {
-        if (hasCompletedOnboarding) {
-          // 2回目以降は日次ロールオーバー実行後にquestへ
-          await checkRollover();
-          router.replace('/(tabs)/quest');
-        } else {
-          // 初回はオンボーディングへ（ロールオーバーは実行しない）
-          router.replace('/onboarding');
-        }
-      } catch (error) {
-        console.error('Navigation failed:', error);
-        // フォールバック: エラー時もオンボーディングへ
-        router.replace('/onboarding');
-      }
-    };
-    navigate();
-  }, [isLoading, hasCompletedOnboarding]);
-
   const checkRollover = async () => {
+    console.log('[Index] checkRollover started');
     try {
+      console.log('[Index] Fetching cards and books...');
       await Promise.all([fetchCards(), fetchBooks()]);
+      console.log('[Index] Cards and books fetched');
 
+      console.log('[Index] Fetching ledger...');
       const ledgerRepo = new DrizzleLedgerRepository();
       const summaryEntries = await ledgerRepo.findRecent(1);
       const currentBalance = summaryEntries.length > 0 ? summaryEntries[0].balance : 0;
+      console.log('[Index] Ledger fetched, balance:', currentBalance);
 
+      console.log('[Index] Checking rollover...');
       const result = await checkAndPerformRollover(cards, books, currentBalance);
+      console.log('[Index] Rollover check complete, performed:', result.performed);
 
       if (result.performed) {
         setRolloverData({
@@ -69,8 +81,10 @@ export default function Index() {
         setShowRollover(true);
       }
     } catch (error) {
-      console.error('Failed to check rollover:', error);
+      console.error('[Index] Rollover error:', error);
+      // エラーでも続行
     }
+    console.log('[Index] checkRollover finished');
   };
 
   return (

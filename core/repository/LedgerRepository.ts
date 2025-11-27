@@ -2,7 +2,7 @@ import { ledger } from '../database/schema';
 import type { Ledger as RawLedger } from '../database/schema';
 import type { LedgerEntry } from '../types';
 import { eq, desc, asc } from 'drizzle-orm';
-import { drizzleDb } from '../database/drizzleClient';
+import { getDrizzleDb } from '../database/drizzleClient';
 
 export interface ILedgerRepo {
   findAll(): Promise<LedgerEntry[]>;
@@ -24,7 +24,9 @@ function mapRow(row: RawLedger): LedgerEntry {
 }
 
 export class DrizzleLedgerRepository implements ILedgerRepo {
-  private db = drizzleDb;
+  private get db() {
+    return getDrizzleDb();
+  }
 
   async findAll(): Promise<LedgerEntry[]> {
     const rows = await this.db.select().from(ledger).orderBy(asc(ledger.date)).all();

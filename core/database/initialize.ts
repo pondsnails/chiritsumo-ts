@@ -1,17 +1,20 @@
 /**
- * Drizzle Client Factory (Expo SQLite)
- * Lazy initialization with auto-schema creation
+ * Database initialization utility
+ * Creates all required tables on first launch
  */
-import * as SQLite from 'expo-sqlite';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
+import { getDrizzleDb } from './drizzleClient';
 
-let _db: ExpoSQLiteDatabase | null = null;
-let _sqlite: SQLite.SQLiteDatabase | null = null;
-let _initialized = false;
-
-function ensureSchema(sqlite: SQLite.SQLiteDatabase): void {
-  if (_initialized) return;
+export function initializeDatabase(): void {
+  console.log('Initializing database schema...');
+  
+  // Ensure DB is created and get the underlying SQLite instance
+  const db = getDrizzleDb();
+  const sqlite = (db as any).session.client;
+  
+  if (!sqlite) {
+    console.error('Failed to get SQLite instance');
+    return;
+  }
   
   try {
     sqlite.execSync(`
@@ -83,34 +86,10 @@ function ensureSchema(sqlite: SQLite.SQLiteDatabase): void {
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
-    _initialized = true;
-  } catch (e) {
-    console.warn('Schema creation warning:', e);
-  }
-}
-
-export function getDrizzleDb(): ExpoSQLiteDatabase {
-  if (_db) return _db;
-  
-  if (!_sqlite) {
-    _sqlite = SQLite.openDatabaseSync('chiritsumo.db');
     
-    try {
-      _sqlite.execSync('PRAGMA journal_mode = WAL;');
-      _sqlite.execSync('PRAGMA foreign_keys = ON;');
-    } catch (e) {
-      console.warn('PRAGMA setup failed:', e);
-    }
-    
-    // Create tables if needed
-    ensureSchema(_sqlite);
+    console.log('Database schema initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    throw error;
   }
-  
-  _db = drizzle(_sqlite);
-  return _db;
-}
-
-// Convenience for future injection
-export function setDrizzleDb(db: ExpoSQLiteDatabase) {
-  _db = db;
 }

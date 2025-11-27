@@ -1,7 +1,7 @@
 import { books, cards } from '../database/schema';
 import type { Book as RawBook } from '../database/schema';
 import { eq } from 'drizzle-orm';
-import { drizzleDb } from '../database/drizzleClient';
+import { getDrizzleDb } from '../database/drizzleClient';
 import type { Book } from '../types';
 import { calculateCardCount } from '../utils/bookLogic';
 // Drizzle client placeholder (to be implemented)
@@ -41,7 +41,9 @@ function mapRow(row: RawBook): Book {
 }
 
 export class DrizzleBookRepository implements IBookRepository {
-  private db = drizzleDb;
+  private get db() {
+    return getDrizzleDb();
+  }
   async findAll(): Promise<Book[]> {
     const rows = await this.db.select().from(books).all();
     return rows.map(mapRow);

@@ -1,7 +1,7 @@
 import type { InventoryPreset } from '../types';
 import { inventoryPresets, presetBooks } from '../database/schema';
 import type { InventoryPresetRow, PresetBookRow } from '../database/schema';
-import { drizzleDb } from '../database/drizzleClient';
+import { getDrizzleDb } from '../database/drizzleClient';
 import { eq, asc, inArray } from 'drizzle-orm';
 
 export interface IInventoryPresetRepository {
@@ -12,7 +12,9 @@ export interface IInventoryPresetRepository {
 }
 
 export class DrizzleInventoryPresetRepository implements IInventoryPresetRepository {
-  private db = drizzleDb;
+  private get db() {
+    return getDrizzleDb();
+  }
   async findAll(): Promise<InventoryPreset[]> {
     const rows = await this.db.select().from(inventoryPresets).orderBy(asc(inventoryPresets.id)).all();
     const presetIds = (rows as InventoryPresetRow[]).map(r => r.id).filter((v): v is number => typeof v === 'number');

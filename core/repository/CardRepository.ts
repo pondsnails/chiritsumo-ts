@@ -2,7 +2,7 @@ import { cards } from '../database/schema';
 import type { Card as RawCard } from '../database/schema';
 import type { Card } from '../types';
 import { and, asc, eq, inArray, lte } from 'drizzle-orm';
-import { drizzleDb } from '../database/drizzleClient';
+import { getDrizzleDb } from '../database/drizzleClient';
 
 export interface ICardRepository {
   findAll(): Promise<Card[]>;
@@ -36,7 +36,9 @@ function mapRow(row: RawCard): Card {
 }
 
 export class DrizzleCardRepository implements ICardRepository {
-  private db = drizzleDb;
+  private get db() {
+    return getDrizzleDb();
+  }
 
   async findAll(): Promise<Card[]> {
     const rows = await this.db.select().from(cards).orderBy(asc(cards.book_id), asc(cards.unit_index)).all();

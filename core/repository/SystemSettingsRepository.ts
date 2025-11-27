@@ -20,7 +20,9 @@ async function enqueue<T>(task: () => Promise<T>): Promise<T> {
 }
 
 export class DrizzleSystemSettingsRepository implements ISystemSettingsRepository {
-  private db = getDrizzleDb();
+  private get db() {
+    return getDrizzleDb();
+  }
 
   private async withRetry<T>(fn: () => Promise<T>, retries = 10, delayMs = 100): Promise<T> {
     try {
@@ -36,13 +38,18 @@ export class DrizzleSystemSettingsRepository implements ISystemSettingsRepositor
   }
 
   async get(key: string): Promise<string | null> {
-    const result = await this.db
-      .select()
-      .from(systemSettings)
-      .where(eq(systemSettings.key, key))
-      .limit(1);
-    
-    return result.length > 0 ? result[0].value : null;
+    try {
+      const result = await this.db
+        .select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, key))
+        .limit(1);
+      
+      return result.length > 0 ? result[0].value : null;
+    } catch (e: any) {
+      console.warn('SystemSettings get error:', e);
+      return null;
+    }
   }
 
   async set(key: string, value: string): Promise<void> {
