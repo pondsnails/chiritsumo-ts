@@ -122,7 +122,7 @@ export default function BankScreen() {
                       <Text style={[styles.warningTitle, { 
                         color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
                       }]}>
-                        {bankruptcyStatus.canBankrupt ? '破産状態' : '借金警告'}
+                        {bankruptcyStatus.isFunctionLocked ? '機能制限中' : '借金警告'}
                       </Text>
                       <Text style={[styles.warningMessage, { 
                         color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 

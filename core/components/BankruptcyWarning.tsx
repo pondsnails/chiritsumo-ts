@@ -83,12 +83,13 @@ export function BankruptcyWarning({
               </View>
             )}
           </View>
-          {result.canBankrupt && onExecuteBankruptcy && (
+          {/* 破産ボタンは廃止（機能制限に変更したため） */}
+          {result.isFunctionLocked && onExecuteBankruptcy && (
             <TouchableOpacity style={[styles.button, styles.bankruptcyButton]} onPress={onExecuteBankruptcy}>
-              <Text style={styles.bankruptcyText}>破産して再スタート</Text>
+              <Text style={styles.bankruptcyText}>破産して再スタート（廃止予定）</Text>
             </TouchableOpacity>
           )}
-          {onForgiveDebt && result.isInDebt && !result.canBankrupt && (
+          {onForgiveDebt && result.isInDebt && !result.isFunctionLocked && (
             <TouchableOpacity
               style={[styles.button, styles.forgiveButton]}
               onPress={() => {

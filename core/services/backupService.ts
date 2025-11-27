@@ -4,7 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { z } from 'zod';
 import { getDrizzleDb } from '../database/drizzleClient';
-import { presetBooks } from '../database/schema';
+import { presetBooks, books, cards, ledger } from '../database/schema';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
@@ -220,32 +220,79 @@ export const importBackup = async (
       const mode = options?.mode ?? 'merge';
 
       if (mode === 'replace') {
-        // 依存関係を考慮し、cards -> books -> ledger の順に全削除
-        await cardRepo.deleteAll();
-        await bookRepo.deleteAll();
-        await ledgerRepo.deleteAll();
-
-        // 一括挿入で高速化
-        await bookRepo.bulkUpsert(normalizedBooks);
-        booksAdded = normalizedBooks.length;
-        await cardRepo.bulkUpsert(normalizedCards);
-        cardsUpserted = normalizedCards.length;
-        const normalizedLedger = backup.ledger.map((entryRaw: any) => ({
-          date: entryRaw.date,
-          earnedLex: Number(entryRaw.earnedLex ?? entryRaw.earned_lex ?? 0),
-          targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
-          balance: Number(entryRaw.balance ?? 0),
-        }));
-        await ledgerRepo.bulkAdd(normalizedLedger);
-        ledgerAdded = normalizedLedger.length;
-        // preset_books の復元（存在する場合のみ、プリセット自体は保持されている前提）
-        if (backup.presetBooks && backup.presetBooks.length > 0) {
-          const db = await getDrizzleDb();
-          await db.delete(presetBooks);
-          await db.insert(presetBooks).values(backup.presetBooks);
-        }
+        // 【重要】全削除→挿入を単一トランザクションで実行してデータ消失を防ぐ
+        const db = await getDrizzleDb();
         
-        // systemSettings復元（あれば）
+        await db.transaction(async (tx) => {
+          // 依存関係を考慮し、cards -> books -> ledger の順に全削除
+          await tx.delete(cards);
+          await tx.delete(books);
+          await tx.delete(ledger);
+          
+          // 一括挿入で高速化
+          if (normalizedBooks.length > 0) {
+            await tx.insert(books).values(normalizedBooks.map(b => ({
+              id: b.id,
+              user_id: b.userId,
+              subject_id: b.subjectId,
+              title: b.title,
+              isbn: b.isbn,
+              mode: b.mode,
+              total_unit: b.totalUnit,
+              chunk_size: b.chunkSize,
+              completed_unit: b.completedUnit,
+              status: b.status,
+              previous_book_id: b.previousBookId,
+              priority: b.priority,
+              cover_path: b.coverPath,
+              target_completion_date: b.targetCompletionDate,
+              created_at: b.createdAt,
+              updated_at: b.updatedAt,
+            })));
+            booksAdded = normalizedBooks.length;
+          }
+          
+          if (normalizedCards.length > 0) {
+            await tx.insert(cards).values(normalizedCards.map((c: any) => ({
+              id: c.id,
+              book_id: c.bookId ?? c.book_id,
+              unit_index: c.unitIndex ?? c.unit_index,
+              state: c.state,
+              stability: c.stability,
+              difficulty: c.difficulty,
+              elapsed_days: c.elapsedDays ?? c.elapsed_days,
+              scheduled_days: c.scheduledDays ?? c.scheduled_days,
+              reps: c.reps,
+              lapses: c.lapses,
+              due: c.due,
+              last_review: c.lastReview ?? c.last_review,
+              photo_path: c.photoPath ?? c.photo_path,
+            })));
+            cardsUpserted = normalizedCards.length;
+          }
+          
+          const normalizedLedger = backup.ledger.map((entryRaw: any) => ({
+            date: entryRaw.date,
+            earned_lex: Number(entryRaw.earnedLex ?? entryRaw.earned_lex ?? 0),
+            target_lex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
+            balance: Number(entryRaw.balance ?? 0),
+            transaction_type: 'daily' as const,
+            note: null,
+          }));
+          
+          if (normalizedLedger.length > 0) {
+            await tx.insert(ledger).values(normalizedLedger);
+            ledgerAdded = normalizedLedger.length;
+          }
+          
+          // preset_books の復元（存在する場合のみ、プリセット自体は保持されている前提）
+          if (backup.presetBooks && backup.presetBooks.length > 0) {
+            await tx.delete(presetBooks);
+            await tx.insert(presetBooks).values(backup.presetBooks);
+          }
+        });
+        
+        // systemSettings復元（あれば）トランザクション外でOK（独立したKVストア）
         let systemSettingsRestored = 0;
         if (backup.systemSettings && backup.systemSettings.length > 0) {
           for (const setting of backup.systemSettings) {
@@ -254,7 +301,7 @@ export const importBackup = async (
           }
         }
 
-        console.log('Backup replaced successfully (Native)');
+        console.log('Backup replaced successfully (Native, transactional)');
         return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded, systemSettingsRestored };
       }
 

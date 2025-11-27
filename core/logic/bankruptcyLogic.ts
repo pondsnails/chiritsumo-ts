@@ -3,18 +3,20 @@ import type { Card, LedgerEntry } from '../types';
 export interface BankruptcyStatus {
   isInDebt: boolean;
   deficit: number;
-  warningLevel: 0 | 1 | 2 | 3; // 0: 健全, 1: 注意, 2: 警告, 3: 破産寸前
-  canBankrupt: boolean; // 破産可能か（Free版のみ）
+  warningLevel: 0 | 1 | 2 | 3; // 0: 健全, 1: 注意, 2: 警告, 3: 借金超過（機能制限）
+  isFunctionLocked: boolean; // 機能制限フラグ（新規カード追加不可など）
   message: string;
 }
 
-// 借金の上限設定（Free版のみ）
-const BANKRUPTCY_THRESHOLD_FREE = -1000; // -1000 Lexで強制破産
+// 借金の上限設定（Free版のみ機能制限）
+const FUNCTION_LOCK_THRESHOLD_FREE = -1000; // -1000 Lexで機能制限
 
 /**
- * 簡素化された破産判定
+ * 改善版破産判定
  * - Pro版: 借金上限なし（無制限にマイナス可能）
- * - Free版: -1000 Lexで強制破産（全データリセット）
+ * - Free版: -1000 Lexで機能制限（新規カード追加不可、データは保持）
+ * 
+ * 【変更点】データ削除ではなく機能制限に変更してユーザー体験を改善
  */
 export function checkBankruptcyStatus(
   balance: number,
@@ -25,7 +27,7 @@ export function checkBankruptcyStatus(
       isInDebt: false,
       deficit: 0,
       warningLevel: 0,
-      canBankrupt: false,
+      isFunctionLocked: false,
       message: '健全な状態です',
     };
   }
@@ -43,23 +45,23 @@ export function checkBankruptcyStatus(
       isInDebt: true,
       deficit,
       warningLevel,
-      canBankrupt: false,
+      isFunctionLocked: false,
       message: `借金: ${deficit} Lex（Pro版は上限なし）`,
     };
   }
 
-  // Free版は-1000で強制破産
-  if (balance <= BANKRUPTCY_THRESHOLD_FREE) {
+  // Free版は-1000で機能制限（データは保持）
+  if (balance <= FUNCTION_LOCK_THRESHOLD_FREE) {
     return {
       isInDebt: true,
       deficit,
       warningLevel: 3,
-      canBankrupt: true,
-      message: '破産状態です。全データをリセットして再出発できます。',
+      isFunctionLocked: true,
+      message: '借金が上限に達しました。新規カードの追加が制限されています。復習でLexを稼いで借金を返済してください。',
     };
   }
 
-  // 破産寸前の警告レベル
+  // 制限寸前の警告レベル
   let warningLevel: 0 | 1 | 2 | 3 = 1;
   if (deficit >= 800) warningLevel = 3;
   else if (deficit >= 500) warningLevel = 2;
@@ -69,14 +71,14 @@ export function checkBankruptcyStatus(
     isInDebt: true,
     deficit,
     warningLevel,
-    canBankrupt: false,
-    message: `借金: ${deficit} Lex（残り ${Math.abs(BANKRUPTCY_THRESHOLD_FREE) - deficit} Lex で破産）`,
+    isFunctionLocked: false,
+    message: `借金: ${deficit} Lex（残り ${Math.abs(FUNCTION_LOCK_THRESHOLD_FREE) - deficit} Lex で機能制限）`,
   };
 }
 
 /**
- * 破産処理（全データリセット）
- * Free版のみ実行可能
+ * @deprecated 破産処理（全データリセット）は廃止
+ * 機能制限に変更したため、この関数は使用しない
  */
 export async function executeBankruptcy(
   resetAllData: () => Promise<void>
