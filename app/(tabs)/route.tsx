@@ -20,6 +20,7 @@ import { DrizzleBookRepository } from '@core/repository/BookRepository';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { MetroLayoutEngine } from '@core/layout/metroLayout';
+import { computeLayoutAsync } from '@core/layout/metroLayoutCache';
 import { MetroLine } from '@core/components/MetroLine';
 import { BookNode } from '@core/components/BookNode';
 import i18n from '@core/i18n';
@@ -164,7 +165,7 @@ export default function RouteScreen() {
     }, [])
   );
 
-  // パフォーマンス最適化: MetroLayoutEngineの計算を画面遷移後に実行
+  // パフォーマンス最適化: 非同期キャッシュでレイアウト計算
   useEffect(() => {
     if (books.length === 0) {
       setNodes([]);
@@ -175,22 +176,20 @@ export default function RouteScreen() {
     // 計算開始を通知
     setIsCalculating(true);
 
-    // 画面遷移アニメーション完了後に計算を開始
-    const task = InteractionManager.runAfterInteractions(() => {
-      try {
-        const engine = new MetroLayoutEngine(books);
-        const positions = engine.getNodePositions();
-        const connections = engine.getEdges(positions);
-        
-        setNodes(positions);
-        setEdges(connections);
-      } finally {
+    // 非同期でレイアウトを計算（キャッシュヒット時は即座に返る）
+    computeLayoutAsync(books)
+      .then((layout) => {
+        setNodes(layout.nodes);
+        setEdges(layout.edges);
+      })
+      .catch((error) => {
+        console.error('[RouteScreen] Layout computation error:', error);
+        setNodes([]);
+        setEdges([]);
+      })
+      .finally(() => {
         setIsCalculating(false);
-      }
-    });
-
-    // クリーンアップ
-    return () => task.cancel();
+      });
   }, [books]);
 
   const handleNodePress = (node: NodePosition) => {
