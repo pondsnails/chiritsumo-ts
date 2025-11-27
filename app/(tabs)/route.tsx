@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
 import { DrizzleBookRepository } from '@core/repository/BookRepository';
-import { sortBooksByDependency } from '@core/utils/bookSorting';
+import { sortBooksByDependency, calculateRouteProgress } from '@core/utils/bookSorting';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { MetroLayoutEngine } from '@core/layout/metroLayout';
@@ -46,6 +46,9 @@ export default function RouteScreen() {
   const [edges, setEdges] = useState<any[]>([]);
   const [circularRefs, setCircularRefs] = useState<string[]>([]); // 循環参照の警告メッセージ
   const [bookRoutes, setBookRoutes] = useState<Book[][]>([]);
+  const routeProgress = useMemo(() => {
+    return bookRoutes.map(r => calculateRouteProgress(r));
+  }, [bookRoutes]);
 
   // 重い依存関係ソートは描画後に遅延実行
   useEffect(() => {
@@ -255,7 +258,7 @@ export default function RouteScreen() {
                     
                     <View style={styles.routeGroupHeader}>
                       <Text style={styles.routeGroupTitle}>ルート {routeIndex + 1}</Text>
-                      <Text style={styles.routeGroupSubtitle}>{route.length}冊の書籍</Text>
+                      <Text style={styles.routeGroupSubtitle}>{route.length}冊 • 進捗 {routeProgress[routeIndex]?.percentage ?? 0}% ({routeProgress[routeIndex]?.completedUnits ?? 0}/{routeProgress[routeIndex]?.totalUnits ?? 0})</Text>
                     </View>
                     
                     {route.map((book, bookIndex) => (

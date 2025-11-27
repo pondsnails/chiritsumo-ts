@@ -13,7 +13,8 @@
 
 import { DrizzleVelocityMeasurementRepository } from '../repository/VelocityMeasurementRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
-import { getTodayDateString, formatDate } from '../utils/dateUtils';
+import { getTodayUnixMidnight } from '@core/utils/dateEpochUtils';
+import { reportError } from './errorReporter';
 import { VelocityMeasurement } from '../database/schema';
 
 export interface VelocityStats {
@@ -58,20 +59,16 @@ export async function recordDailyVelocity(
   minutesSpent: number
 ): Promise<void> {
   try {
-    const today = getTodayDateString();
-
+    const today = getTodayUnixMidnight();
     await velocityRepo.upsert({
       date: today,
       earned_lex: lexEarned,
       minutes_spent: minutesSpent,
     });
-
-    // 古いデータを削除（最新N日分のみ保持）
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - MEASUREMENT_PERIOD_DAYS);
-    await velocityRepo.deleteOlderThan(formatDate(cutoffDate));
+    const cutoffEpoch = getTodayUnixMidnight() - (MEASUREMENT_PERIOD_DAYS * 24 * 60 * 60);
+    await velocityRepo.deleteOlderThan(cutoffEpoch);
   } catch (error) {
-    console.error('Failed to record velocity:', error);
+    reportError(error, { context: 'recordDailyVelocity' });
   }
 }
 
@@ -88,7 +85,7 @@ export async function getAverageVelocity(): Promise<number | null> {
 
     return stats.avgVelocity;
   } catch (error) {
-    console.error('Failed to get average velocity:', error);
+    reportError(error, { context: 'getAverageVelocity' });
     return null;
   }
 }
@@ -101,7 +98,7 @@ export async function isMeasurementCompleted(): Promise<boolean> {
     const recentMeasurements = await velocityRepo.findRecent(MEASUREMENT_PERIOD_DAYS);
     return recentMeasurements.length >= MEASUREMENT_PERIOD_DAYS;
   } catch (error) {
-    console.error('Failed to check measurement status:', error);
+    reportError(error, { context: 'isMeasurementCompleted' });
     return false;
   }
 }
@@ -113,7 +110,7 @@ export async function getRecentMeasurements(days: number = MEASUREMENT_PERIOD_DA
   try {
     return await velocityRepo.findRecent(days);
   } catch (error) {
-    console.error('Failed to get recent measurements:', error);
+    reportError(error, { context: 'getRecentMeasurements' });
     return [];
   }
 }
@@ -128,7 +125,7 @@ export async function getVelocitySettings(): Promise<VelocitySettings> {
       return JSON.parse(json);
     }
   } catch (error) {
-    console.error('Failed to get velocity settings:', error);
+    reportError(error, { context: 'getVelocitySettings' });
   }
 
   return {
@@ -160,7 +157,7 @@ export async function setDesiredDailyMinutes(minutes: number): Promise<number> {
     await settingsRepo.set(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
     return calculatedTarget;
   } catch (error) {
-    console.error('Failed to set desired daily minutes:', error);
+    reportError(error, { context: 'setDesiredDailyMinutes' });
     throw error;
   }
 }
@@ -174,7 +171,7 @@ export async function enableAutoAdjust(): Promise<void> {
     settings.autoAdjustEnabled = true;
     await settingsRepo.set(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
   } catch (error) {
-    console.error('Failed to enable auto adjust:', error);
+    reportError(error, { context: 'enableAutoAdjust' });
   }
 }
 
@@ -215,7 +212,7 @@ export async function adjustTargetBasedOnPerformance(
     
     return newTarget;
   } catch (error) {
-    console.error('Failed to adjust target:', error);
+    reportError(error, { context: 'adjustTargetBasedOnPerformance' });
     return null;
   }
 }
@@ -226,13 +223,14 @@ export async function adjustTargetBasedOnPerformance(
 export async function resetVelocityMeasurement(): Promise<void> {
   try {
     // velocity_measurementsテーブルの全データを削除
-    const farFutureDate = '9999-12-31';
-    await velocityRepo.deleteOlderThan(farFutureDate);
+    // Use very large future epoch (approx year 3000)
+    const farFutureEpoch = getTodayUnixMidnight() + (365 * 24 * 60 * 60 * 1000);
+    await velocityRepo.deleteOlderThan(farFutureEpoch);
     
     // 設定もリセット
     await settingsRepo.delete(VELOCITY_SETTINGS_KEY);
   } catch (error) {
-    console.error('Failed to reset velocity measurement:', error);
+    reportError(error, { context: 'resetVelocityMeasurement' });
   }
 }
 

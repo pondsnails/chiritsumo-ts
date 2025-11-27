@@ -94,7 +94,7 @@ export const systemSettings = sqliteTable('system_settings', {
 // 3.6 velocity_measurements (学習速度計測データ)
 // ---------------------------------------------------------
 export const velocityMeasurements = sqliteTable('velocity_measurements', {
-  date: text('date').primaryKey(), // YYYY-MM-DD (保持) ※将来整数化検討
+  date: integer('date').primaryKey(), // ローカル今日の0時Unix秒
   earned_lex: integer('earned_lex').notNull().default(0),
   minutes_spent: integer('minutes_spent').notNull().default(0), // 学習時間（分）
   created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),

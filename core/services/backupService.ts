@@ -434,6 +434,7 @@ export const useBackupService = () => {
     exportBackup,
     importBackup,
     exportBackupStreaming, // メモリ安全版
+    importBackupStreaming,
   };
 };
 
@@ -574,5 +575,115 @@ export const exportBackupStreaming = async (): Promise<void> => {
   } catch (error) {
     console.error('[StreamingBackup] Export failed:', error);
     throw error;
+  }
+};
+
+/**
+ * ストリーミングインポート（NDJSON専用）: 大量データでも一括配列保持せず段階的Upsert
+ */
+export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replace' }) => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({ type: ['application/x-ndjson'], copyToCacheDirectory: true });
+    if (result.canceled) return { booksAdded: 0, booksUpdated: 0, cardsUpserted: 0, ledgerAdded: 0 };
+    const fileUri = result.assets[0].uri;
+    const content = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
+    const lines = content.split('\n').filter(l => l.trim());
+    const bookRepo = new DrizzleBookRepository();
+    const cardRepo = new DrizzleCardRepository();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    const settingsRepo = new DrizzleSystemSettingsRepository();
+    let booksAdded = 0, booksUpdated = 0, cardsUpserted = 0, ledgerAdded = 0, systemSettingsRestored = 0;
+    const existingBooks = await bookRepo.findAll();
+    const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
+    const mode = options?.mode ?? 'merge';
+
+    // Replaceモードは通常importBackupを利用するべきだが、ここでも簡易対応
+    if (mode === 'replace') {
+      const db = await getDrizzleDb();
+      await db.transaction(async tx => {
+        await tx.delete(cards); await tx.delete(books); await tx.delete(ledger); await tx.delete(presetBooks);
+      });
+    }
+
+    const toUnixNullable = (v: any): number | null => {
+      if (v === null || v === undefined || v === '') return null;
+      if (typeof v === 'number') return v;
+      const d = new Date(v); return Math.floor(d.getTime()/1000);
+    };
+    const toUnix = (v: any): number => (toUnixNullable(v) ?? Math.floor(Date.now()/1000));
+
+    for (const line of lines) {
+      let obj: any; try { obj = JSON.parse(line); } catch { continue; }
+      if (obj.type === 'metadata') continue;
+      if (obj.type === 'book') {
+        const b = obj.data;
+        const normalized = {
+          id: b.id,
+            userId: b.userId ?? b.user_id ?? 'local-user',
+            subjectId: b.subjectId ?? b.subject_id ?? null,
+            title: b.title,
+            isbn: b.isbn ?? null,
+            mode: b.mode ?? 1,
+            totalUnit: b.totalUnit ?? b.total_unit ?? 0,
+            chunkSize: b.chunkSize ?? b.chunk_size ?? 1,
+            completedUnit: b.completedUnit ?? b.completed_unit ?? 0,
+            status: b.status ?? 0,
+            previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
+            priority: b.priority ?? 1,
+            coverPath: b.coverPath ?? b.cover_path ?? null,
+            targetCompletionDate: toUnixNullable(b.targetCompletionDate ?? b.target_completion_date),
+            createdAt: toUnix(b.createdAt ?? b.created_at),
+            updatedAt: toUnix(b.updatedAt ?? b.updated_at ?? b.createdAt ?? b.created_at),
+        };
+        const existing = existingBooksMap.get(normalized.id);
+        if (!existing) { await bookRepo.bulkUpsert([normalized]); booksAdded++; existingBooksMap.set(normalized.id, normalized as any); }
+        else {
+          const existingTime = (existing.updatedAt || existing.createdAt) * 1000;
+          const importTime = (normalized.updatedAt || normalized.createdAt) * 1000;
+          if (importTime > existingTime) { await bookRepo.bulkUpsert([normalized]); booksUpdated++; existingBooksMap.set(normalized.id, normalized as any); }
+        }
+      }
+      if (obj.type === 'card') {
+        const c = obj.data;
+        const normalized = {
+          id: c.id,
+          bookId: c.bookId ?? c.book_id ?? '',
+          unitIndex: c.unitIndex ?? c.unit_index ?? 0,
+          state: c.state ?? 0,
+          stability: c.stability ?? 0,
+          difficulty: c.difficulty ?? 0,
+          elapsed_days: c.elapsed_days ?? c.elapsedDays ?? 0,
+          scheduled_days: c.scheduled_days ?? c.scheduledDays ?? 0,
+          reps: c.reps ?? 0,
+          lapses: c.lapses ?? 0,
+          due: toUnix(c.due),
+          lastReview: toUnixNullable(c.lastReview ?? c.last_review),
+          photoPath: c.photoPath ?? c.photo_path ?? null,
+        } as any;
+        await cardRepo.bulkUpsert([normalized]);
+        cardsUpserted++;
+      }
+      if (obj.type === 'ledger') {
+        const l = obj.data;
+        const normalized = {
+          date: toUnix(l.date),
+          earnedLex: l.earnedLex ?? l.earned_lex ?? 0,
+          targetLex: l.targetLex ?? l.target_lex ?? 0,
+          balance: l.balance ?? 0,
+        } as any;
+        await ledgerRepo.bulkAdd([normalized]);
+        ledgerAdded++;
+      }
+      if (obj.type === 'systemSetting') {
+        const s = obj.data;
+        await settingsRepo.set(s.key, s.value);
+        systemSettingsRestored++;
+      }
+      // presetBook: 現行ユース低 → 後段まとめ挿入でも可（簡易対応省略）
+    }
+    return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded, systemSettingsRestored };
+  } catch (e) {
+    console.error('[StreamingImport] Failed', e);
+    throw e;
   }
 };

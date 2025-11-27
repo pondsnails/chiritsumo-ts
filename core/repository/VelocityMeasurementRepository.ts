@@ -4,11 +4,11 @@ import { getDrizzleDb } from '../database/drizzleClient';
 import { eq, desc, sql } from 'drizzle-orm';
 
 export interface IVelocityMeasurementRepository {
-  findByDate(date: string): Promise<VelocityMeasurement | null>;
+  findByDate(date: number): Promise<VelocityMeasurement | null>;
   findRecent(limit: number): Promise<VelocityMeasurement[]>;
   upsert(measurement: NewVelocityMeasurement): Promise<void>;
   getAverageVelocity(days: number): Promise<{ avgVelocity: number; totalMeasurements: number } | null>;
-  deleteOlderThan(date: string): Promise<void>;
+  deleteOlderThan(dateEpoch: number): Promise<void>;
 }
 
 export class DrizzleVelocityMeasurementRepository implements IVelocityMeasurementRepository {
@@ -16,7 +16,7 @@ export class DrizzleVelocityMeasurementRepository implements IVelocityMeasuremen
     return await getDrizzleDb();
   }
 
-  async findByDate(date: string): Promise<VelocityMeasurement | null> {
+  async findByDate(date: number): Promise<VelocityMeasurement | null> {
     const db = await this.db();
     const result = await db
       .select()
@@ -84,11 +84,11 @@ export class DrizzleVelocityMeasurementRepository implements IVelocityMeasuremen
   /**
    * 指定日付より古いデータを削除
    */
-  async deleteOlderThan(date: string): Promise<void> {
+  async deleteOlderThan(dateEpoch: number): Promise<void> {
     const db = await this.db();
     await db
       .delete(velocityMeasurements)
-      .where(sql`${velocityMeasurements.date} < ${date}`)
+      .where(sql`${velocityMeasurements.date} < ${dateEpoch}`)
       .run();
   }
 }
