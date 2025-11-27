@@ -19,24 +19,28 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 
 - **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
-- **Storage**: IndexedDB（Web） / SQLite（Native 予定）
-- **ORM**: Drizzle ORM
+- **Storage**: SQLite (Native Only) - **Web版は廃止**
+- **ORM**: Drizzle ORM (expo-sqlite driver)
 - **State**: Zustand
 - **Scheduling**: ts-fsrs（FSRS v5）
 - **IAP**: react-native-purchases（RevenueCat）
 - **Visualization/Share**: react-native-svg, react-native-view-shot
+- **Architecture**: Repository Pattern + Service Layer
 
 ## 📦 主要機能
 
 ### ✅ 実装済み（Phase 1-3 完了 / v7.1.0）
 
 #### データベース & コアロジック
-- [x] IndexedDB（Web） + Drizzle ORM
+- [x] **SQLite (Drizzle ORM)** - Web版廃止、Native専用に統一
+- [x] **Repository Pattern移行完了** - Books/Cards/Ledger/InventoryPresetsをDrizzle化
+- [x] **Store層リファクタ完了** - bookStore/cardStoreの直接DB呼び出しを排除
 - [x] Books/Cards/Ledgerスキーマ定義
 - [x] Chunking機能（1カードあたりの学習量指定）
 - [x] Chunk Size プリセット & Proカスタム（学習単位サイズをプリセット 1/2/3/5/10/15 + Pro追加 20/30/50/75/100 + カスタム入力）
 - [x] 循環参照防止（DAGグラフ管理）
 - [x] FSRS v5アルゴリズム統合
+- [x] **書籍情報取得マルチソース化** - OpenBD（国内優先）+ Google Books（洋書予備）でAPIキー不要
 
 #### 学習機能
 - [x] Read/Solve/Memoの3モード対応
@@ -58,7 +62,8 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 #### データ管理（ゼロ運用コスト）
 - [x] JSONバックアップ機能（Export/Import）
 - [x] 設定画面（手動バックアップのみ）
-- [x] クラウド連携・自動バックアップ削除（維持費ゼロ）
+- [x] **クラウド連携・自動バックアップ削除（維持費ゼロ方針確定）**
+- [x] **google-signin / google-drive-api-wrapper / background-fetch 依存削除**
 
 #### 課金システム
 - [x] RevenueCat統合
@@ -106,13 +111,14 @@ npm run dev
 
 #### 1. Web版の制限事項（重要）
 
-**⚠️ Web版はネイティブ機能が制限されます:**
-- `expo-file-system`：× ファイルシステムアクセスが制限される
-- 自動/クラウドバックアップ：× 方針として非対応（手動のみ）
+**⚠️ Web版は廃止されました（v7.1.0以降）:**
+- **ネイティブ（SQLite）のみに統一** - IndexedDB実装を削除
+- `db.ts` は `db.native.ts` を直接エクスポート
+- メンテナンスコスト削減・型安全性向上のための戦略的決定
 
 **推奨構成:**
 - 本番リリース：**ネイティブアプリのみ配布**（iOS/Android）
-- Web版：開発・テスト用途のみ
+- Web版：非対応
 
 #### 2. バックアップ方針（ゼロ運用コスト）
 
@@ -146,31 +152,65 @@ app/
 │   ├── route.tsx        # 路線図画面
 │   ├── bank.tsx         # 読書銀行画面
 │   ├── books.tsx        # 書籍一覧
-│   └── settings.tsx     # 設定画面（NEW）
+│   └── settings.tsx     # 設定画面
 ├── books/
 │   ├── add.tsx          # 書籍追加（制限チェック実装）
 │   └── edit.tsx         # 書籍編集
-├── core/
-│   ├── components/      # 再利用可能なコンポーネント
-│   │   └── ChunkSizeSelector.tsx  # 学習単位サイズ選択（Free=プリセット / Pro=+拡張+カスタム）
-│   ├── database/        # Drizzle ORM & SQLite
-│   ├── fsrs/            # FSRS v5スケジューラ
-│   ├── layout/          # 路線図レイアウトエンジン
-│   ├── logic/           # ビジネスロジック
-│   ├── services/
-│   │   ├── BookService.ts
-│   │   ├── backupService.ts  # 手動バックアップ
-│   │   └── aiAffiliate.ts
-│   ├── store/
-│   │   ├── bookStore.ts
-│   │   ├── cardStore.ts
-│   │   └── subscriptionStore.ts  # 課金管理（NEW）
-│   ├── theme/           # カラー・グラスエフェクト
-│   ├── types/           # 型定義
-│   └── utils/           # ユーティリティ
-├── paywall.tsx          # Paywallスクリーン（NEW）
+├── paywall.tsx          # Paywallスクリーン
 ├── study.tsx            # Read/Solve学習画面
 └── study-memo.tsx       # Memo一括学習画面
+
+core/                    # アプリケーションコア（app外に配置）
+├── components/          # 再利用可能なコンポーネント
+│   ├── ChunkSizeSelector.tsx
+│   ├── BankruptcyWarning.tsx
+│   ├── BookNode.tsx
+│   ├── InventoryFilterModal.tsx
+│   └── ...
+├── database/
+│   ├── db.ts           # Native(SQLite)統一エクスポート
+│   ├── db.native.ts    # SQLite実装（レガシーrawSQL、移行中）
+│   ├── drizzleClient.ts # Drizzle ORM クライアント
+│   ├── schema.ts       # Drizzle スキーマ定義
+│   └── supabase.ts
+├── repository/         # Repository Pattern（Drizzle移行完了）
+│   ├── BookRepository.ts
+│   ├── CardRepository.ts
+│   ├── LedgerRepository.ts
+│   └── InventoryPresetRepository.ts
+├── fsrs/               # FSRS v5スケジューラ
+│   └── scheduler.ts
+├── layout/             # 路線図レイアウトエンジン
+│   └── metroLayout.ts
+├── logic/              # ビジネスロジック
+│   ├── bankruptcyLogic.ts
+│   ├── lexCalculator.ts
+│   └── rolloverLogic.ts
+├── services/
+│   ├── bookDataService.ts  # OpenBD + Google Books統合
+│   ├── BookService.ts
+│   ├── backupService.ts
+│   └── aiAffiliate.ts
+├── servicesV2/         # 次世代サービス層（設計中）
+│   ├── CardQueryService.ts
+│   ├── StudyFlowService.ts
+│   └── RouteLayoutService.ts
+├── store/              # Zustand（Drizzle Repository統合完了）
+│   ├── bookStore.ts    # ✅ DrizzleBookRepository使用
+│   ├── cardStore.ts    # ✅ DrizzleCardRepository/LedgerRepository使用
+│   └── subscriptionStore.ts
+├── theme/
+│   ├── colors.ts
+│   └── glassEffect.ts
+├── types/
+│   └── index.ts
+└── utils/
+    ├── bookLogic.ts
+    ├── dailyRollover.ts
+    └── dateUtils.ts
+
+hooks/
+└── useQuestData.ts     # Quest画面データ統合フック（Repository使用）
 ```
 
 ## 📋 リリース前チェックリスト
@@ -225,52 +265,101 @@ app/
 
 ## 🗄️ Database Architecture
 
-### Repository Pattern (統一インターフェース)
+### 現在の構成（v7.1.0）
 
-Web版（IndexedDB）とNative版（SQLite）の実装差異を吸収するため、Repository パターンを採用しています。
+**統一方針: SQLite (Drizzle ORM) のみ**
 
-**インターフェース定義:**
+Web版（IndexedDB）を廃止し、ネイティブ（SQLite）に一本化しました。これによりメンテナンスコストを削減し、型安全性を向上させています。
+
+### Repository Pattern（Drizzle ORM移行完了）
+
+生SQLを排除し、型安全なDrizzle ORMを使用したRepository Patternに移行完了しました。
+
+**実装済みリポジトリ:**
 ```typescript
-// app/core/database/IRepository.ts
-interface IBooksRepository {
-  getAll(): Promise<Book[]>;
-  getById(id: string): Promise<Book | null>;
-  add(book: Book): Promise<void>;
-  update(id: string, updates: Partial<Book>): Promise<void>;
-  delete(id: string): Promise<void>;
-}
-// ICardsRepository, ILedgerRepository, IPresetsRepository も同様
+// core/repository/
+DrizzleBookRepository         // Books CRUD
+DrizzleCardRepository         // Cards CRUD + Due/New queries
+DrizzleLedgerRepository       // Ledger CRUD + Upsert
+DrizzleInventoryPresetRepository  // Presets CRUD
 ```
 
-**実装の分離:**
-- **Web版**: `db.web.ts` - IndexedDB実装（現行）
-- **Native版**: `db.ts` - SQLite + Drizzle ORM実装（将来対応）
+**移行状況:**
+- ✅ **Repository層**: 全4リポジトリ完全実装
+- ✅ **Store層**: `bookStore`, `cardStore` のDrizzle統合完了
+- ✅ **Hook層**: `useQuestData` のRepository化完了
+- 🔄 **UI層**: `quest.tsx`の一部でレガシーDB参照が残存（段階的移行中）
 
 **利点:**
-- スキーマ変更時、インターフェースを修正すればTypeScriptが実装漏れを検出
-- テストコードでモックRepositoryを注入可能
-- プラットフォーム間の挙動の違いを最小化
+- 型安全なクエリビルダ（`eq`, `and`, `lte`, `inArray`等）
+- スキーマ変更時のコンパイルエラー検出
+- テストコードでモックRepository注入可能
+- 生SQLの散在を防止、保守性向上
 
-### Native Version (将来実装)
+### Schema Definition
 
-ネイティブ版でSQLiteを使用する場合、以下の設定が必須です：
-
-**外部キー制約の有効化:**
 ```typescript
-// app/core/database/sqlite.ts (将来実装時)
-const db = SQLite.openDatabaseSync('chiritsumo.db');
-db.execSync('PRAGMA foreign_keys = ON;');
+// core/database/schema.ts
+export const books = sqliteTable('books', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  user_id: text('user_id'),
+  subject_id: integer('subject_id'),
+  isbn: text('isbn'),
+  pages: integer('pages'),
+  completed_unit: integer('completed_unit').default(0),
+  chunk_size: integer('chunk_size').default(1),
+  cover_path: text('cover_path'),
+  target_completion_date: text('target_completion_date'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export const cards = sqliteTable('cards', {
+  id: text('id').primaryKey(),
+  book_id: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  unit_index: integer('unit_index').notNull(),
+  due: text('due').notNull(),
+  stability: real('stability').notNull(),
+  difficulty: real('difficulty').notNull(),
+  // ... FSRS関連フィールド
+});
+
+export const ledger = sqliteTable('ledger', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull().unique(),
+  balance: integer('balance').notNull().default(0),
+  // ... 取引関連フィールド
+});
+
+export const inventoryPresets = sqliteTable('inventory_presets', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  book_ids: text('book_ids').notNull(), // JSON serialized array
+  created_at: text('created_at').notNull(),
+});
 ```
 
-これにより、`books`テーブルの削除時に関連する`cards`が自動的にCASCADE削除されます。
-設定しない場合、削除されたBookに紐づくCardがゴミデータとして残る可能性があります。
+### 外部キー制約の有効化
 
-### Web Version (現行)
+SQLiteの外部キー制約はデフォルトで無効なため、明示的に有効化しています：
 
-- **Database**: IndexedDB
-- **Migration**: localStorage → IndexedDB（自動）
-- **Storage Limit**: 5MB制限を回避（IndexedDBは実質無制限）
-- **Note**: IndexedDBには外部キー制約がないため、削除処理は明示的に実装済み
+```typescript
+// core/database/drizzleClient.ts
+const sqlite = SQLite.openDatabaseSync('chiritsumo.db');
+sqlite.execSync('PRAGMA foreign_keys = ON;');
+const db = drizzle(sqlite);
+```
+
+これにより、`books`削除時に関連`cards`が自動CASCADE削除されます。
+
+### 移行戦略
+
+レガシーDB（`db.native.ts`）とDrizzle Repositoryを並行運用し、段階的に移行中です：
+
+**Phase 1（完了）**: Repository実装 + Store層統合  
+**Phase 2（次回）**: UI層の残存レガシー参照排除  
+**Phase 3（将来）**: `db.native.ts`削除、完全Drizzle化
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
