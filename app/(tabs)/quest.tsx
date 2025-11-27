@@ -18,6 +18,7 @@ import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { assignNewCardsToday } from '@core/services/cardPlanService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import i18n from '@core/i18n';
@@ -279,6 +280,40 @@ export default function QuestScreen() {
                   ? i18n.t('quest.noCardsInFilter')
                   : i18n.t('quest.addBooksPrompt')}
               </Text>
+              <TouchableOpacity
+                style={[styles.quickStartButton, { marginTop: 16 }]}
+                onPress={async () => {
+                  try {
+                    // 現在のフィルタ（プリセット/アクティブ）に基づいて配布対象を決定
+                    let bookIdsToQuery: string[];
+                    if (activePresetId) {
+                      const activePreset = presets.find(p => p.id === activePresetId);
+                      bookIdsToQuery = activePreset?.bookIds || [];
+                    } else {
+                      bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+                    }
+                    if (bookIdsToQuery.length === 0 && books.length > 0) {
+                      bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+                      if (bookIdsToQuery.length === 0) {
+                        bookIdsToQuery = books.map(b => b.id);
+                      }
+                    }
+
+                    if (bookIdsToQuery.length === 0) return;
+
+                    // デフォルトで合計10枚をラウンドロビン配布
+                    const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
+                    if (created > 0) {
+                      await loadDueCards();
+                      await loadNewCards();
+                    }
+                  } catch (e) {
+                    console.error('Quick start failed', e);
+                  }
+                }}
+              >
+                <Text style={styles.quickStartText}>今日の新規カードを10枚割り当てる</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <>
@@ -531,5 +566,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  quickStartButton: {
+    marginTop: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  quickStartText: {
+    color: colors.text,
+    fontWeight: '700',
   },
 });
