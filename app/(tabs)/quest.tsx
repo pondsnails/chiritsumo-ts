@@ -36,6 +36,7 @@ export default function QuestScreen() {
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showActionsModal, setShowActionsModal] = useState(false);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -230,7 +231,7 @@ export default function QuestScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.title}>{i18n.t('quest.title')}</Text>
-            <TouchableOpacity onPress={() => setShowFilterModal(true)} style={styles.settingsButton}>
+            <TouchableOpacity onPress={() => setShowActionsModal(true)} style={styles.settingsButton}>
               <Settings color={colors.textSecondary} size={24} strokeWidth={2} />
             </TouchableOpacity>
           </View>
@@ -402,6 +403,63 @@ export default function QuestScreen() {
         presets={presets}
         onPresetsChange={handlePresetsChange}
       />
+      {/* Actions modal */}
+      <Modal visible={showActionsModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.actionsOverlay} activeOpacity={1} onPress={() => setShowActionsModal(false)}>
+          <View style={styles.actionsCard}>
+            <Text style={styles.actionsTitle}>クエスト操作</Text>
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => {
+                setShowActionsModal(false);
+                setShowFilterModal(true);
+              }}
+            >
+              <Text style={styles.actionItemText}>フィルタを開く</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={async () => {
+                setShowActionsModal(false);
+                try {
+                  let bookIdsToQuery: string[];
+                  if (activePresetId) {
+                    const activePreset = presets.find(p => p.id === activePresetId);
+                    bookIdsToQuery = activePreset?.bookIds || [];
+                  } else {
+                    bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+                  }
+                  if (bookIdsToQuery.length === 0 && books.length > 0) {
+                    bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+                    if (bookIdsToQuery.length === 0) {
+                      bookIdsToQuery = books.map(b => b.id);
+                    }
+                  }
+                  if (bookIdsToQuery.length === 0) return;
+                  const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
+                  if (created > 0) {
+                    await loadDueCards();
+                    await loadNewCards();
+                  }
+                } catch (e) {
+                  console.error('Quick assign from actions menu failed', e);
+                }
+              }}
+            >
+              <Text style={styles.actionItemText}>今日の新規カードを10枚割り当てる</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => {
+                setShowActionsModal(false);
+                setShowRegisterModal(true);
+              }}
+            >
+              <Text style={styles.actionItemText}>既習範囲を復習として登録する</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
       <RegisterStudiedModal
         visible={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
@@ -601,5 +659,37 @@ const styles = StyleSheet.create({
   quickStartText: {
     color: colors.text,
     fontWeight: '700',
+  },
+  actionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  actionsCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    gap: 8,
+  },
+  actionsTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  actionItem: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    paddingHorizontal: 12,
+  },
+  actionItemText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
