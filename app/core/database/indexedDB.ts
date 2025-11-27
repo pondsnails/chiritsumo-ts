@@ -352,7 +352,7 @@ export const indexedLedgerDB: ILedgerRepository = {
 export const indexedPresetsDB: IPresetsRepository = {
   getAll: () => getAll<InventoryPreset>(STORES.PRESETS),
   
-  add: (preset: InventoryPreset) => put(STORES.PRESETS, preset),
+  add: (preset: Omit<InventoryPreset, 'id'>) => put(STORES.PRESETS, preset),
   
   update: async (id: number, updates: Partial<InventoryPreset>) => {
     const preset = await getByKey<InventoryPreset>(STORES.PRESETS, id);

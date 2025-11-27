@@ -88,7 +88,8 @@ async function assignNewCards(targetLex: number): Promise<void> {
     today.setHours(0, 0, 0, 0);
     
     // 今日期限の復習カードを取得
-    const dueCards = await cardsDB.getDueCards(today.toISOString());
+    const allCards = await cardsDB.getAll();
+    const dueCards = allCards.filter(c => c.due <= today);
     
     // 復習カードで獲得できるLexを計算（簡易的に平均値を使用）
     const avgLexPerCard = 15; // Read: 10, Solve: 20, Memo: 15の平均
