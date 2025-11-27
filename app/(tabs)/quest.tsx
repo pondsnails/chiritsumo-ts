@@ -18,6 +18,7 @@ import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
+import { createScheduler } from '@core/fsrs/scheduler';
 import { inventoryPresetsDB, cardsDB } from '@core/database/db';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
@@ -381,57 +382,104 @@ export default function QuestScreen() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>🔄 復習クエスト（まずはこちら）</Text>
                   <View style={styles.taskList}>
-                    {groupedReviewCards.map(({ book, cards }) => (
-                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                        <View style={styles.taskHeader}>
-                          <View style={styles.taskTitleRow}>
-                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+                    {groupedReviewCards.map(({ book, cards }) => {
+                      const now = new Date();
+                      const dueList = cards.filter(c => c.due <= now).sort((a, b) => a.due.getTime() - b.due.getTime());
+                      const nextCard = dueList[0];
+                      const remaining = dueList.length;
+                      return (
+                        <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
+                          <View style={styles.taskHeader}>
+                            <View style={styles.taskTitleRow}>
+                              <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
+                                <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+                              </View>
+                              <Text style={styles.taskTitle} numberOfLines={1}>{book.title}</Text>
                             </View>
-                            <Text style={styles.taskTitle} numberOfLines={1}>
-                              {book.title}
-                            </Text>
+                            <View style={styles.taskStats}>
+                              <Text style={styles.taskCount}>残り {remaining} / {cards.length}</Text>
+                              <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                            </View>
                           </View>
-                          <View style={styles.taskStats}>
-                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                          {nextCard ? (
+                            <View style={styles.reviewRow}>
+                              <Text style={styles.reviewInfo}>次: チャンク {nextCard.unitIndex}</Text>
+                              <View style={styles.reviewButtons}>
+                                <TouchableOpacity
+                                  style={[styles.ratingBtn, styles.ratingAgain]}
+                                  onPress={async () => {
+                                    try {
+                                      const scheduler = createScheduler(book.mode);
+                                      const updated = scheduler.reviewAgain(nextCard);
+                                      await cardsDB.upsert(updated);
+                                      await loadDueCards();
+                                    } catch (e) { console.error('review again failed', e); }
+                                  }}
+                                >
+                                  <Text style={styles.ratingText}>もう一度</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[styles.ratingBtn, styles.ratingHard]}
+                                  onPress={async () => {
+                                    try {
+                                      const scheduler = createScheduler(book.mode);
+                                      const updated = scheduler.reviewHard(nextCard);
+                                      await cardsDB.upsert(updated);
+                                      await loadDueCards();
+                                    } catch (e) { console.error('review hard failed', e); }
+                                  }}
+                                >
+                                  <Text style={styles.ratingText}>難しい</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[styles.ratingBtn, styles.ratingGood]}
+                                  onPress={async () => {
+                                    try {
+                                      const scheduler = createScheduler(book.mode);
+                                      const updated = scheduler.reviewGood(nextCard);
+                                      await cardsDB.upsert(updated);
+                                      await loadDueCards();
+                                    } catch (e) { console.error('review good failed', e); }
+                                  }}
+                                >
+                                  <Text style={styles.ratingText}>できた</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          ) : (
+                            <Text style={styles.reviewDone}>この書籍の復習は完了です 🎉</Text>
+                          )}
+                          <View style={styles.inlineActions}>
+                            <TouchableOpacity
+                              style={[styles.smallBtn, styles.primaryBtn]}
+                              onPress={() => startStudy(book.id)}
+                            >
+                              <Text style={styles.smallBtnText}>詳細画面</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.smallBtn]}
+                              onPress={async () => {
+                                try {
+                                  const created = await assignNewCardsToday(books, [book.id], 5);
+                                  if (created > 0) {
+                                    await loadDueCards();
+                                    await loadNewCards();
+                                  }
+                                } catch (e) { console.error('quick new assign per book failed', e); }
+                              }}
+                            >
+                              <Text style={styles.smallBtnText}>+新規5</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.smallBtn]}
+                              onPress={() => { setShowRegisterModal(true); setRegisterDefaultBook(book.id); }}
+                            >
+                              <Text style={styles.smallBtnText}>既習登録</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
-                        <View style={styles.inlineActions}>
-                          <TouchableOpacity
-                            style={[styles.smallBtn, styles.primaryBtn]}
-                            onPress={() => startStudy(book.id)}
-                          >
-                            <Text style={styles.smallBtnText}>復習開始</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.smallBtn]}
-                            onPress={async () => {
-                              try {
-                                const created = await assignNewCardsToday(books, [book.id], 5);
-                                if (created > 0) {
-                                  await loadDueCards();
-                                  await loadNewCards();
-                                }
-                              } catch (e) {
-                                console.error('quick new assign per book failed', e);
-                              }
-                            }}
-                          >
-                            <Text style={styles.smallBtnText}>+新規5</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.smallBtn]}
-                            onPress={() => {
-                              setShowRegisterModal(true);
-                              setRegisterDefaultBook(book.id);
-                            }}
-                          >
-                            <Text style={styles.smallBtnText}>既習登録</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
               )}
@@ -813,6 +861,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 8,
+  },
+  reviewInfo: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  reviewButtons: { flexDirection: 'row', gap: 6 },
+  ratingBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
+  },
+  ratingAgain: { backgroundColor: '#552222' },
+  ratingHard: { backgroundColor: '#554d22' },
+  ratingGood: { backgroundColor: '#225522' },
+  ratingText: { fontSize: 11, fontWeight: '700', color: colors.text },
+  reviewDone: { fontSize: 12, color: colors.success, marginBottom: 8, fontWeight: '600' },
   startButtonText: {
     fontSize: 16,
     fontWeight: '600',
