@@ -14,7 +14,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, Filter } from 'lucide-react-native';
 import { useServices } from '@core/di/ServicesProvider';
-import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import type { Card } from '@core/types';
@@ -26,9 +25,9 @@ const PAGE_SIZE = 50; // ページあたりのカード数
 
 export default function CardListScreen() {
   const router = useRouter();
-  const { cardRepo } = useServices();
-  const [cards, setCards] = useState<Card[]>([]);
+  const { useBookStore, cardRepo } = useServices();
   const { books } = useBookStore();
+  const [cards, setCards] = useState<Card[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('due');
   const [filterState, setFilterState] = useState<FilterState>('all');

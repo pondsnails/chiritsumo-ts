@@ -10,7 +10,6 @@ import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useBookStore } from '@core/store/bookStore';
 import { useServices } from '@core/di/ServicesProvider';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
@@ -24,7 +23,8 @@ import type { InventoryPreset } from '@core/types';
 export default function QuestScreen() {
   console.log('[QuestScreen] Rendering...');
   const router = useRouter();
-  const { learningSessionService } = useServices();
+  const { useBookStore, learningSessionService } = useServices();
+  const { books } = useBookStore();
   
   // useQuestDataフックからすべてのデータとロジックを取得
   const questData = useQuestData();
@@ -50,8 +50,6 @@ export default function QuestScreen() {
     globalNext,
     globalNextBook,
   } = questData;
-  
-  const { books } = useBookStore();
   
   // UI状態のみ管理
   const [showFilterModal, setShowFilterModal] = useState(false);

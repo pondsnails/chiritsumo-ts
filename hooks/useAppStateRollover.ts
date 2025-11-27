@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { reportError } from '@core/services/errorReporter';
 import { AppState, AppStateStatus } from 'react-native';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
-import { useBookStore } from '@core/store/bookStore';
 import { useServices } from '@core/di/ServicesProvider';
 
 /**
@@ -11,8 +10,8 @@ import { useServices } from '@core/di/ServicesProvider';
  */
 export function useAppStateRollover(onRolloverPerformed?: () => void) {
   const appState = useRef(AppState.currentState);
+  const { useBookStore, cardRepo, ledgerRepo, settingsRepo } = useServices();
   const { books } = useBookStore();
-  const { cardRepo, ledgerRepo, settingsRepo } = useServices();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {

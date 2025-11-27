@@ -1,24 +1,25 @@
 /**
- * useQuestData v2.0（DI対応版）
- * クエスト画面のデータ取得と管理を担当
+ * useQuestData - Composition Pattern (分解版)
  * 
- * リファクタリング完了:
- * - QuestServiceクラス（DI対応）を利用
- * - Repository層への依存を明示的に注入
- * - ビジネスロジックをService層に完全委譲
+ * God Hook を以下の小さなフックに分解:
+ * - useQuestCards: カードデータ取得
+ * - useLexStats: Lex統計計算
+ * - useQuestFilters: プリセットフィルター管理
  */
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useBookStore } from '@core/store/bookStore';
+import { useEffect, useState, useMemo } from 'react';
 import { useServices } from '@core/di/ServicesProvider';
+import { useQuestCards } from './useQuestCards';
+import { useLexStats } from './useLexStats';
+import { useQuestFilters } from './useQuestFilters';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
-import type { Card, InventoryPreset } from '@core/types';
+import type { Card, Book } from '@core/types';
 
 interface QuestData {
   isLoading: boolean;
   dueCards: Card[];
   newCards: Card[];
-  presets: InventoryPreset[];
+  presets: any[];
   activePresetId: number | null;
   setActivePresetId: (id: number | null) => void;
   refreshAll: () => Promise<void>;
@@ -31,34 +32,29 @@ interface QuestData {
   targetLex: number;
   combinedLex: number;
   recommended: { total: number; perBook: Record<string, number> };
-  groupedReviewCards: { book: import('@core/types').Book; cards: Card[] }[];
-  groupedNewCards: { book: import('@core/types').Book; cards: Card[] }[];
+  groupedReviewCards: { book: Book; cards: Card[] }[];
+  groupedNewCards: { book: Book; cards: Card[] }[];
   selectedBookIds: string[];
   globalNext: Card | null;
-  globalNextBook: import('@core/types').Book | null;
+  globalNextBook: Book | null;
 }
 
 export function useQuestData(): QuestData {
   const { useBookStore, questService } = useServices();
   const { books, fetchBooks } = useBookStore();
   const [isLoading, setIsLoading] = useState(true);
-  const [dueCards, setDueCards] = useState<Card[]>([]);
-  const [newCards, setNewCards] = useState<Card[]>([]);
-  const [presets, setPresets] = useState<InventoryPreset[]>([]);
-  const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [dailyTargetLex, setDailyTargetLex] = useState<number>(600);
-  const [initialDueCount, setInitialDueCount] = useState<number>(0);
-  
-  const isInitialized = useRef(false);
 
-  const refreshAll = useCallback(async () => {
+  // 分解されたフック群
+  const filters = useQuestFilters(books);
+  const cards = useQuestCards();
+  const lexStats = useLexStats(cards.dueCards, cards.newCards, books, dailyTargetLex);
+
+  const refreshAll = async () => {
     setIsLoading(true);
     try {
       await fetchBooks();
-      const loaded = await questService.getInventoryPresets();
-      setPresets(loaded);
-      const def = loaded.find(p => p.isDefault);
-      if (def && !activePresetId) setActivePresetId(def.id);
+      await filters.refreshPresets();
       
       try {
         const val = await getDailyLexTarget();
@@ -69,108 +65,74 @@ export function useQuestData(): QuestData {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchBooks, questService, activePresetId]);
+  };
 
-  const refreshDue = useCallback(async () => {
-    const ids = questService.resolveTargetBookIds(books, presets, activePresetId);
-    if (ids.length === 0) { 
-      setDueCards([]); 
-      return; 
-    }
-    
-    // Service層でDueカード取得（内部でRepository呼び出し）
-    const cards = await questService.getDueCardsForToday();
-    // 対象書籍のみにフィルタ
-    const filtered = cards.filter(c => ids.includes(c.bookId));
-    setDueCards(filtered);
-    setInitialDueCount(prev => prev === 0 ? filtered.length : prev);
-  }, [questService, books, activePresetId, presets]);
+  const refreshDue = async () => {
+    await cards.refreshDue(filters.selectedBookIds);
+  };
 
-  const refreshNew = useCallback(async () => {
-    const ids = questService.resolveTargetBookIds(books, presets, activePresetId);
-    if (ids.length === 0) { 
-      setNewCards([]); 
-      return; 
-    }
-    
-    // すべての対象書籍から新規カードを一括取得（Service層経由）
-    const allNew = await questService.getNewCardsForBooks(ids);
-    
-    // 今日作成されたカードのみにフィルタ
-    const todayNew = questService.filterTodayNewCards(allNew);
-    setNewCards(todayNew);
-  }, [questService, books, activePresetId, presets]);
+  const refreshNew = async () => {
+    await cards.refreshNew(filters.selectedBookIds);
+  };
 
   useEffect(() => {
-    if (!isInitialized.current) {
-      isInitialized.current = true;
-      refreshAll();
-    }
-  }, [refreshAll]);
-  
-  useEffect(() => { 
-    if (isInitialized.current && books.length > 0) { 
-      refreshDue(); 
-      refreshNew(); 
-    }
-  }, [books.length, activePresetId, refreshDue, refreshNew]);
+    refreshAll();
+  }, []);
 
-  // 計算ロジックはQuestServiceに委譲
+  useEffect(() => {
+    if (books.length > 0) {
+      refreshDue();
+      refreshNew();
+    }
+  }, [books.length, filters.activePresetId]);
+
+  // グループ化と次のカード計算
   const computed = useMemo(() => {
-    const reviewLex = questService.calculateTotalLex(dueCards, books);
-    const newLexCurrent = questService.calculateTotalLex(newCards, books);
-    const combinedLex = reviewLex + newLexCurrent;
-    
-    const groupedReviewCards = questService.groupCardsByBook(dueCards, books);
-    const groupedNewCards = questService.groupCardsByBook(newCards, books);
-    
-    const globalNext = questService.getGlobalNextCard(dueCards);
+    const groupedReviewCards = questService.groupCardsByBook(cards.dueCards, books);
+    const groupedNewCards = questService.groupCardsByBook(cards.newCards, books);
+    const globalNext = questService.getGlobalNextCard(cards.dueCards);
     const globalNextBook = globalNext ? books.find(b => b.id === globalNext.bookId) ?? null : null;
-    
+
     return {
-      reviewLex,
-      newLexCurrent,
-      combinedLex,
       groupedReviewCards,
       groupedNewCards,
       globalNext,
       globalNextBook,
     };
-  }, [dueCards, newCards, books, questService]);
+  }, [cards.dueCards, cards.newCards, books, questService]);
 
-  const selectedBookIds = useMemo(
-    () => questService.resolveTargetBookIds(books, presets, activePresetId),
-    [questService, books, presets, activePresetId]
+  const recommended = useMemo(
+    () =>
+      computeRecommendedNewAllocation({
+        books,
+        selectedBookIds: filters.selectedBookIds,
+        reviewLex: lexStats.reviewLex,
+        newLexCurrent: lexStats.newLexCurrent,
+        targetLex: dailyTargetLex,
+      }),
+    [books, filters.selectedBookIds, lexStats.reviewLex, lexStats.newLexCurrent, dailyTargetLex]
   );
-
-  const recommended = useMemo(() => computeRecommendedNewAllocation({
-    books, 
-    selectedBookIds, 
-    reviewLex: computed.reviewLex, 
-    newLexCurrent: computed.newLexCurrent, 
-    targetLex: dailyTargetLex,
-  }), [books, selectedBookIds, computed.reviewLex, computed.newLexCurrent, dailyTargetLex]);
 
   return {
     isLoading,
-    dueCards,
-    newCards,
-    presets,
-    activePresetId,
-    setActivePresetId,
+    dueCards: cards.dueCards,
+    newCards: cards.newCards,
+    presets: filters.presets,
+    activePresetId: filters.activePresetId,
+    setActivePresetId: filters.setActivePresetId,
     refreshAll,
     refreshDue,
     refreshNew,
     dailyTargetLex,
-    initialDueCount,
-    reviewLex: computed.reviewLex,
-    newLexCurrent: computed.newLexCurrent,
-    targetLex: dailyTargetLex,
-    combinedLex: computed.combinedLex,
+    initialDueCount: cards.initialDueCount,
+    reviewLex: lexStats.reviewLex,
+    newLexCurrent: lexStats.newLexCurrent,
+    targetLex: lexStats.targetLex,
+    combinedLex: lexStats.combinedLex,
     recommended,
     groupedReviewCards: computed.groupedReviewCards,
     groupedNewCards: computed.groupedNewCards,
-    selectedBookIds,
+    selectedBookIds: filters.selectedBookIds,
     globalNext: computed.globalNext,
     globalNextBook: computed.globalNextBook,
   };
