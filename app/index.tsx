@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import type { Href } from 'expo-router';
-import { useOnboardingStore } from '@core/store/onboardingStore';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { RolloverNotification } from '@core/components/RolloverNotification';
 import { useServices } from '@core/di/ServicesProvider';
@@ -13,8 +12,9 @@ export default function Index() {
   const [ready, setReady] = useState(false);
   const [destination, setDestination] = useState<Href | null>(null);
   const router = useRouter();
+  const { useOnboardingStore, cardRepo, ledgerRepo, settingsRepo } = useServices();
   const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
-  const { cardRepo, ledgerRepo, settingsRepo } = useServices();
+  const onboardingStore = useOnboardingStore; // getState用
 
   useEffect(() => {
     let mounted = true;
@@ -35,7 +35,7 @@ export default function Index() {
       if (!mounted) return;
       
       console.log('[Index] Step 2: Navigate');
-      const { hasCompletedOnboarding } = useOnboardingStore.getState();
+      const { hasCompletedOnboarding } = onboardingStore.getState();
       
       if (hasCompletedOnboarding) {
         console.log('[Index] User completed onboarding, checking rollover');

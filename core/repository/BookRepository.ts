@@ -10,7 +10,7 @@ import { calculateCardCount } from '../utils/bookLogic';
 export interface IBookRepository {
   findAll(): Promise<Book[]>;
   findAllPaginated(options: { limit: number; offset: number }): Promise<Book[]>; // ページネーション対応
-  findActive(): Promise<Book[]>; // QuestService用
+  findActive(): Promise<Book[]>; // ⚡ SQL最適化: status = 0 のみ取得
   findById(id: string): Promise<Book | null>;
   create(book: Book): Promise<void>; // Domain object persisted
   createWithCards(book: Book): Promise<void>; // Book作成と同時にCard生成（トランザクション）

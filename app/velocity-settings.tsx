@@ -27,10 +27,11 @@ import {
 import type { VelocityData, VelocitySettings } from '@core/services/velocityService';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { useServices } from '@core/di/ServicesProvider';
 
 export default function VelocitySettingsScreen() {
   const router = useRouter();
+  const { useSubscriptionStore } = useServices();
   const { isProUser } = useSubscriptionStore();
   
   const [velocityData, setVelocityData] = useState<VelocityData | null>(null);

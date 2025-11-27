@@ -14,12 +14,13 @@ import { useRouter } from 'expo-router';
 import { X, Check, Crown, Sparkles } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { useServices } from '@core/di/ServicesProvider';
 
 type PlanType = 'lifetime' | 'annual';
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const { useSubscriptionStore } = useServices();
   const {
     offerings,
     isLoading,

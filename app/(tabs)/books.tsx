@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
 import { useServices } from '@core/di/ServicesProvider';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -22,7 +21,7 @@ import type { Book } from '@core/types';
 
 export default function BooksScreen() {
   const router = useRouter();
-  const { useBookStore } = useServices();
+  const { useBookStore, useSubscriptionStore } = useServices();
   const { books, fetchBooks, deleteBook, isLoading } = useBookStore();
   const { isProUser } = useSubscriptionStore();
 

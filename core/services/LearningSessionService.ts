@@ -26,13 +26,16 @@ export class LearningSessionService {
   /**
    * 指定されたプリセット（または全アクティブ書籍）に対して新規カードを配布
    * UI層は配布ロジックを知らなくて良い
+   * 
+   * パフォーマンス最適化: findActive()でアクティブ書籍のみSQL WHERE句で取得
    */
   async distributeNewCards(
     presetId: number | null,
     presets: { id: number; bookIds: string[] }[],
     totalCount: number
   ): Promise<number> {
-    const allBooks = await this.bookRepo.findAll();
+    // SQL WHERE status = 0 でフィルタ（JSフィルタ削除）
+    const activeBooks = await this.bookRepo.findActive();
     
     let targetBookIds: string[];
     
@@ -41,30 +44,30 @@ export class LearningSessionService {
       targetBookIds = activePreset?.bookIds || [];
     } else {
       // プリセット未指定ならアクティブな書籍全て
-      targetBookIds = allBooks.filter(b => b.status === 0).map(b => b.id);
+      targetBookIds = activeBooks.map(b => b.id);
     }
     
-    // フォールバック: アクティブがなければ全書籍
-    if (targetBookIds.length === 0 && allBooks.length > 0) {
-      targetBookIds = allBooks.filter(b => b.status === 0).map(b => b.id);
-      if (targetBookIds.length === 0) {
-        targetBookIds = allBooks.map(b => b.id);
-      }
+    // フォールバック: すべてのアクティブ書籍
+    if (targetBookIds.length === 0 && activeBooks.length > 0) {
+      targetBookIds = activeBooks.map(b => b.id);
     }
     
     if (targetBookIds.length === 0) return 0;
     
-    return await this.cardPlanService.assignNewCardsToday(allBooks, targetBookIds, totalCount);
+    return await this.cardPlanService.assignNewCardsToday(activeBooks, targetBookIds, totalCount);
   }
 
   /**
    * 書籍ごとの個別配分で新規カードを配布
+   * 
+   * パフォーマンス最適化: findActive()でアクティブ書籍のみSQL WHERE句で取得
    */
   async distributeNewCardsByAllocation(
     allocation: Record<string, number>
   ): Promise<number> {
-    const allBooks = await this.bookRepo.findAll();
-    return await this.cardPlanService.assignNewCardsByAllocation(allBooks, allocation);
+    // SQL WHERE status = 0 でフィルタ
+    const activeBooks = await this.bookRepo.findActive();
+    return await this.cardPlanService.assignNewCardsByAllocation(activeBooks, allocation);
   }
 
   /**

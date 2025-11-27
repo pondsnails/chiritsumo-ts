@@ -17,8 +17,6 @@ import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-r
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
-import { useOnboardingStore } from '@core/store/onboardingStore';
 import { useServices } from '@core/di/ServicesProvider';
 import { 
   getUserLexSettings,
@@ -33,7 +31,7 @@ import i18n from '@core/i18n';
 export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
-  const { presetRepo, useBookStore, bookRepo } = useServices();
+  const { presetRepo, useBookStore, useSubscriptionStore, useOnboardingStore, bookRepo } = useServices();
   const { books, fetchBooks, deleteBook } = useBookStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();

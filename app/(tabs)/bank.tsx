@@ -16,7 +16,6 @@ import { useRouter } from 'expo-router';
 import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@core/components/BrainAnalyticsDashboard';
 import { ShareableStats } from '@core/components/ShareableStats';
@@ -26,7 +25,7 @@ import type { LedgerEntry } from '@core/types';
 
 export default function BankScreen() {
   const router = useRouter();
-  const { useBookStore, ledgerRepo } = useServices();
+  const { useBookStore, useSubscriptionStore, ledgerRepo } = useServices();
   const { books } = useBookStore();
   const { isProUser } = useSubscriptionStore();
   

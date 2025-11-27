@@ -21,6 +21,7 @@ const FREE_PRESETS = [1, 2, 3, 5, 10, 15];
 const PRO_EXTRA_PRESETS = [20, 30, 50, 75, 100];
 
 export default function ChunkSizeSelector({ value, onChange, totalUnit, disabled, modeAverageLex = 0, onRequestPro }: ChunkSizeSelectorProps) {
+  const { useSubscriptionStore } = useServices();
   const { isProUser } = useSubscriptionStore();
   const [customInput, setCustomInput] = useState(String(value));
 

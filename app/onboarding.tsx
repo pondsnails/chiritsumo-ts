@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useOnboardingStore } from '@core/store/onboardingStore';
+import { useServices } from '@core/di/ServicesProvider';
 import { Book, Target, TrendingUp, Zap, Gift, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@core/components/PressableScale';
@@ -89,6 +89,7 @@ const slides: OnboardingSlide[] = [
 export default function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const router = useRouter();
+  const { useOnboardingStore } = useServices();
   const { completeOnboarding } = useOnboardingStore();
   const insets = useSafeAreaInsets();
 

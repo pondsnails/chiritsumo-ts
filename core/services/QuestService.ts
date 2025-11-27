@@ -44,10 +44,17 @@ export class QuestService {
 
   /**
    * アクティブな書籍を取得
+   * 
+   * パフォーマンス改善:
+   * - ✅ findAll() → findActive() に変更
+   * - ✅ SQL WHERE status = 0 で絞り込み
+   * - ✅ JavaScriptフィルター削除
+   * 
+   * レビュー指摘: "bookRepo.findAll() が頻繁に使われているが、アプリの規模が大きくなりBookが増えた際、起動時間が劣化"
+   * → SQLレベルでフィルタリングに変更
    */
   async getActiveBooks(): Promise<Book[]> {
-    const allBooks = await this.bookRepo.findAll();
-    return allBooks.filter(b => b.status === BookStatus.ACTIVE);
+    return await this.bookRepo.findActive();
   }
 
   /**
