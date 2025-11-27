@@ -18,7 +18,8 @@ import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
-import { inventoryPresetsDB, cardsDB, ledgerDB } from '@core/database/db';
+import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday } from '@core/services/cardPlanService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
@@ -38,8 +39,7 @@ export default function QuestScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showActionsModal, setShowActionsModal] = useState(false);
-  const [ledgerTargetLex, setLedgerTargetLex] = useState<number | null>(null);
-  const DEFAULT_DAILY_LEX_TARGET = 300; // Ledger未設定時のフォールバック
+  const [dailyTargetLex, setDailyTargetLex] = useState<number>(600); // 設定画面の値
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -60,7 +60,7 @@ export default function QuestScreen() {
       setIsLoading(true);
       await fetchBooks();
       await loadPresets();
-      await loadLedgerTarget();
+      await loadDailyTarget();
     } catch (error) {
       console.error('Failed to load quest data:', error);
     } finally {
@@ -156,18 +156,13 @@ export default function QuestScreen() {
     }
   };
 
-  const loadLedgerTarget = async () => {
+  const loadDailyTarget = async () => {
     try {
-      const recent = await ledgerDB.getRecent(1);
-      const today = new Date().toISOString().split('T')[0];
-      const entry = recent[0];
-      if (entry && entry.date === today) {
-        setLedgerTargetLex(entry.targetLex);
-      } else {
-        setLedgerTargetLex(null);
-      }
+      const target = await getDailyLexTarget();
+      setDailyTargetLex(target);
     } catch (error) {
-      setLedgerTargetLex(null);
+      // デフォルトは moderate 相当の600
+      setDailyTargetLex(600);
     }
   };
 
@@ -247,7 +242,7 @@ export default function QuestScreen() {
   // 目標と不足の計算
   const reviewLex = useMemo(() => calculateTotalLex(dueCards), [dueCards, books]);
   const newLexCurrent = useMemo(() => calculateTotalLex(newCards), [newCards, books]);
-  const targetLex = ledgerTargetLex ?? DEFAULT_DAILY_LEX_TARGET;
+  const targetLex = dailyTargetLex;
   const combinedLex = reviewLex + newLexCurrent;
 
   const selectedBookIds = useMemo(() => {
