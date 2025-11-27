@@ -9,28 +9,11 @@
  */
 
 import type { Card, Book, InventoryPreset } from '@core/types';
+import type { ICardRepository } from '@core/repository/CardRepository';
+import type { IBookRepository } from '@core/repository/BookRepository';
+import type { IInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { BookMode, BookStatus, CardState } from '@core/constants/enums';
-
-/**
- * Repository Interfaces (DI用)
- */
-export interface ICardRepository {
-  findDue(date: Date): Promise<Card[]>;
-  findNew(bookId: string, limit: number): Promise<Card[]>;
-  countByBookAndState(bookId: string, state: CardState): Promise<number>;
-}
-
-export interface IBookRepository {
-  findAll(): Promise<Book[]>;
-  findActive(): Promise<Book[]>;
-  findById(id: string): Promise<Book | null>;
-}
-
-export interface IInventoryPresetRepository {
-  findAll(): Promise<InventoryPreset[]>;
-  findDefault(): Promise<InventoryPreset | null>;
-}
 
 /**
  * QuestServiceクラス（依存性注入対応）
@@ -44,17 +27,19 @@ export class QuestService {
 
   /**
    * 今日の期限到来カードを取得（Service層でDB呼び出し）
+   * @param bookIds 対象書籍ID（省略時はすべての書籍）
    */
-  async getDueCardsForToday(): Promise<Card[]> {
+  async getDueCardsForToday(bookIds?: string[]): Promise<Card[]> {
     const now = new Date();
-    return await this.cardRepo.findDue(now);
+    const targetBookIds = bookIds ?? (await this.getActiveBooks()).map(b => b.id);
+    return await this.cardRepo.findDue(targetBookIds, now);
   }
 
   /**
-   * 指定書籍の新規カードを取得（制限付き）
+   * 指定書籍の新規カードを取得
    */
-  async getNewCardsForBook(bookId: string, limit: number): Promise<Card[]> {
-    return await this.cardRepo.findNew(bookId, limit);
+  async getNewCardsForBooks(bookIds: string[]): Promise<Card[]> {
+    return await this.cardRepo.findNew(bookIds);
   }
 
   /**
@@ -213,4 +198,66 @@ export function getGlobalNextCard(dueCards: Card[]): Card | null {
     const earliestDue = new Date(earliest.due);
     return cardDue < earliestDue ? card : earliest;
   }, dueCards[0]);
+}
+
+export function resolveTargetBookIds(
+  activePresetId: number | null,
+  presets: InventoryPreset[],
+  books: Book[]
+): string[] {
+  if (!activePresetId) {
+    return books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
+  }
+  
+  const preset = presets.find(p => p.id === activePresetId);
+  if (!preset) return books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
+  
+  const bookIds = preset.bookIds.filter(Boolean);
+  return bookIds.length > 0 ? bookIds : books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
+}
+
+export function filterTodayNewCards(allNew: Card[], targetBookIds: string[]): Card[] {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return allNew.filter(c => {
+    if (!targetBookIds.includes(c.bookId)) return false;
+    if (!('createdAt' in c)) return false;
+    const createdDate = new Date((c as any).createdAt).toISOString().slice(0, 10);
+    return createdDate === today;
+  });
+}
+
+export interface QuestComputedData {
+  reviewLex: number;
+  newLexCurrent: number;
+  combinedLex: number;
+  groupedReviewCards: Array<{ book: Book; cards: Card[] }>;
+  groupedNewCards: Array<{ book: Book; cards: Card[] }>;
+  globalNext: Card | null;
+  globalNextBook: Book | null;
+}
+
+export function computeQuestData(
+  dueCards: Card[],
+  newCards: Card[],
+  books: Book[]
+): QuestComputedData {
+  const reviewLex = calculateTotalLex(dueCards, books);
+  const newLexCurrent = calculateTotalLex(newCards, books);
+  const combinedLex = reviewLex + newLexCurrent;
+  
+  const groupedReviewCards = groupCardsByBook(dueCards, books);
+  const groupedNewCards = groupCardsByBook(newCards, books);
+  
+  const globalNext = getGlobalNextCard(dueCards);
+  const globalNextBook = globalNext ? books.find(b => b.id === globalNext.bookId) ?? null : null;
+  
+  return {
+    reviewLex,
+    newLexCurrent,
+    combinedLex,
+    groupedReviewCards,
+    groupedNewCards,
+    globalNext,
+    globalNextBook,
+  };
 }

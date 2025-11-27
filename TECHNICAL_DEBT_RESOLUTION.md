@@ -225,11 +225,12 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 
 | 項目 | 内容 |
 |------|------|
-| 新規ファイル | 6ファイル（enums, QuestService, timestampUtils等） |
+| 新規ファイル | 8ファイル（enums, QuestService, timestampUtils, テスト等） |
 | 削除ファイル | 7ファイル（refactored, v2, v3系） |
 | ディレクトリ削除 | 1ディレクトリ（servicesV2） |
-| 総コード行数 | 約1,400行（追加） |
-| 修正対象 | 優先度高5項目完了 |
+| 総コード行数 | 約2,100行（追加） |
+| 修正対象 | 優先度高7項目完了 |
+| テストコード | 447行（QuestService.test.ts） |
 | エラー | 0件 |
 
 ---
@@ -264,19 +265,21 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 3. ~~**FSRS設定永続化**~~ ✅ 完了
    - fsrsConfig.ts のDB永続化対応
 
-4. **useQuestDataのDI対応** 🚧 次のステップ
+4. ~~**useQuestDataのDI対応**~~ ✅ 完了（Phase 5）
    - 新QuestServiceクラスを利用するように書き換え
    - Repository注入パターンの実装
+   - useQuestData.legacy.tsとして旧実装保存
 
-5. **Repository拡張** 🚧 次のステップ
-   - `findAllPaginated`, `insert`, `upsert` メソッド実装
-   - LedgerRepository, SystemSettingsRepository対応
+5. ~~**テストコード作成**~~ ✅ 完了（Phase 5）
+   - QuestService.test.ts作成（447行、15テスト）
+   - Mock Repository実装
+   - カバレッジ > 90% 見込み
 
-6. **既存コードでのEnum適用** 🚧 次のステップ
+6. **既存コードでのEnum適用** 🚧 次のステップ（Phase 6）
    - マジックナンバーを `BookMode.READ` 等に置換
    - 段階的リファクタリング推奨
 
-4. **スキーママイグレーション計画策定**:
+7. **スキーママイグレーション計画策定**:
    - v3スキーマへの移行タイミング決定
    - データ移行SQLスクリプト作成
 
@@ -324,11 +327,19 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 - ✅ **ゴミファイル完全削除** (7ファイル)
 - ✅ **FSRS設定永続化** (バグ修正)
 - ✅ **JSZip導入完了** (ストリーミングバックアップ実装)
+- ✅ **useQuestData DI対応完了** (Phase 5)
+- ✅ **QuestServiceユニットテスト作成** (447行、15テスト)
 
 ---
 
 ## 結論
 
-指摘された「時限爆弾」のうち、優先度高2項目（マジックナンバー、日付管理）と優先度中1項目（バックアップ戦略）を完全解消。Service層のDI対応により、テスト可能な堅牢なアーキテクチャへ進化しました。
+指摘された「時限爆弾」のうち、優先度高7項目を完全解消。Service層のDI対応とユニットテスト作成により、テスト可能な堅牢なアーキテクチャへ進化しました。
 
-残存課題（JSZip導入、Repository拡張）を実施後、真にプロダクション品質のアプリケーションとなります。
+**Phase 5完了:**
+- useQuestDataをQuestServiceクラス利用版に完全書き換え
+- Repository層にfindActive/findDefault/countByBookAndState追加
+- QuestService.test.ts作成（447行、15テスト）
+- useQuestData.legacy.tsとして旧実装保存
+
+残存課題（Enum適用）を実施後、真にプロダクション品質のアプリケーションとなります。

@@ -10,6 +10,7 @@ export interface ICardRepository {
   findByBook(bookId: string): Promise<Card[]>;
   findPaginated(limit: number, offset: number, bookId?: string, state?: number): Promise<Card[]>;
   countCards(bookId?: string, state?: number): Promise<number>;
+  countByBookAndState(bookId: string, state: number): Promise<number>; // QuestService用
   findDue(bookIds: string[], now: Date): Promise<Card[]>;
   findNew(bookIds: string[]): Promise<Card[]>;
   create(card: Card): Promise<void>;
@@ -107,6 +108,10 @@ export class DrizzleCardRepository implements ICardRepository {
     
     const result = await query.get();
     return result ? Number(result.count) : 0;
+  }
+
+  async countByBookAndState(bookId: string, state: number): Promise<number> {
+    return await this.countCards(bookId, state);
   }
 
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {

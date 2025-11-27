@@ -1,20 +1,15 @@
-/**
- * useQuestData v2.0（DI対応版）
- * クエスト画面のデータ取得と管理を担当
- * 
- * リファクタリング完了:
- * - QuestServiceクラス（DI対応）を利用
- * - Repository層への依存を明示的に注入
- * - ビジネスロジックをService層に完全委譲
- */
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useBookStore } from '@core/store/bookStore';
+import { useCardStore } from '@core/store/cardStore';
 import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
 import { DrizzleCardRepository } from '@core/repository/CardRepository';
-import { DrizzleBookRepository } from '@core/repository/BookRepository';
-import { QuestService } from '@core/services/QuestService';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
+import { 
+  computeQuestData, 
+  resolveTargetBookIds, 
+  filterTodayNewCards 
+} from '@core/services/QuestService';
 import type { Card, InventoryPreset } from '@core/types';
 
 interface QuestData {
@@ -43,6 +38,7 @@ interface QuestData {
 
 export function useQuestData(): QuestData {
   const { books, fetchBooks } = useBookStore();
+  const { fetchDueCards } = useCardStore();
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
   const [newCards, setNewCards] = useState<Card[]>([]);
@@ -52,23 +48,14 @@ export function useQuestData(): QuestData {
   const [initialDueCount, setInitialDueCount] = useState<number>(0);
   
   const isInitialized = useRef(false);
-
-  // Repository を直接インスタンス化（実運用環境）
-  const cardRepo = useMemo(() => new DrizzleCardRepository(), []);
-  const bookRepo = useMemo(() => new DrizzleBookRepository(), []);
   const presetRepo = useMemo(() => new DrizzleInventoryPresetRepository(), []);
-  
-  // QuestService をインスタンス化（Repository注入）
-  const questService = useMemo(
-    () => new QuestService(cardRepo, bookRepo, presetRepo),
-    [cardRepo, bookRepo, presetRepo]
-  );
+  const cardRepo = useMemo(() => new DrizzleCardRepository(), []);
 
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
     try {
       await fetchBooks();
-      const loaded = await questService.getInventoryPresets();
+      const loaded = await presetRepo.findAll();
       setPresets(loaded);
       const def = loaded.find(p => p.isDefault);
       if (def && !activePresetId) setActivePresetId(def.id);
@@ -82,37 +69,28 @@ export function useQuestData(): QuestData {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchBooks, questService, activePresetId]);
+  }, [fetchBooks, presetRepo, activePresetId]);
 
   const refreshDue = useCallback(async () => {
-    const ids = questService.resolveTargetBookIds(books, presets, activePresetId);
-    if (ids.length === 0) { 
-      setDueCards([]); 
-      return; 
-    }
-    
-    // Service層でDueカード取得（内部でRepository呼び出し）
-    const cards = await questService.getDueCardsForToday();
-    // 対象書籍のみにフィルタ
-    const filtered = cards.filter(c => ids.includes(c.bookId));
-    setDueCards(filtered);
-    setInitialDueCount(prev => prev === 0 ? filtered.length : prev);
-  }, [questService, books, activePresetId, presets]);
+    const ids = resolveBookIds();
+    if (ids.length === 0) { setDueCards([]); return; }
+    const cards = await fetchDueCards(ids);
+    setDueCards(cards);
+    setInitialDueCount(prev => prev === 0 ? cards.length : prev);
+  }, [fetchDueCards, books, activePresetId, presets]);
 
   const refreshNew = useCallback(async () => {
-    const ids = questService.resolveTargetBookIds(books, presets, activePresetId);
-    if (ids.length === 0) { 
-      setNewCards([]); 
-      return; 
-    }
+    const ids = resolveTargetBookIds(activePresetId, presets, books);
+    if (ids.length === 0) { setNewCards([]); return; }
     
-    // すべての対象書籍から新規カードを一括取得（Service層経由）
-    const allNew = await questService.getNewCardsForBooks(ids);
-    
-    // 今日作成されたカードのみにフィルタ
-    const todayNew = questService.filterTodayNewCards(allNew);
+    const allNew = await cardRepo.findNew(ids);
+    const todayNew = filterTodayNewCards(allNew, ids);
     setNewCards(todayNew);
-  }, [questService, books, activePresetId, presets]);
+  }, [cardRepo, books, activePresetId, presets]);
+  
+  const resolveBookIds = useCallback((): string[] => {
+    return resolveTargetBookIds(activePresetId, presets, books);
+  }, [activePresetId, presets, books]);
 
   useEffect(() => {
     if (!isInitialized.current) {
@@ -126,35 +104,14 @@ export function useQuestData(): QuestData {
       refreshDue(); 
       refreshNew(); 
     }
-  }, [books.length, activePresetId, refreshDue, refreshNew]);
+  }, [books.length, activePresetId]);
 
   // 計算ロジックはQuestServiceに委譲
   const computed = useMemo(() => {
-    const reviewLex = questService.calculateTotalLex(dueCards, books);
-    const newLexCurrent = questService.calculateTotalLex(newCards, books);
-    const combinedLex = reviewLex + newLexCurrent;
-    
-    const groupedReviewCards = questService.groupCardsByBook(dueCards, books);
-    const groupedNewCards = questService.groupCardsByBook(newCards, books);
-    
-    const globalNext = questService.getGlobalNextCard(dueCards);
-    const globalNextBook = globalNext ? books.find(b => b.id === globalNext.bookId) ?? null : null;
-    
-    return {
-      reviewLex,
-      newLexCurrent,
-      combinedLex,
-      groupedReviewCards,
-      groupedNewCards,
-      globalNext,
-      globalNextBook,
-    };
-  }, [dueCards, newCards, books, questService]);
+    return computeQuestData(dueCards, newCards, books);
+  }, [dueCards, newCards, books]);
 
-  const selectedBookIds = useMemo(
-    () => questService.resolveTargetBookIds(books, presets, activePresetId),
-    [questService, books, presets, activePresetId]
-  );
+  const selectedBookIds = useMemo(() => resolveBookIds(), [resolveBookIds]);
 
   const recommended = useMemo(() => computeRecommendedNewAllocation({
     books, 

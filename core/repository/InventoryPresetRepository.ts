@@ -6,6 +6,7 @@ import { eq, asc, inArray } from 'drizzle-orm';
 
 export interface IInventoryPresetRepository {
   findAll(): Promise<InventoryPreset[]>;
+  findDefault(): Promise<InventoryPreset | null>; // QuestService用
   create(preset: Omit<InventoryPreset,'id'>): Promise<void>;
   update(id: number, preset: Partial<Omit<InventoryPreset,'id'>>): Promise<void>;
   delete(id: number): Promise<void>;
@@ -34,6 +35,12 @@ export class DrizzleInventoryPresetRepository implements IInventoryPresetReposit
 
     return (rows as InventoryPresetRow[]).map(r => this.mapRow(r, booksByPreset.get(r.id ?? 0) ?? []));
   }
+  
+  async findDefault(): Promise<InventoryPreset | null> {
+    const all = await this.findAll();
+    return all.find(p => p.isDefault) ?? null;
+  }
+  
   async create(preset: Omit<InventoryPreset,'id'>): Promise<void> {
     const db = await this.db();
     await db.transaction(async (tx) => {
