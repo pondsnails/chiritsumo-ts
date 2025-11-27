@@ -238,7 +238,7 @@ export const importBackup = async (
           targetCompletionDate: b.targetCompletionDate ?? b.target_completion_date ?? null,
           createdAt,
           updatedAt,
-        } as any;
+        };
       });
 
       const mode = options?.mode ?? 'merge';
