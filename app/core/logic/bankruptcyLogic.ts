@@ -8,6 +8,15 @@ export interface BankruptcyStatus {
   message: string;
 }
 
+// BankruptcyWarning component用の拡張型
+export interface BankruptcyResult {
+  isInDebt: boolean;
+  deficit: number;
+  debtLevel: 0 | 1 | 2 | 3;
+  bonusQuests: string[];
+  rescueOptions: string[];
+}
+
 // 借金の上限設定（Free版のみ）
 const BANKRUPTCY_THRESHOLD_FREE = -1000; // -1000 Lexで強制破産
 

@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.surfaceBorder,
     marginVertical: 12,
   },
   detailLabel: {

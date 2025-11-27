@@ -46,7 +46,7 @@ export interface ILedgerRepository {
  */
 export interface IPresetsRepository {
   getAll(): Promise<InventoryPreset[]>;
-  add(preset: InventoryPreset): Promise<void>;
+  add(preset: Omit<InventoryPreset, 'id'>): Promise<void>;
   update(id: number, updates: Partial<InventoryPreset>): Promise<void>;
   delete(id: number): Promise<void>;
 }

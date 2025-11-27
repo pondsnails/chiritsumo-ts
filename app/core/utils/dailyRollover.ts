@@ -1,10 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ledgerDB, cardsDB } from '../database/db';
-import { getDueCardsCount } from '../fsrs/scheduler';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import type { Card, Book } from '../types';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
+
+// Default Lex per card value used when no books exist
+const DEFAULT_LEX_PER_CARD = 30;
+
+/**
+ * Calculate average Lex per card across all books
+ */
+function getAverageLexPerCard(books: Book[]): number {
+  if (books.length === 0) return DEFAULT_LEX_PER_CARD;
+  
+  const totalLex = books.reduce((sum, book) => {
+    return sum + calculateLexPerCard(book.mode);
+  }, 0);
+  
+  return Math.floor(totalLex / books.length);
+}
+
+/**
+ * Count due cards (cards that are due today or earlier)
+ */
+function getDueCardsCount(cards: Card[]): number {
+  const now = new Date();
+  return cards.filter(c => c.due <= now).length;
+}
 
 export async function getLastRolloverDate(): Promise<string | null> {
   try {
@@ -45,14 +68,13 @@ export async function performDailyRollover(
     const today = new Date().toISOString().split('T')[0];
 
     const dueCount = getDueCardsCount(cards);
-    const lexPerCard = calculateLexPerCard(books);
+    const lexPerCard = getAverageLexPerCard(books);
     const targetLex = dueCount * lexPerCard;
 
     const newBalance = currentBalance - targetLex;
 
     await ledgerDB.add({
-      id: Date.now().toString(),
-      userId: 'local',
+      id: Date.now() + Math.floor(Math.random() * 1000),
       date: new Date().toISOString(),
       targetLex,
       earnedLex: 0,

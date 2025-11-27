@@ -83,7 +83,7 @@ export function BankruptcyWarning({
                 <TrendingUp color={colors.success} size={20} />
                 <Text style={styles.bonusTitle}>ボーナスクエスト</Text>
               </View>
-              {result.bonusQuests.map((quest, index) => (
+              {result.bonusQuests.map((quest: string, index: number) => (
                 <View key={index} style={styles.bonusRow}>
                   <Text style={styles.bonusBullet}>✨</Text>
                   <Text style={styles.bonusText}>{quest}</Text>
@@ -98,7 +98,7 @@ export function BankruptcyWarning({
                 <Gift color={colors.primary} size={20} />
                 <Text style={styles.rescueTitle}>救済オプション</Text>
               </View>
-              {result.rescueOptions.map((option, index) => (
+              {result.rescueOptions.map((option: string, index: number) => (
                 <View key={index} style={styles.rescueRow}>
                   <Text style={styles.rescueBullet}>🎁</Text>
                   <Text style={styles.rescueText}>{option}</Text>

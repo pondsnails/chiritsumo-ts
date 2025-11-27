@@ -22,8 +22,9 @@ export default function Index() {
     try {
       await Promise.all([fetchCards(), fetchBooks()]);
 
-      const summary = await ledgerDB.getSummary();
-      const currentBalance = summary.balance;
+      // Get recent ledger entries to find the current balance
+      const recentEntries = await ledgerDB.getRecent(1);
+      const currentBalance = recentEntries.length > 0 ? recentEntries[0].balance : 0;
 
       const result = await checkAndPerformRollover(cards, books, currentBalance);
 
