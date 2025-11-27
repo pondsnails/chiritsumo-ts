@@ -18,7 +18,7 @@ CREATE TABLE `__new_books` (
 	`updated_at` integer DEFAULT strftime('%s','now') NOT NULL
 );
 --> statement-breakpoint
-INSERT INTO `__new_books`("id", "user_id", "subject_id", "title", "isbn", "mode", "total_unit", "chunk_size", "completed_unit", "status", "previous_book_id", "priority", "cover_path", "target_completion_date", "created_at", "updated_at") SELECT "id", "user_id", "subject_id", "title", "isbn", "mode", "total_unit", "chunk_size", "completed_unit", "status", "previous_book_id", "priority", "cover_path", "target_completion_date", "created_at", "updated_at" FROM `books`;--> statement-breakpoint
+INSERT INTO `__new_books`("id", "user_id", "subject_id", "title", "isbn", "mode", "total_unit", "chunk_size", "completed_unit", "status", "previous_book_id", "priority", "cover_path", "target_completion_date", "created_at", "updated_at") SELECT "id", "user_id", "subject_id", "title", "isbn", "mode", "total_unit", "chunk_size", "completed_unit", "status", "previous_book_id", COALESCE("priority", 1), "cover_path", "target_completion_date", "created_at", "updated_at" FROM `books`;--> statement-breakpoint
 DROP TABLE `books`;--> statement-breakpoint
 ALTER TABLE `__new_books` RENAME TO `books`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
