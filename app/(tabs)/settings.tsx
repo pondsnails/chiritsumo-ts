@@ -18,6 +18,7 @@ import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
 import { useBookStore } from '@core/store/bookStore';
+import { useCardStore } from '@core/store/cardStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@core/database/db';
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
   const { fetchBooks } = useBookStore();
+  const { fetchCards } = useCardStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
   const [isExporting, setIsExporting] = useState(false);
@@ -94,7 +96,7 @@ export default function SettingsScreen() {
             try {
               setIsImporting(true);
               await importBackup();
-              await fetchBooks();
+              await Promise.all([fetchBooks(), fetchCards()]);
               Alert.alert(i18n.t('common.success'), i18n.t('settings.importSuccess'));
             } catch (error) {
               console.error('Import failed:', error);

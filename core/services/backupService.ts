@@ -113,8 +113,33 @@ export const importBackup = async (): Promise<void> => {
         lastReview: c.lastReview ? new Date(c.lastReview) : null,
       }));
 
+      // 型正規化: Book（旧フォーマットも受け入れ）
+      const normalizedBooks = backup.books.map((b: any) => {
+        // snake_caseフォールバック対応
+        const createdAt = b.createdAt || b.created_at || new Date().toISOString();
+        const updatedAt = b.updatedAt || b.updated_at || createdAt;
+        return {
+          id: b.id,
+          userId: b.userId || b.user_id || 'local-user',
+          subjectId: b.subjectId ?? b.subject_id ?? null,
+          title: b.title,
+          isbn: b.isbn ?? null,
+          mode: b.mode,
+          totalUnit: b.totalUnit ?? b.total_unit,
+          chunkSize: (b.chunkSize ?? b.chunk_size) ?? 1,
+          completedUnit: (b.completedUnit ?? b.completed_unit) ?? 0,
+          status: b.status,
+          previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
+          priority: b.priority ?? 0,
+          coverPath: b.coverPath ?? b.cover_path ?? null,
+          targetCompletionDate: b.targetCompletionDate ?? b.target_completion_date ?? null,
+          createdAt,
+          updatedAt,
+        } as any;
+      });
+
       // 書籍データをマージ（updatedAtで新しい方を優先）
-      for (const book of backup.books) {
+      for (const book of normalizedBooks) {
         const existing = existingBooksMap.get(book.id);
         if (!existing) {
           // 新規書籍は追加
@@ -137,7 +162,13 @@ export const importBackup = async (): Promise<void> => {
       // 台帳は日付単位でユニーク、既存チェックして追加
       const existingLedger = await ledgerDB.getAll();
       const existingDates = new Set(existingLedger.map(e => e.date));
-      for (const entry of backup.ledger) {
+      for (const entryRaw of backup.ledger) {
+        const entry = {
+          date: entryRaw.date,
+          earnedLex: Number(entryRaw.earnedLex ?? entryRaw.earned_lex ?? 0),
+          targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
+          balance: Number(entryRaw.balance ?? 0),
+        };
         if (!existingDates.has(entry.date)) {
           await ledgerDB.add(entry);
         }
