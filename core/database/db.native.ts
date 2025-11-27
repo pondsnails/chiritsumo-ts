@@ -5,6 +5,12 @@
 
 import * as SQLite from 'expo-sqlite';
 import type { Book, Card, LedgerEntry } from '../types';
+// TODO(Drizzle-Migration): 本ファイルは暫定的な "legacy native adapter"。
+// 1) 全ての getAllSync/runSync/getFirstSync 生SQL呼び出しを Drizzle QueryBuilder に置換予定。
+// 2) Repository層 (core/repository/*) の CRUD に集約し、ビジネスロジックは Service 層へ移動。
+// 3) 最終段階で booksDB/cardsDB/ledgerDB/inventoryPresetsDB を削除し、新APIへ差し替える。
+// 4) 型安全性確保のため any マッピング部を専用 mapper 関数へ抽出予定。
+// 5) トランザクション利用箇所は Service で orchestration する形へ変更。
 
 const db = SQLite.openDatabaseSync('chiritsumo.db');
 
@@ -74,7 +80,7 @@ const initDB = async () => {
   }
 };
 
-// Books Repository
+// Books Repository (LEGACY) — WILL BE REPLACED BY drizzleBooksRepository
 export const booksDB = {
   async getAll(): Promise<Book[]> {
     await initDB();
@@ -214,7 +220,7 @@ export const booksDB = {
   },
 };
 
-// Cards Repository
+// Cards Repository (LEGACY) — WILL BE REPLACED BY drizzleCardsRepository
 export const cardsDB = {
   async getAll(): Promise<Card[]> {
     await initDB();
@@ -336,7 +342,7 @@ export const cardsDB = {
   },
 };
 
-// Ledger Repository
+// Ledger Repository (LEGACY) — WILL BE REPLACED BY drizzleLedgerRepository
 export const ledgerDB = {
   async getAll(): Promise<LedgerEntry[]> {
     await initDB();
@@ -410,7 +416,7 @@ export const ledgerDB = {
   },
 };
 
-// Inventory Presets Repository
+// Inventory Presets Repository (LEGACY) — WILL BE REPLACED BY drizzleInventoryPresetsRepository
 export const inventoryPresetsDB = {
   async getAll(): Promise<import('../types').InventoryPreset[]> {
     await initDB();
