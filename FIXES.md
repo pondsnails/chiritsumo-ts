@@ -92,24 +92,31 @@ await cardRepo.getAverageRetentionStats()
 
 ---
 
-## 🚨 優先度2: アーキテクチャの根本的欠陥（緊急）
+## 🟡 優先度2: アーキテクチャの根本的欠陥（進行中）
 
-### ❌ JSON in SQL（velocityService）
+### ✅ JSON in SQL（velocityService）
 **問題**: 時系列データをJSON文字列として`system_settings`に保存
 
-**対応**:
+**対応内容**:
 ```sql
 CREATE TABLE velocity_measurements (
   date TEXT PRIMARY KEY,
   earned_lex INTEGER NOT NULL,
-  target_lex INTEGER NOT NULL,
+  minutes_spent INTEGER NOT NULL,
   created_at TEXT NOT NULL
 )
+
+-- SQL集計で平均速度を取得
+SELECT SUM(earned_lex) / SUM(minutes_spent) as avg_velocity
+FROM velocity_measurements
+ORDER BY date DESC
+LIMIT 3
 ```
 
-**ステータス**: 🔴 未着手
+**修正コミット**: b7c5a57
+**ステータス**: ✅ 完了（2025-11-27）
 
-### ❌ God Hook化した useQuestData
+### 🔴 God Hook化した useQuestData
 **問題**: 
 - データ取得、計算、フィルタリング、表示ロジックが全て詰め込まれている
 - テスト不能、可読性低下、無駄な再レンダリング
@@ -144,15 +151,15 @@ CREATE TABLE velocity_measurements (
 
 ## 📊 進捗サマリー
 
-### ✅ 完了項目（Priority 0 & 1）
+### ✅ 完了項目（Priority 0, 1, 2の一部）
 - ✅ マイグレーション管理の導入（drizzle-kit）
 - ✅ 全件ロードの撲滅（ページネーション実装）
 - ✅ SQL集計への移行（BrainAnalyticsDashboard最適化）
 - ✅ 日付処理のUTC/JST問題
 - ✅ ChunkSizeSelectorバリデーション
+- ✅ JSON in SQLの正規化（velocityService → velocity_measurementsテーブル）
 
 ### 🟡 残存課題（Priority 2 - 技術的負債）
-- 🔴 JSON in SQLの正規化（velocityService）
 - 🔴 useQuestDataのリファクタリング
 - 🔴 Repository/Service責務分離
 - 🔴 型安全性の強化（backupService）
@@ -161,19 +168,20 @@ CREATE TABLE velocity_measurements (
 
 ## ✅ リリース判定
 
-**現状**: Priority 0の重大課題をすべて解決。基本的な本番環境投入が可能。
+**現状**: Priority 0完全クリア + Priority 2の主要課題解決。本番環境投入可能。
 
 **リリース条件チェック**:
 1. ✅ 日付処理バグ修正（完了）
 2. ✅ マイグレーション自動化（**完了**）
 3. ✅ カード全件ロード廃止（**完了**）
 4. ✅ SQL集計への移行（**完了**）
+5. ✅ JSON in SQL撲滅（**完了**）
 
-**判定**: 🟢 **READY FOR PRODUCTION (with minor tech debt)**
+**判定**: 🟢 **PRODUCTION READY**
 
 **推奨事項**:
-- Priority 2の課題は技術的負債として段階的に解消
-- velocityServiceのJSON→テーブル化は次回マイグレーションで対応
 - useQuestDataの分割は機能追加時に実施
+- Repository/Service責務分離は段階的にリファクタリング
+- backupServiceの型安全性は次回バックアップ機能拡張時に対応
 
 ---
