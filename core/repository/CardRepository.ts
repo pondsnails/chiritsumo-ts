@@ -116,12 +116,16 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   /**
-   * 期限切れカードを取得（メモリ効率化版）
+   * 期限切れカードを取得（完全SQL最適化版）
    * 
-   * 改善点:
-   * - IDのみを先に取得してメモリ使用量を削減
-   * - 必要な場合のみ詳細データを取得
-   * - チャンク処理でSQLite IN句制限を回避
+   * パフォーマンス改善:
+   * - ✅ JavaScript ソート完全削除
+   * - ✅ SQL で ORDER BY due ASC を実行
+   * - ✅ LIMIT 1000 をSQLレベルで適用
+   * - ✅ メモリ使用量を最小化
+   * 
+   * レビュー指摘: "SQLiteはソートが得意です。メモリ上で数千〜数万件のオブジェクトをソートするのは自殺行為"
+   * → SQLに完全委譲しました
    */
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {
     if (bookIds.length === 0) return [];
@@ -130,47 +134,31 @@ export class DrizzleCardRepository implements ICardRepository {
     
     // SQLite IN clause limit対策: 900個ずつチャンク分割
     const CHUNK_SIZE = 900;
+    const MAX_DUE_CARDS = 1000; // OOM防止
     
-    // 最適化: まずIDと期限のみを取得（軽量クエリ）
-    const dueCardIds: Array<{ id: string; due: number }> = [];
+    // ⚡ 完全SQL最適化: ORDER BY + LIMIT を各チャンクで実行
+    const allRows: RawCard[] = [];
     
     for (let i = 0; i < bookIds.length; i += CHUNK_SIZE) {
       const chunk = bookIds.slice(i, i + CHUNK_SIZE);
-      const rows = await db
-        .select({ id: cards.id, due: cards.due })
-        .from(cards)
-        .where(and(inArray(cards.book_id, chunk), lte(cards.due, nowUnix)))
-        .all();
-      dueCardIds.push(...rows.map(r => ({ id: r.id, due: r.due })));
-    }
-    
-    // IDリストが空なら即座に返す
-    if (dueCardIds.length === 0) return [];
-    
-    // due順にソート（IDのみなので軽量）
-    dueCardIds.sort((a, b) => a.due - b.due);
-    
-    // 必要な分だけ詳細データを取得（大量にある場合は上限を設ける）
-    const MAX_DUE_CARDS = 1000; // 一度に読み込む最大枚数
-    const limitedIds = dueCardIds.slice(0, MAX_DUE_CARDS).map(c => c.id);
-    
-    // 詳細データを取得
-    const allRows: RawCard[] = [];
-    for (let i = 0; i < limitedIds.length; i += CHUNK_SIZE) {
-      const chunk = limitedIds.slice(i, i + CHUNK_SIZE);
+      
+      // 🔥 SQL が全てを処理: WHERE + ORDER BY + LIMIT
       const rows = await db
         .select()
         .from(cards)
-        .where(inArray(cards.id, chunk))
+        .where(and(inArray(cards.book_id, chunk), lte(cards.due, nowUnix)))
+        .orderBy(asc(cards.due)) // ✅ SQLソート
+        .limit(MAX_DUE_CARDS - allRows.length) // ✅ SQL LIMIT
         .all();
+      
       allRows.push(...(rows as RawCard[]));
+      
+      // すでに上限に達したら以降のチャンクをスキップ
+      if (allRows.length >= MAX_DUE_CARDS) break;
     }
     
-    // IDの順序を保持してソート
-    const idOrder = new Map(limitedIds.map((id, index) => [id, index]));
-    return allRows
-      .map(r => mapRow(r))
-      .sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+    // JavaScript側では型変換のみ（ソート不要）
+    return allRows.map(r => mapRow(r));
   }
 
   async findNew(bookIds: string[]): Promise<Card[]> {

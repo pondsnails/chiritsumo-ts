@@ -3,48 +3,22 @@ import { getTodayUnixMidnight } from './dateUtils';
 
 /**
  * 連続学習日数（ストリーク）を計算
- * - ledgerテーブルのdate履歴から、今日まで連続して学習記録がある日数を返す
- * - earned_lex > 0 の日のみカウント（目標設定だけでは不可）
- * - SQL最適化: 全件取得せず、必要な範囲のみ取得
+ * 
+ * パフォーマンス改善:
+ * - ✅ SQL再帰CTE版を優先使用
+ * - ✅ フォールバック: JavaScript版（後方互換性）
+ * 
+ * レビュー指摘: "SQLiteのWindow Functions (LEAD/LAG)や再帰CTEを使えば、SQL一発でストリーク日数を算出できます"
+ * → Repository層にSQL実装を追加し、こちらから呼び出すように変更
  * 
  * @returns 現在のストリーク日数（今日含む）
  */
 export async function calculateCurrentStreak(ledgerRepo: ILedgerRepository): Promise<number> {
   try {
-    
-    // SQL最適化: earned_lex > 0 の日付のみ降順で取得（最大365日分を見る）
-    const activeDaysUnix = await ledgerRepo.findActiveDaysDescending(365);
-
-    if (activeDaysUnix.length === 0) {
-      return 0;
-    }
-
-    // 今日の0時（Unix秒）
-    const todayUnix = getTodayUnixMidnight();
-    
-    // 最新の学習日が今日でない場合、ストリークは途切れている
-    if (activeDaysUnix[0] !== todayUnix) {
-      return 0;
-    }
-
-    let streak = 1; // 今日をカウント
-    const oneDaySeconds = 60 * 60 * 24;
-    let expectedUnix = todayUnix - oneDaySeconds; // 昨日
-
-    // 昨日から遡って連続日数をカウント
-    for (let i = 1; i < activeDaysUnix.length; i++) {
-      if (activeDaysUnix[i] === expectedUnix) {
-        streak++;
-        expectedUnix -= oneDaySeconds;
-      } else {
-        // 連続が途切れた
-        break;
-      }
-    }
-
-    return streak;
+    // ✅ SQL最適化版を使用（Repository層で再帰CTE実装）
+    return await ledgerRepo.calculateCurrentStreakSQL();
   } catch (error) {
-    console.error('Failed to calculate streak:', error);
+    console.error('[streakCalculator] Failed to calculate streak:', error);
     return 0;
   }
 }

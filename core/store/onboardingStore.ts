@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { reportError } from '@core/services/errorReporter';
-import { DrizzleSystemSettingsRepository, type ISystemSettingsRepository } from '../repository/SystemSettingsRepository';
+import type { ISystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
 const ONBOARDING_KEY = '@chiritsumo_onboarding_completed';
 
@@ -12,6 +12,17 @@ interface OnboardingState {
   resetOnboarding: () => Promise<void>; // デバッグ用
 }
 
+/**
+ * オンボーディング状態管理 Store Factory
+ * 
+ * ⚠️ DI/Singleton競合解消:
+ * - 旧実装: export const useOnboardingStore = ... でシングルトンエクスポート
+ * - 新実装: factory関数のみエクスポート、ServicesProvider経由で注入
+ * 
+ * レビュー指摘: "ZustandのStoreは「作成関数（Creator）」のみをエクスポートし、
+ * コンポーネント内では必ず `useServices()` フック経由でStoreインスタンスにアクセスするルールを徹底"
+ * → factory関数に統一しました
+ */
 export function createOnboardingStore(settingsRepo: ISystemSettingsRepository) {
   return create<OnboardingState>((set) => ({
     hasCompletedOnboarding: false,
@@ -57,5 +68,5 @@ export function createOnboardingStore(settingsRepo: ISystemSettingsRepository) {
   }));
 }
 
-const defaultSettingsRepo = new DrizzleSystemSettingsRepository();
-export const useOnboardingStore = createOnboardingStore(defaultSettingsRepo);
+// ❌ シングルトンエクスポート削除（DI統一のため）
+// export const useOnboardingStore = createOnboardingStore(defaultSettingsRepo);

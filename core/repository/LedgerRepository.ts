@@ -8,6 +8,7 @@ export interface ILedgerRepository {
   findAll(): Promise<LedgerEntry[]>;
   findRecent(limit: number): Promise<LedgerEntry[]>;
   findActiveDaysDescending(limit?: number): Promise<number[]>; // For streak calculation - returns Unix timestamps
+  calculateCurrentStreakSQL(): Promise<number>; // ⚡ SQL最適化版ストリーク計算
   upsert(entry: Omit<LedgerEntry,'id'>): Promise<void>;
   add(entry: Omit<LedgerEntry,'id'>): Promise<void>;
   bulkAdd(entries: Omit<LedgerEntry,'id'>[]): Promise<void>; // Bulk add for backup restore
@@ -51,6 +52,63 @@ export class DrizzleLedgerRepository implements ILedgerRepository {
     const rows = limit ? await query.limit(limit).all() : await query.all();
     return rows.map(r => Number(r.date));
   }
+
+  /**
+   * 現在のストリーク日数をSQL一発で計算
+   * 
+   * パフォーマンス改善:
+   * - ✅ JavaScriptループ完全削除
+   * - ✅ SQLでストリーク計算を実行
+   * - ✅ メモリ使用量を最小化
+   * 
+   * レビュー指摘: "SQLiteのWindow Functions (LEAD/LAG)や再帰CTEを使えば、SQL一発でストリーク日数を算出できます"
+   * → 再帰CTEで実装しました
+   */
+  async calculateCurrentStreakSQL(): Promise<number> {
+    const db = await this.db();
+    
+    // 今日の0時タイムスタンプを計算
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const todayUnix = Math.floor(now.getTime() / 1000);
+    const oneDaySeconds = 60 * 60 * 24;
+    
+    try {
+      // 🔥 SQL一発でストリーク計算（再帰CTE使用）
+      const result = await db.run(sql`
+        WITH RECURSIVE streak_calc AS (
+          -- 基底ケース: 今日の学習記録があるか
+          SELECT 
+            date,
+            1 as streak_count,
+            date as check_date
+          FROM ledger
+          WHERE date = ${todayUnix} AND earned_lex > 0
+          
+          UNION ALL
+          
+          -- 再帰ケース: 前日の記録を遡る
+          SELECT 
+            l.date,
+            sc.streak_count + 1,
+            l.date
+          FROM streak_calc sc
+          JOIN ledger l ON l.date = sc.check_date - ${oneDaySeconds}
+          WHERE l.earned_lex > 0
+        )
+        SELECT MAX(streak_count) as current_streak
+        FROM streak_calc
+      `);
+      
+      // @ts-ignore - Drizzle の型推論の限界
+      const streak = result.rows?._array?.[0]?.[0];
+      return streak ? Number(streak) : 0;
+    } catch (error) {
+      console.error('[LedgerRepository] SQL streak calculation failed:', error);
+      return 0;
+    }
+  }
+  
   async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {
     const db = await this.db();
     const existing = await db.select().from(ledger).where(eq(ledger.date, entry.date)).all();

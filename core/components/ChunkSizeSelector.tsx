@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { useServices } from '@core/di/ServicesProvider';
 import { ChunkSizeSchema } from '@core/validation/schemas';
 import { z } from 'zod';
 

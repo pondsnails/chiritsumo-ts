@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useServices } from '@core/di/ServicesProvider';
-import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore';
+import { canAddBook } from '@core/store/subscriptionStore';
 import { validateBookAddition } from '@core/utils/circularReferenceDetector';
 import { getBookTitleFromBarcode } from '@core/services/bookDataService';
 import { BookMode } from '@core/constants/enums';
@@ -29,7 +29,7 @@ import type { Book } from '@core/types';
 
 export default function AddBookScreen() {
   const router = useRouter();
-  const { useBookStore } = useServices();
+  const { useBookStore, useSubscriptionStore } = useServices();
   const { addBook, books, fetchBooks } = useBookStore();
   const { isProUser } = useSubscriptionStore();
   const [title, setTitle] = useState('');

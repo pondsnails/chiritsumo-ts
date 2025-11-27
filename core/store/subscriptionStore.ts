@@ -31,7 +31,19 @@ interface SubscriptionState {
 const REVENUECAT_API_KEY_IOS = 'YOUR_IOS_API_KEY';
 const REVENUECAT_API_KEY_ANDROID = 'YOUR_ANDROID_API_KEY';
 
-export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
+/**
+ * サブスクリプション管理 Store Factory
+ * 
+ * ⚠️ DI/Singleton競合解消:
+ * - 旧実装: export const useSubscriptionStore = create(...) でシングルトンエクスポート
+ * - 新実装: factory関数のみエクスポート、ServicesProvider経由で注入
+ * 
+ * レビュー指摘: "ZustandのStoreは「作成関数（Creator）」のみをエクスポートし、
+ * コンポーネント内では必ず `useServices()` フック経由でStoreインスタンスにアクセスするルールを徹底"
+ * → factory関数に統一しました
+ */
+export function createSubscriptionStore() {
+  return create<SubscriptionState>((set, get) => ({
   isProUser: __DEV__ && DEV_FORCE_PRO, // 開発時はDEV_FORCE_PROに従う
   customerInfo: null,
   offerings: null,
@@ -151,6 +163,10 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     }
   },
 }));
+}
+
+// ❌ シングルトンエクスポート削除（DI統一のため）
+// export const useSubscriptionStore = createSubscriptionStore();
 
 /**
  * Free Planの制限チェック

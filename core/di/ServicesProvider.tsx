@@ -8,6 +8,8 @@ import { QuestService } from '@core/services/QuestService';
 import { LearningSessionService } from '@core/services/LearningSessionService';
 import { createBookStore } from '@core/store/createBookStore';
 import { createCardStore } from '@core/store/createCardStore';
+import { createOnboardingStore } from '@core/store/onboardingStore';
+import { createSubscriptionStore } from '@core/store/subscriptionStore';
 import type { StoreApi, UseBoundStore } from 'zustand';
 
 interface BookState {
@@ -40,9 +42,11 @@ interface ServicesContextValue {
   // Services
   questService: QuestService;
   learningSessionService: LearningSessionService;
-  // Zustand Stores with DI (NEW)
+  // Zustand Stores with DI (全てfactory経由で注入)
   useBookStore: UseBoundStore<StoreApi<BookState>>;
   useCardStore: UseBoundStore<StoreApi<CardState>>;
+  useOnboardingStore: UseBoundStore<StoreApi<any>>; // ⚡ DI統一
+  useSubscriptionStore: UseBoundStore<StoreApi<any>>; // ⚡ DI統一
 }
 
 const ServicesContext = createContext<ServicesContextValue | null>(null);
@@ -57,9 +61,11 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
     const questService = new QuestService(cardRepo, bookRepo, presetRepo);
     const learningSessionService = new LearningSessionService(cardRepo, bookRepo);
     
-    // Store作成時にRepositoryを注入（DI）
+    // ⚡ DI統一: 全StoreをFactory経由で作成し、Repository注入
     const useBookStore = createBookStore(bookRepo);
     const useCardStore = createCardStore(cardRepo);
+    const useOnboardingStore = createOnboardingStore(settingsRepo);
+    const useSubscriptionStore = createSubscriptionStore();
     
     return {
       cardRepo,
@@ -71,6 +77,8 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
       learningSessionService,
       useBookStore,
       useCardStore,
+      useOnboardingStore,
+      useSubscriptionStore,
     };
   }, []);
   return <ServicesContext.Provider value={value}>{children}</ServicesContext.Provider>;
