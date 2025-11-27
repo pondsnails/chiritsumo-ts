@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, Filter } from 'lucide-react-native';
-import { useCardStore } from '@core/store/cardStore';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
@@ -22,24 +22,65 @@ import type { Card } from '@core/types';
 type SortKey = 'due' | 'stability' | 'difficulty' | 'unitIndex';
 type FilterState = 'all' | 0 | 1 | 2 | 3; // all or card states
 
+const PAGE_SIZE = 50; // ページあたりのカード数
+const cardRepo = new DrizzleCardRepository();
+
 export default function CardListScreen() {
   const router = useRouter();
-  const { cards, fetchCards } = useCardStore();
+  const [cards, setCards] = useState<Card[]>([]);
   const { books } = useBookStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('due');
   const [filterState, setFilterState] = useState<FilterState>('all');
   const [filterBookId, setFilterBookId] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+
+  // カードをロード
+  const loadCards = useCallback(async (reset: boolean = false) => {
+    if (reset) {
+      setPage(0);
+      setCards([]);
+      setHasMore(true);
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    try {
+      const bookId = filterBookId === 'all' ? undefined : filterBookId;
+      const state = filterState === 'all' ? undefined : filterState;
+      const offset = reset ? 0 : page * PAGE_SIZE;
+
+      const newCards = await cardRepo.findPaginated(PAGE_SIZE, offset, bookId, state);
+      
+      if (reset) {
+        setCards(newCards);
+      } else {
+        setCards(prev => [...prev, ...newCards]);
+      }
+
+      setHasMore(newCards.length === PAGE_SIZE);
+      if (!reset) setPage(prev => prev + 1);
+    } catch (error) {
+      console.error('Failed to load cards:', error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [page, filterBookId, filterState]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      await fetchCards();
-      setIsLoading(false);
-    };
-    loadData();
-  }, []);
+    loadCards(true);
+  }, [filterBookId, filterState]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMore && hasMore) {
+      loadCards(false);
+    }
+  }, [isLoadingMore, hasMore, loadCards]);
 
   // 記憶定着率を計算（FSRS v5の忘却曲線）
   const calculateRetrievability = useCallback((card: Card): number => {
@@ -378,10 +419,22 @@ export default function CardListScreen() {
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.loadingMoreText}>読み込み中...</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>カードが見つかりません</Text>
-            </View>
+            isLoading ? null : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>カードが見つかりません</Text>
+              </View>
+            )
           }
         />
       </SafeAreaView>
@@ -600,6 +653,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    color: colors.textTertiary,
+  },
+  loadingMore: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 12,
     color: colors.textTertiary,
   },
 });

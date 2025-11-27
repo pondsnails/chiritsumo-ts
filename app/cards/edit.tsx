@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save } from 'lucide-react-native';
 import { DrizzleCardRepository } from '@core/repository/CardRepository';
-import { useCardStore } from '@core/store/cardStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import type { Card } from '@core/types';
@@ -21,7 +20,6 @@ import type { Card } from '@core/types';
 export default function CardEditScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { fetchCards } = useCardStore();
   const cardRepo = new DrizzleCardRepository();
 
   const [card, setCard] = useState<Card | null>(null);
@@ -67,7 +65,6 @@ export default function CardEditScreen() {
         unitIndex: newUnitIndex,
         state: state,
       });
-      await fetchCards();
       Alert.alert('保存完了', 'カードを更新しました', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -92,7 +89,6 @@ export default function CardEditScreen() {
             try {
               if (!card) return;
               await cardRepo.update(card.id, { state: 0 }); // 削除の代わりにNewに戻す
-              await fetchCards();
               Alert.alert('完了', 'カードをリセットしました', [
                 { text: 'OK', onPress: () => router.back() }
               ]);

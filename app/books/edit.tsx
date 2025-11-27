@@ -15,9 +15,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar, Target, TrendingUp, Share2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useBookStore } from '@core/store/bookStore';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { colors } from '@core/theme/colors';
 import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
-import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -33,7 +33,8 @@ export default function EditBookScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { books, updateBook } = useBookStore();
-  const { cards } = useCardStore();
+  const cardRepo = new DrizzleCardRepository();
+  const [cards, setCards] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
   const [completedUnit, setCompletedUnit] = useState('');
@@ -47,22 +48,29 @@ export default function EditBookScreen() {
   const [retentionTarget, setRetentionTarget] = useState<RetentionTarget>('recommended');
 
   useEffect(() => {
-    const book = books.find((b) => b.id === id);
-    if (book) {
-      setTitle(book.title);
-      setTotalUnit(book.totalUnit.toString());
-      setCompletedUnit((book.completedUnit || 0).toString());
-      setChunkSize(book.chunkSize || 1);
-      setMode(book.mode);
-      setStatus(book.status);
-      if (book.targetCompletionDate) {
-        setTargetCompletionDate(new Date(book.targetCompletionDate));
+    const loadData = async () => {
+      const book = books.find((b) => b.id === id);
+      if (book) {
+        setTitle(book.title);
+        setTotalUnit(book.totalUnit.toString());
+        setCompletedUnit((book.completedUnit || 0).toString());
+        setChunkSize(book.chunkSize || 1);
+        setMode(book.mode);
+        setStatus(book.status);
+        if (book.targetCompletionDate) {
+          setTargetCompletionDate(new Date(book.targetCompletionDate));
+        }
+        
+        // この書籍がルートの終点かチェック
+        const finalBooks = findRouteFinalBooks(books);
+        setIsRouteEndpoint(finalBooks.some(b => b.id === id));
+        
+        // カードデータを読み込み
+        const bookCards = await cardRepo.findByBook(id);
+        setCards(bookCards);
       }
-      
-      // この書籍がルートの終点かチェック
-      const finalBooks = findRouteFinalBooks(books);
-      setIsRouteEndpoint(finalBooks.some(b => b.id === id));
-    }
+    };
+    loadData();
   }, [id, books]);
 
   // 既存カード数を算出（生成済みがあればサイズ変更は新規カードのみ影響）

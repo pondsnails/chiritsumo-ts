@@ -37,7 +37,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
   const { fetchBooks } = useBookStore();
-  const { fetchCards } = useCardStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
   
@@ -100,7 +99,7 @@ export default function SettingsScreen() {
             try {
               setIsImporting(true);
               const result = await importBackup({ mode: 'merge' });
-              await Promise.all([fetchBooks(), fetchCards()]);
+              await fetchBooks();
               const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
               Alert.alert(
                 i18n.t('common.success'),
@@ -123,9 +122,9 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               setIsImporting(true);
-              const result = await importBackup({ mode: 'replace' });
-              await Promise.all([fetchBooks(), fetchCards()]);
-              const msg = `書籍: +${result.booksAdded}（置換）\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
+              const result = await importBackup({ mode: 'overwrite' });
+              await fetchBooks();
+              const msg = `書籍: ${result.booksAdded}件\nカード: ${result.cardsUpserted}件\n台帳: ${result.ledgerAdded}件`;
               Alert.alert(
                 i18n.t('common.success'),
                 `完全復元が完了しました。\n\n${msg}`,
@@ -281,7 +280,6 @@ export default function SettingsScreen() {
             try {
               const { resetAllCards } = useCardStore.getState();
               await resetAllCards();
-              await fetchCards();
               Alert.alert('完了', 'すべてのカードを新規状態にリセットしました。');
             } catch (error) {
               console.error('Failed to reset cards:', error);

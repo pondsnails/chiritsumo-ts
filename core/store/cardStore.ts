@@ -4,10 +4,8 @@ import { processCardReview, processBulkCardReviews } from '../services/StudyTran
 import type { Card } from '../types';
 
 interface CardState {
-  cards: Card[];
   isLoading: boolean;
   error: string | null;
-  fetchCards: () => Promise<void>;
   fetchDueCards: (bookIds: string[]) => Promise<Card[]>;
   updateCardReview: (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => Promise<void>;
   bulkUpdateCardReviews: (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => Promise<void>;
@@ -17,20 +15,8 @@ interface CardState {
 const cardRepo = new DrizzleCardRepository();
 
 export const useCardStore = create<CardState>((set) => ({
-  cards: [],
   isLoading: false,
   error: null,
-
-  fetchCards: async () => {
-    try {
-      set({ isLoading: true });
-      const allCards = await cardRepo.findAll();
-      set({ cards: allCards, isLoading: false });
-    } catch (error) {
-      console.error('Failed to fetch cards:', error);
-      set({ error: 'Failed to fetch cards', isLoading: false });
-    }
-  },
 
   fetchDueCards: async (bookIds: string[]) => {
     try {
@@ -72,8 +58,7 @@ export const useCardStore = create<CardState>((set) => ({
     try {
       set({ isLoading: true });
       await cardRepo.resetAll();
-      const allCards = await cardRepo.findAll();
-      set({ cards: allCards, isLoading: false });
+      set({ isLoading: false });
     } catch (error) {
       console.error('Failed to reset cards:', error);
       set({ error: 'Failed to reset cards', isLoading: false });

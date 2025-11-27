@@ -7,6 +7,8 @@ import { getDrizzleDb } from '../database/drizzleClient';
 export interface ICardRepository {
   findAll(): Promise<Card[]>;
   findByBook(bookId: string): Promise<Card[]>;
+  findPaginated(limit: number, offset: number, bookId?: string, state?: number): Promise<Card[]>;
+  countCards(bookId?: string, state?: number): Promise<number>;
   findDue(bookIds: string[], now: Date): Promise<Card[]>;
   findNew(bookIds: string[]): Promise<Card[]>;
   create(card: Card): Promise<void>;
@@ -52,6 +54,41 @@ export class DrizzleCardRepository implements ICardRepository {
     const db = await this.db();
     const rows = await db.select().from(cards).where(eq(cards.book_id, bookId)).orderBy(asc(cards.unit_index)).all();
     return rows.map(r => mapRow(r as RawCard));
+  }
+
+  async findPaginated(limit: number, offset: number, bookId?: string, state?: number): Promise<Card[]> {
+    const db = await this.db();
+    const conditions = [];
+    if (bookId) conditions.push(eq(cards.book_id, bookId));
+    if (state !== undefined) conditions.push(eq(cards.state, state));
+    
+    const query = db.select().from(cards);
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    
+    const rows = await query
+      .orderBy(asc(cards.book_id), asc(cards.unit_index))
+      .limit(limit)
+      .offset(offset)
+      .all();
+    
+    return rows.map(r => mapRow(r as RawCard));
+  }
+
+  async countCards(bookId?: string, state?: number): Promise<number> {
+    const db = await this.db();
+    const conditions = [];
+    if (bookId) conditions.push(eq(cards.book_id, bookId));
+    if (state !== undefined) conditions.push(eq(cards.state, state));
+    
+    const query = db.select({ count: sql<number>`count(*)` }).from(cards);
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+    
+    const result = await query.get();
+    return result ? Number(result.count) : 0;
   }
 
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {
