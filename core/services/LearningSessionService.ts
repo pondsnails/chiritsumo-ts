@@ -11,13 +11,17 @@
 import type { Book, Card } from '../types';
 import type { ICardRepository } from '../repository/CardRepository';
 import type { IBookRepository } from '../repository/BookRepository';
-import { assignNewCardsToday, assignNewCardsByAllocation } from './cardPlanService';
+import { CardPlanService } from './cardPlanService';
 
 export class LearningSessionService {
+  private cardPlanService: CardPlanService;
+  
   constructor(
     private cardRepo: ICardRepository,
     private bookRepo: IBookRepository
-  ) {}
+  ) {
+    this.cardPlanService = new CardPlanService(cardRepo);
+  }
 
   /**
    * 指定されたプリセット（または全アクティブ書籍）に対して新規カードを配布
@@ -50,7 +54,7 @@ export class LearningSessionService {
     
     if (targetBookIds.length === 0) return 0;
     
-    return await assignNewCardsToday(allBooks, targetBookIds, totalCount);
+    return await this.cardPlanService.assignNewCardsToday(allBooks, targetBookIds, totalCount);
   }
 
   /**
@@ -60,7 +64,7 @@ export class LearningSessionService {
     allocation: Record<string, number>
   ): Promise<number> {
     const allBooks = await this.bookRepo.findAll();
-    return await assignNewCardsByAllocation(allBooks, allocation);
+    return await this.cardPlanService.assignNewCardsByAllocation(allBooks, allocation);
   }
 
   /**

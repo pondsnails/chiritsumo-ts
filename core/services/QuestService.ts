@@ -4,7 +4,7 @@
  * 
  * 設計方針:
  * - Repository interfaceに依存（テスト時にモック可能）
- * - 純粋関数は後方互換のため残存（Legacy関数として）
+ * - すべてのロジックをクラスメソッドとして実装（Legacy関数は削除済み）
  * - Hook層はUIロジックのみに専念
  */
 
@@ -104,11 +104,8 @@ export class QuestService {
   getGlobalNextCard(dueCards: Card[]): Card | null {
     if (dueCards.length === 0) return null;
     
-    const now = new Date();
     return dueCards.reduce((earliest, card) => {
-      const cardDue = new Date(card.due);
-      const earliestDue = new Date(earliest.due);
-      return cardDue < earliestDue ? card : earliest;
+      return card.due < earliest.due ? card : earliest;
     }, dueCards[0]);
   }
 
@@ -127,13 +124,13 @@ export class QuestService {
     const preset = presets.find(p => p.id === activePresetId);
     if (!preset) return books.map(b => b.id);
     
-    // bookIdsはstring[]型（types/index.tsで定義済み）
     const bookIds = preset.bookIds.filter(Boolean);
     return bookIds.length > 0 ? bookIds : books.map(b => b.id);
   }
 
   /**
    * 今日作成された新規カードをフィルタ（ロールオーバー対策）
+   * Unix Timestampで正しく範囲比較（タイムゾーン安全）
    */
   filterTodayNewCards(cards: Card[]): Card[] {
     const todayStart = new Date();
@@ -161,109 +158,4 @@ export class QuestService {
     const reviewCount = await this.cardRepo.countByBookAndState(bookId, CardState.REVIEW);
     return { newCount, reviewCount };
   }
-}
-
-/**
- * Legacy純粋関数（互換性のため残す）
- */
-export function calculateTotalLex(cards: Card[], books: Book[]): number {
-  const modeMap = new Map(books.map(b => [b.id, b.mode]));
-  return cards.reduce((sum, card) => {
-    const mode = modeMap.get(card.bookId) ?? BookMode.READ;
-    return sum + calculateLexPerCard(mode);
-  }, 0);
-}
-
-export function groupCardsByBook(
-  cards: Card[], 
-  books: Book[]
-): Array<{ book: Book; cards: Card[] }> {
-  const bookMap = new Map(books.map(b => [b.id, b]));
-  const grouped = new Map<string, { book: Book; cards: Card[] }>();
-  
-  cards.forEach(card => {
-    const book = bookMap.get(card.bookId);
-    if (!book) return;
-    
-    if (!grouped.has(card.bookId)) {
-      grouped.set(card.bookId, { book, cards: [] });
-    }
-    grouped.get(card.bookId)!.cards.push(card);
-  });
-  
-  return Array.from(grouped.values());
-}
-
-export function getGlobalNextCard(dueCards: Card[]): Card | null {
-  if (dueCards.length === 0) return null;
-  
-  const now = new Date();
-  return dueCards.reduce((earliest, card) => {
-    const cardDue = new Date(card.due);
-    const earliestDue = new Date(earliest.due);
-    return cardDue < earliestDue ? card : earliest;
-  }, dueCards[0]);
-}
-
-export function resolveTargetBookIds(
-  activePresetId: number | null,
-  presets: InventoryPreset[],
-  books: Book[]
-): string[] {
-  if (!activePresetId) {
-    return books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
-  }
-  
-  const preset = presets.find(p => p.id === activePresetId);
-  if (!preset) return books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
-  
-  const bookIds = preset.bookIds.filter(Boolean);
-  return bookIds.length > 0 ? bookIds : books.filter(b => b.status === BookStatus.ACTIVE).map(b => b.id);
-}
-
-export function filterTodayNewCards(allNew: Card[], targetBookIds: string[]): Card[] {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return allNew.filter(c => {
-    if (!targetBookIds.includes(c.bookId)) return false;
-    // createdAt が存在しない場合は除外（古いデータ）
-    if (!('createdAt' in c) || !c.createdAt) return false;
-    const createdDate = new Date(c.createdAt).toISOString().slice(0, 10);
-    return createdDate === today;
-  });
-}
-
-export interface QuestComputedData {
-  reviewLex: number;
-  newLexCurrent: number;
-  combinedLex: number;
-  groupedReviewCards: Array<{ book: Book; cards: Card[] }>;
-  groupedNewCards: Array<{ book: Book; cards: Card[] }>;
-  globalNext: Card | null;
-  globalNextBook: Book | null;
-}
-
-export function computeQuestData(
-  dueCards: Card[],
-  newCards: Card[],
-  books: Book[]
-): QuestComputedData {
-  const reviewLex = calculateTotalLex(dueCards, books);
-  const newLexCurrent = calculateTotalLex(newCards, books);
-  const combinedLex = reviewLex + newLexCurrent;
-  
-  const groupedReviewCards = groupCardsByBook(dueCards, books);
-  const groupedNewCards = groupCardsByBook(newCards, books);
-  
-  const globalNext = getGlobalNextCard(dueCards);
-  const globalNextBook = globalNext ? books.find(b => b.id === globalNext.bookId) ?? null : null;
-  
-  return {
-    reviewLex,
-    newLexCurrent,
-    combinedLex,
-    groupedReviewCards,
-    groupedNewCards,
-    globalNext,
-    globalNextBook,
-  };
 }

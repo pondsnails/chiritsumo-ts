@@ -1,7 +1,6 @@
+import type { ICardRepository } from '../repository/CardRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import type { Book, Card } from '../types';
-
-const cardRepo = new DrizzleCardRepository();
 
 const DEFAULT_DIFFICULTY = 5;
 
@@ -19,78 +18,85 @@ function makeCardId(bookId: string, unitIndex: number): string {
   return `${bookId}_${unitIndex}`;
 }
 
-export async function assignNewCardsToday(
-  books: Book[],
-  bookIds: string[],
-  totalNew: number
-): Promise<number> {
-  if (totalNew <= 0) return 0;
-  const targetBooks = books.filter(b => bookIds.includes(b.id));
-  if (targetBooks.length === 0) return 0;
+/**
+ * CardPlanService - DI対応版
+ * Repository注入でテスト容易性を確保
+ */
+export class CardPlanService {
+  constructor(private cardRepo: ICardRepository) {}
 
-  const created: Card[] = [];
-  const dueToday = todayAtMidnight();
+  async assignNewCardsToday(
+    books: Book[],
+    bookIds: string[],
+    totalNew: number
+  ): Promise<number> {
+    if (totalNew <= 0) return 0;
+    const targetBooks = books.filter(b => bookIds.includes(b.id));
+    if (targetBooks.length === 0) return 0;
 
-  // ラウンドロビンで各書籍にカードを配る
-  let createdCount = 0;
-  let round = 0;
-  while (createdCount < totalNew && targetBooks.length > 0 && round < totalNew * 2) {
-    for (const book of targetBooks) {
-      if (createdCount >= totalNew) break;
+    const created: Card[] = [];
+    const dueToday = todayAtMidnight();
 
-      const existing = await cardRepo.findByBook(book.id);
-      const existingUnits = new Set(existing.map(c => c.unitIndex));
+    // ラウンドロビンで各書籍にカードを配る
+    let createdCount = 0;
+    let round = 0;
+    while (createdCount < totalNew && targetBooks.length > 0 && round < totalNew * 2) {
+      for (const book of targetBooks) {
+        if (createdCount >= totalNew) break;
 
-      const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
-      const totalChunks = Math.ceil(book.totalUnit / chunkSize);
+        const existing = await this.cardRepo.findByBook(book.id);
+        const existingUnits = new Set(existing.map(c => c.unitIndex));
 
-      // 次に作るべき最小のunitIndexを探す
-      let nextIdx = 1;
-      while (existingUnits.has(nextIdx) && nextIdx <= totalChunks) {
-        nextIdx++;
+        const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
+        const totalChunks = Math.ceil(book.totalUnit / chunkSize);
+
+        // 次に作るべき最小のunitIndexを探す
+        let nextIdx = 1;
+        while (existingUnits.has(nextIdx) && nextIdx <= totalChunks) {
+          nextIdx++;
+        }
+        if (nextIdx > totalChunks) {
+          continue; // この書籍は作り切り
+        }
+
+        const card: Card = {
+          id: makeCardId(book.id, nextIdx),
+          bookId: book.id,
+          unitIndex: nextIdx,
+          state: 0, // new
+          stability: 0,
+          difficulty: DEFAULT_DIFFICULTY,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          due: dueToday,
+          lastReview: null,
+          createdAt: nowUnix(),
+          photoPath: null,
+        };
+
+        created.push(card);
+        createdCount++;
       }
-      if (nextIdx > totalChunks) {
-        continue; // この書籍は作り切り
-      }
-
-      const card: Card = {
-        id: makeCardId(book.id, nextIdx),
-        bookId: book.id,
-        unitIndex: nextIdx,
-        state: 0, // new
-        stability: 0,
-        difficulty: DEFAULT_DIFFICULTY,
-        elapsedDays: 0,
-        scheduledDays: 0,
-        reps: 0,
-        lapses: 0,
-        due: dueToday,
-        lastReview: null,
-        createdAt: nowUnix(),
-        photoPath: null,
-      };
-
-      created.push(card);
-      createdCount++;
+      round++;
     }
-    round++;
-  }
-  
-  if (created.length > 0) {
-    await cardRepo.bulkUpsert(created);
+    
+    if (created.length > 0) {
+      await this.cardRepo.bulkUpsert(created);
+    }
+
+    return created.length;
   }
 
-  return created.length;
-}
-
-export async function assignNewCardsByAllocation(
-  books: Book[],
-  allocation: Record<string, number>
-): Promise<number> {
-  const dueToday = todayAtMidnight();
-  const bookMap = new Map(books.map(b => [b.id, b]));
-  let createdCount = 0;
-  const allCreated: Card[] = [];
+  async assignNewCardsByAllocation(
+    books: Book[],
+    allocation: Record<string, number>
+  ): Promise<number> {
+    const dueToday = todayAtMidnight();
+    const bookMap = new Map(books.map(b => [b.id, b]));
+    let createdCount = 0;
+    const allCreated: Card[] = [];
 
   for (const [bookId, count] of Object.entries(allocation)) {
     const book = bookMap.get(bookId);
