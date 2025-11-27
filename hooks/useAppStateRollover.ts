@@ -28,7 +28,7 @@ export function useAppStateRollover(onRolloverPerformed?: () => void) {
           
           // 最新の残高を取得（実際にはLedgerから取得すべき）
           // ここでは簡易的に0を渡す（Rollover内部で計算される）
-          const result = await checkAndPerformRollover(cards, books, 0);
+          const result = await checkAndPerformRollover(0);
           
           if (result.performed) {
             console.log('Daily rollover performed:', {

@@ -37,7 +37,7 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
     // 未適用のマイグレーションを実行
     for (const entry of migrationData.journal.entries) {
       const migrationKey = `m${String(entry.idx).padStart(4, '0')}`;
-      const migrationSql = migrationData.migrations[migrationKey];
+      const migrationSql = (migrationData.migrations as any)[migrationKey];
       
       if (!migrationSql) {
         console.warn(`[Migration] ⚠️  Migration ${migrationKey} not found`);
@@ -56,8 +56,8 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
       // SQL文を実行（複数文対応）
       const statements = migrationSql
         .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
 
       for (const statement of statements) {
         _sqlite.execSync(statement);

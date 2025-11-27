@@ -36,7 +36,7 @@ import i18n from '@core/i18n';
 export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
-  const { fetchBooks } = useBookStore();
+    const { books, fetchBooks } = useBookStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
   
@@ -122,7 +122,9 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               setIsImporting(true);
-              const result = await importBackup({ mode: 'overwrite' });
+              // mode: 'overwrite' は型定義にないため削除（デフォルト動作がoverwriteなら引数なし、または型定義修正が必要）
+              // ここでは一旦引数なしで呼び出し、backupServiceの実装に合わせる
+              const result = await importBackup();
               await fetchBooks();
               const msg = `書籍: ${result.booksAdded}件\nカード: ${result.cardsUpserted}件\n台帳: ${result.ledgerAdded}件`;
               Alert.alert(

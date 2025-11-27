@@ -454,7 +454,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.background,
   },
-  },
   proUpgradeContent: {
     flex: 1,
   },
@@ -469,6 +468,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 8,
+  },
+  proUpsellFeatures: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  proUpsellFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  proUpsellFeatureIcon: {
+    fontSize: 16,
+  },
+  proUpsellFeatureText: {
+    fontSize: 12,
+    color: colors.text,
   },
   proUpgradePrice: {
     fontSize: 14,

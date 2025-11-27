@@ -13,7 +13,13 @@
 
 import { DrizzleVelocityMeasurementRepository } from '../repository/VelocityMeasurementRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
-import { getTodayDateString } from '../utils/dateUtils';
+import { getTodayDateString, formatDate } from '../utils/dateUtils';
+import { VelocityMeasurement } from '../database/schema';
+
+export interface VelocityStats {
+  avgVelocity: number;
+  totalMeasurements: number;
+}
 
 const VELOCITY_SETTINGS_KEY = 'velocity_settings';
 const MEASUREMENT_PERIOD_DAYS = 3;
@@ -25,6 +31,23 @@ export interface VelocitySettings {
   desiredDailyMinutes: number | null; // ユーザーが希望する1日の学習時間（分）
   autoAdjustEnabled: boolean; // 自動調整（Pro版限定）
   calculatedTarget: number | null; // 自動算出された目標Lex
+}
+
+export interface VelocityData {
+  measurementCompleted: boolean;
+  averageVelocity: number | null;
+  measurements: VelocityMeasurement[];
+}
+
+export async function getVelocityData(): Promise<VelocityData> {
+  const completed = await isMeasurementCompleted();
+  const avg = await getAverageVelocity();
+  const measurements = await getRecentMeasurements();
+  return {
+    measurementCompleted: completed,
+    averageVelocity: avg,
+    measurements,
+  };
 }
 
 /**
@@ -46,7 +69,7 @@ export async function recordDailyVelocity(
     // 古いデータを削除（最新N日分のみ保持）
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - MEASUREMENT_PERIOD_DAYS);
-    await velocityRepo.deleteOlderThan(getTodayDateString(cutoffDate));
+    await velocityRepo.deleteOlderThan(formatDate(cutoffDate));
   } catch (error) {
     console.error('Failed to record velocity:', error);
   }
@@ -212,3 +235,5 @@ export async function resetVelocityMeasurement(): Promise<void> {
     console.error('Failed to reset velocity measurement:', error);
   }
 }
+
+

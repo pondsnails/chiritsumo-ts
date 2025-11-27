@@ -240,7 +240,7 @@ export default function VelocitySettingsScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* 自動調整（Pro版限定） */}}
+              {/* 自動調整（Pro版限定） */}
               <View style={[glassEffect.card, styles.autoAdjustCard]}>
                 <View style={styles.autoAdjustHeader}>
                   <Zap color={isProUser ? colors.success : colors.textTertiary} size={24} />

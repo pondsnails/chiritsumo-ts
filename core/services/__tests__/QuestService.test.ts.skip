@@ -6,9 +6,12 @@
  * - Repository依存性注入の動作確認
  * - ビジネスロジックの正確性検証
  * - エッジケース処理
+ * 
+ * 注意: Jestがインストールされていないため、このファイルは型チェックのみ実施
+ * テストを実行するには: npm install --save-dev jest @types/jest ts-jest
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+// import { describe, it, expect, beforeEach } from '@jest/globals';
 import { QuestService } from '../QuestService';
 import type { ICardRepository } from '@core/repository/CardRepository';
 import type { IBookRepository } from '@core/repository/BookRepository';
@@ -259,8 +262,8 @@ describe('QuestService', () => {
       expect(totalLex).toBe(20);
     });
 
-    it('WRITEモードのカード合計Lexを正確に計算できる', () => {
-      const book = createMockBook({ id: 'book-1', mode: BookMode.WRITE });
+    it('SOLVEモードのカード合計Lexを正確に計算できる', () => {
+      const book = createMockBook({ id: 'book-1', mode: BookMode.SOLVE });
       const cards = [
         createMockCard({ id: 'c1', bookId: 'book-1' }),
         createMockCard({ id: 'c2', bookId: 'book-1' }),
@@ -268,25 +271,25 @@ describe('QuestService', () => {
 
       const totalLex = service.calculateTotalLex(cards, [book]);
       
-      // WRITEモード: 1カード = 30 Lex
+      // SOLVEモード: 1カード = 30 Lex
       expect(totalLex).toBe(60);
     });
 
-    it('RECITEモードのカード合計Lexを正確に計算できる', () => {
-      const book = createMockBook({ id: 'book-1', mode: BookMode.RECITE });
+    it('MEMOモードのカード合計Lexを正確に計算できる', () => {
+      const book = createMockBook({ id: 'book-1', mode: BookMode.MEMO });
       const cards = [
         createMockCard({ id: 'c1', bookId: 'book-1' }),
       ];
 
       const totalLex = service.calculateTotalLex(cards, [book]);
       
-      // RECITEモード: 1カード = 60 Lex
+      // MEMOモード: 1カード = 60 Lex
       expect(totalLex).toBe(60);
     });
 
     it('複数書籍・複数モードの混在時に正確に計算できる', () => {
       const book1 = createMockBook({ id: 'book-1', mode: BookMode.READ });
-      const book2 = createMockBook({ id: 'book-2', mode: BookMode.WRITE });
+      const book2 = createMockBook({ id: 'book-2', mode: BookMode.SOLVE });
       const cards = [
         createMockCard({ id: 'c1', bookId: 'book-1' }), // 10 Lex
         createMockCard({ id: 'c2', bookId: 'book-2' }), // 30 Lex

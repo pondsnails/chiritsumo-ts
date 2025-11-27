@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 // Expo SDK 54: 新API移行まではレガシー互換APIを使用
 import * as FileSystem from 'expo-file-system/legacy';
 import { z } from 'zod';
-import { drizzleDb } from '../database/drizzleClient';
+import { getDrizzleDb } from '../database/drizzleClient';
 import { presetBooks } from '../database/schema';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
@@ -95,7 +95,8 @@ export const exportBackup = async (): Promise<void> => {
     const ledgerData = await ledgerRepo.findAll();
     const systemSettingsData = await settingsRepo.getAll();
     // 正規化されたプリセット関連（リンクテーブル）
-    const presetLinks = await (drizzleDb.select().from(presetBooks)).all();
+    const db = await getDrizzleDb();
+    const presetLinks = await db.select().from(presetBooks);
 
     const backup: BackupData = {
       version: '1.0.0',
@@ -239,8 +240,9 @@ export const importBackup = async (
         ledgerAdded = normalizedLedger.length;
         // preset_books の復元（存在する場合のみ、プリセット自体は保持されている前提）
         if (backup.presetBooks && backup.presetBooks.length > 0) {
-          await drizzleDb.delete(presetBooks).run();
-          await drizzleDb.insert(presetBooks).values(backup.presetBooks).run();
+          const db = await getDrizzleDb();
+          await db.delete(presetBooks);
+          await db.insert(presetBooks).values(backup.presetBooks);
         }
         
         // systemSettings復元（あれば）
@@ -304,7 +306,8 @@ export const importBackup = async (
       if (backup.presetBooks && backup.presetBooks.length > 0) {
         // すでに存在するリンクの重複挿入を避けるには unique 制約が必要だが、
         // 現行スキーマに無いので一旦ベタ挿入のみ（後続で改善可）
-        await drizzleDb.insert(presetBooks).values(backup.presetBooks).run();
+        const db = await getDrizzleDb();
+        await db.insert(presetBooks).values(backup.presetBooks);
       }
 
       // systemSettings復元（あれば上書き）

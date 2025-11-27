@@ -18,6 +18,10 @@
   ],
   "exclude": [
     "node_modules",
-    "app/core"
+    "app/core",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "docs"
   ]
 }

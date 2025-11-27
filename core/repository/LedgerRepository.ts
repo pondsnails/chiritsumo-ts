@@ -4,7 +4,7 @@ import type { LedgerEntry } from '../types';
 import { eq, desc, asc } from 'drizzle-orm';
 import { getDrizzleDb } from '../database/drizzleClient';
 
-export interface ILedgerRepo {
+export interface ILedgerRepository {
   findAll(): Promise<LedgerEntry[]>;
   findRecent(limit: number): Promise<LedgerEntry[]>;
   upsert(entry: Omit<LedgerEntry,'id'>): Promise<void>;
