@@ -106,6 +106,13 @@ export const importBackup = async (): Promise<void> => {
     const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
 
     try {
+      // 型正規化: Card の日付文字列を Date に変換
+      const normalizedCards = backup.cards.map((c: any) => ({
+        ...c,
+        due: typeof c.due === 'string' ? new Date(c.due) : c.due,
+        lastReview: c.lastReview ? new Date(c.lastReview) : null,
+      }));
+
       // 書籍データをマージ（updatedAtで新しい方を優先）
       for (const book of backup.books) {
         const existing = existingBooksMap.get(book.id);
@@ -123,7 +130,7 @@ export const importBackup = async (): Promise<void> => {
       }
 
       // カードはupsert（既にマージ対応）
-      for (const card of backup.cards) {
+      for (const card of normalizedCards) {
         await cardsDB.upsert(card);
       }
 
