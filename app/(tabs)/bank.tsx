@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, ShoppingBag, Lock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { DrizzleLedgerRepository } from '@core/repository/LedgerRepository';
+import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
@@ -27,7 +27,7 @@ import type { LedgerEntry } from '@core/types';
 
 export default function BankScreen() {
   const router = useRouter();
-  const ledgerRepo = new DrizzleLedgerRepository();
+  const { ledgerRepo } = useServices();
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [balance, setBalance] = useState(0);
@@ -56,7 +56,7 @@ export default function BankScreen() {
       }
 
         // ストリーク計算
-        const streak = await calculateCurrentStreak();
+        const streak = await calculateCurrentStreak(ledgerRepo);
         setCurrentStreak(streak);
     } catch (error) {
       console.error('Failed to fetch ledger:', error);

@@ -1,15 +1,13 @@
-import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
-import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
-import { DrizzleCardRepository } from '../repository/CardRepository';
+import type { ILedgerRepository } from '../repository/LedgerRepository';
+import type { ISystemSettingsRepository } from '../repository/SystemSettingsRepository';
+import type { ICardRepository } from '../repository/CardRepository';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import { getTodayDateString } from './dateUtils';
 import { logError, ErrorCategory, safeExecute } from './errorHandler';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
-const settingsRepo = new DrizzleSystemSettingsRepository();
-const cardRepo = new DrizzleCardRepository();
 
-export async function getLastRolloverDate(): Promise<string | null> {
+export async function getLastRolloverDate(settingsRepo: ISystemSettingsRepository): Promise<string | null> {
   return safeExecute(
     () => settingsRepo.get(LAST_ROLLOVER_KEY),
     {
@@ -20,7 +18,7 @@ export async function getLastRolloverDate(): Promise<string | null> {
   );
 }
 
-export async function setLastRolloverDate(date: string): Promise<void> {
+export async function setLastRolloverDate(settingsRepo: ISystemSettingsRepository, date: string): Promise<void> {
   try {
     await settingsRepo.set(LAST_ROLLOVER_KEY, date);
   } catch (error) {
@@ -46,6 +44,9 @@ export function shouldPerformRollover(lastRolloverDate: string | null): boolean 
 }
 
 export async function performDailyRollover(
+  cardRepo: ICardRepository,
+  ledgerRepo: ILedgerRepository,
+  settingsRepo: ISystemSettingsRepository,
   currentBalance: number
 ): Promise<{ success: boolean; newBalance: number; targetLex: number }> {
   try {
@@ -67,7 +68,6 @@ export async function performDailyRollover(
 
     const newBalance = currentBalance - targetLex;
 
-    const ledgerRepo = new DrizzleLedgerRepository();
     await ledgerRepo.upsert({
       date: today,
       earnedLex: 0,
@@ -75,7 +75,7 @@ export async function performDailyRollover(
       balance: newBalance,
     });
 
-    await setLastRolloverDate(today);
+    await setLastRolloverDate(settingsRepo, today);
 
     return {
       success: true,
@@ -97,9 +97,12 @@ export async function performDailyRollover(
 }
 
 export async function checkAndPerformRollover(
+  cardRepo: ICardRepository,
+  ledgerRepo: ILedgerRepository,
+  settingsRepo: ISystemSettingsRepository,
   currentBalance: number
 ): Promise<{ performed: boolean; newBalance: number; targetLex: number }> {
-  const lastRollover = await getLastRolloverDate();
+  const lastRollover = await getLastRolloverDate(settingsRepo);
 
   if (!shouldPerformRollover(lastRollover)) {
     return {
@@ -109,7 +112,7 @@ export async function checkAndPerformRollover(
     };
   }
 
-  const result = await performDailyRollover(currentBalance);
+  const result = await performDailyRollover(cardRepo, ledgerRepo, settingsRepo, currentBalance);
   return {
     performed: result.success,
     newBalance: result.newBalance,

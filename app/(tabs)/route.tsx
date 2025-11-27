@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
-import { DrizzleBookRepository } from '@core/repository/BookRepository';
+import { useServices } from '@core/di/ServicesProvider';
 import { calculateRouteProgress } from '@core/utils/bookSorting';
 import { getCachedSortedBooks } from '@core/utils/routeCache';
 import { colors } from '@core/theme/colors';
@@ -34,8 +34,7 @@ type TabType = 'myRoute' | 'presetRoute';
 
 export default function RouteScreen() {
   const router = useRouter();
-  // DI context repository (avoid direct instantiation)
-  const { bookRepo } = useServices ? ({} as any) : { bookRepo: new DrizzleBookRepository() };
+  const { bookRepo } = useServices();
   
   const [activeTab, setActiveTab] = useState<TabType>('myRoute');
   const [books, setBooks] = useState<Book[]>([]);

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DrizzleBookRepository, type IBookRepository } from '../repository/BookRepository';
+import type { IBookRepository } from '../repository/BookRepository';
 import type { Book } from '../types';
 
 interface BookState {
@@ -76,6 +76,5 @@ export function createBookStore(bookRepo: IBookRepository) {
   }));
 }
 
-// デフォルトインスタンス（本番用）
-const defaultBookRepo = new DrizzleBookRepository();
-export const useBookStore = createBookStore(defaultBookRepo);
+// Export factory for use with ServicesProvider
+export { createBookStore };

@@ -5,7 +5,7 @@ import type { Href } from 'expo-router';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { RolloverNotification } from '@core/components/RolloverNotification';
-import { DrizzleLedgerRepository } from '@core/repository/LedgerRepository';
+import { useServices } from '@core/di/ServicesProvider';
 
 export default function Index() {
   const [showRollover, setShowRollover] = useState(false);
@@ -14,6 +14,7 @@ export default function Index() {
   const [destination, setDestination] = useState<Href | null>(null);
   const router = useRouter();
   const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
+  const { cardRepo, ledgerRepo, settingsRepo } = useServices();
 
   useEffect(() => {
     let mounted = true;
@@ -68,13 +69,12 @@ export default function Index() {
     console.log('[Index] checkRollover started');
     try {
       console.log('[Index] Fetching ledger...');
-      const ledgerRepo = new DrizzleLedgerRepository();
       const summaryEntries = await ledgerRepo.findRecent(1);
       const currentBalance = summaryEntries.length > 0 ? summaryEntries[0].balance : 0;
       console.log('[Index] Ledger fetched, balance:', currentBalance);
 
       console.log('[Index] Checking rollover...');
-      const result = await checkAndPerformRollover(currentBalance);
+      const result = await checkAndPerformRollover(cardRepo, ledgerRepo, settingsRepo, currentBalance);
       console.log('[Index] Rollover check complete, performed:', result.performed);
 
       if (result.performed) {

@@ -1,4 +1,4 @@
-import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
+import type { ILedgerRepository } from '../repository/LedgerRepository';
 import { getTodayUnixMidnight } from './dateUtils';
 
 /**
@@ -9,9 +9,8 @@ import { getTodayUnixMidnight } from './dateUtils';
  * 
  * @returns 現在のストリーク日数（今日含む）
  */
-export async function calculateCurrentStreak(): Promise<number> {
+export async function calculateCurrentStreak(ledgerRepo: ILedgerRepository): Promise<number> {
   try {
-    const ledgerRepo = new DrizzleLedgerRepository();
     
     // SQL最適化: earned_lex > 0 の日付のみ降順で取得（最大365日分を見る）
     const activeDaysUnix = await ledgerRepo.findActiveDaysDescending(365);
@@ -55,9 +54,8 @@ export async function calculateCurrentStreak(): Promise<number> {
  * - 過去の全履歴から最長の連続学習日数を返す
  * - SQL最適化: 必要な日付のみ取得
  */
-export async function calculateMaxStreak(): Promise<number> {
+export async function calculateMaxStreak(ledgerRepo: ILedgerRepository): Promise<number> {
   try {
-    const ledgerRepo = new DrizzleLedgerRepository();
     
     // SQL最適化: earned_lex > 0 の日付のみ昇順で取得
     const activeDaysUnix = await ledgerRepo.findActiveDaysDescending();

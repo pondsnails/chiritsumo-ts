@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { reportError } from '@core/services/errorReporter';
-import { DrizzleCardRepository, type ICardRepository } from '../repository/CardRepository';
+import type { ICardRepository } from '../repository/CardRepository';
 import { processCardReview, processBulkCardReviews } from '../services/StudyTransactionService';
 import type { Card } from '../types';
 
@@ -68,5 +68,5 @@ export function createCardStore(cardRepo: ICardRepository) {
   }));
 }
 
-const defaultCardRepo = new DrizzleCardRepository();
-export const useCardStore = createCardStore(defaultCardRepo);
+// Export factory for use with ServicesProvider
+export { createCardStore };

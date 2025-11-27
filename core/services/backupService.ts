@@ -697,6 +697,15 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
           await tx.insert(systemSettings).values({ key: s.key, value: s.value, updated_at: new Date().toISOString() }).onConflictDoUpdate({ target: systemSettings.key, set: { value: s.value, updated_at: new Date().toISOString() } }).run();
           systemSettingsRestored++;
         }
+        else if (obj.type === 'presetBook') {
+          const p = obj.data;
+          const normalized = { preset_id: p.preset_id, book_id: p.book_id };
+          if (mode === 'replace') {
+            await tx.insert(sql`preset_books_staging`).values(normalized as any).run();
+          } else {
+            await tx.insert(presetBooks).values(normalized).run();
+          }
+        }
       }
 
       if (mode === 'replace') {
