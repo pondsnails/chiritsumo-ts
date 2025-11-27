@@ -6,11 +6,18 @@ import Purchases, {
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
+// 開発モード設定
+const __DEV__ = process.env.NODE_ENV === 'development';
+const DEV_FORCE_PRO = false; // 開発時にPro版として動作させる場合はtrueに
+
 interface SubscriptionState {
   isProUser: boolean;
   customerInfo: CustomerInfo | null;
   offerings: PurchasesOffering | null;
   isLoading: boolean;
+  
+  // 開発用
+  devToggleProStatus: () => void; // 開発時のPro/Free切り替え
   
   // Actions
   initializePurchases: () => Promise<void>;
@@ -24,10 +31,22 @@ const REVENUECAT_API_KEY_IOS = 'YOUR_IOS_API_KEY';
 const REVENUECAT_API_KEY_ANDROID = 'YOUR_ANDROID_API_KEY';
 
 export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
-  isProUser: false,
+  isProUser: __DEV__ && DEV_FORCE_PRO, // 開発時はDEV_FORCE_PROに従う
   customerInfo: null,
   offerings: null,
   isLoading: false,
+
+  // 開発用: Pro/Free切り替え
+  devToggleProStatus: () => {
+    if (!__DEV__) {
+      console.warn('devToggleProStatus is only available in development mode');
+      return;
+    }
+    set((state) => ({ 
+      isProUser: !state.isProUser 
+    }));
+    console.log(`[DEV] Pro status toggled to: ${!get().isProUser ? 'PRO' : 'FREE'}`);
+  },
 
   initializePurchases: async () => {
     try {
@@ -61,6 +80,13 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
 
   checkSubscriptionStatus: async () => {
     try {
+      // 開発モードでDEV_FORCE_PROが有効な場合は常にProとして扱う
+      if (__DEV__ && DEV_FORCE_PRO) {
+        set({ isProUser: true });
+        console.log('[DEV] Force Pro mode enabled');
+        return true;
+      }
+
       const customerInfo = await Purchases.getCustomerInfo();
       const isProUser = 
         customerInfo.entitlements.active['pro'] !== undefined ||
@@ -71,6 +97,10 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       return isProUser;
     } catch (error) {
       console.error('Failed to check subscription status:', error);
+      // 開発モードの場合は現在の状態を維持
+      if (__DEV__) {
+        return get().isProUser;
+      }
       return false;
     }
   },

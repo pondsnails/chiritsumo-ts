@@ -34,12 +34,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
   const { fetchBooks } = useBookStore();
-  const { isProUser } = useSubscriptionStore();
+  const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');
   const [customLexTarget, setCustomLexTarget] = useState('200');
   const [dailyLexTarget, setDailyLexTarget] = useState(200);
+
+  // 開発モードチェック
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     loadLexSettings();
@@ -384,6 +387,58 @@ export default function SettingsScreen() {
               </View>
             </TouchableOpacity>
           </View>
+
+          {/* 開発者向けセクション（開発モードのみ表示） */}
+          {isDevelopment && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.warning }]}>
+                🔧 開発者ツール
+              </Text>
+              
+              <View style={[glassEffect.card, styles.devCard]}>
+                <View style={styles.devHeader}>
+                  <Text style={styles.devTitle}>開発モード</Text>
+                  <View style={[styles.devBadge, { backgroundColor: colors.warning + '20' }]}>
+                    <Text style={[styles.devBadgeText, { color: colors.warning }]}>DEV ONLY</Text>
+                  </View>
+                </View>
+                <Text style={styles.devDescription}>
+                  このセクションは開発環境でのみ表示されます
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[glassEffect.card, styles.devToggleCard]}
+                onPress={devToggleProStatus}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={[
+                    styles.statusIndicator,
+                    { backgroundColor: isProUser ? colors.success : colors.textTertiary }
+                  ]} />
+                  <View>
+                    <Text style={styles.devToggleTitle}>
+                      課金ステータス切り替え
+                    </Text>
+                    <Text style={styles.devToggleStatus}>
+                      現在: {isProUser ? 'Pro版 🎉' : 'Free版'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.devToggleHint}>タップで切替</Text>
+              </TouchableOpacity>
+
+              <View style={[glassEffect.card, styles.devInfoCard]}>
+                <Text style={styles.devInfoTitle}>💡 使い方</Text>
+                <Text style={styles.devInfoText}>
+                  • タップしてPro版/Free版を切り替え{'\n'}
+                  • Pro版機能のテストに便利{'\n'}
+                  • アプリ再起動後も設定が保持されます{'\n'}
+                  • 本番ビルドでは表示されません
+                </Text>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -652,6 +707,82 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface + '20',
   },
   policyText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  // 開発者ツール
+  devCard: {
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  devHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  devTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  devBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  devBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  devDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  devToggleCard: {
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  devToggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  devToggleStatus: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  devToggleHint: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  devInfoCard: {
+    padding: 16,
+    backgroundColor: colors.surface + '20',
+    borderRadius: 12,
+  },
+  devInfoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  devInfoText: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
