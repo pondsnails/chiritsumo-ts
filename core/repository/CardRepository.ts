@@ -124,24 +124,13 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   async bulkUpsert(cardList: Card[]): Promise<void> {
-    for (const card of cardList) {
-      await this.db.insert(cards).values({
-        id: card.id,
-        book_id: card.bookId,
-        unit_index: card.unitIndex,
-        due: card.due.toISOString(),
-        stability: card.stability,
-        difficulty: card.difficulty,
-        elapsed_days: card.elapsedDays,
-        scheduled_days: card.scheduledDays,
-        reps: card.reps,
-        lapses: card.lapses,
-        state: card.state,
-        last_review: card.lastReview ? card.lastReview.toISOString() : null,
-        photo_path: card.photoPath ?? null,
-      }).onConflictDoUpdate({
-        target: cards.id,
-        set: {
+    if (cardList.length === 0) return;
+    
+    // トランザクションでラップして真のBulk処理を実現
+    await this.db.transaction(async (tx) => {
+      for (const card of cardList) {
+        await tx.insert(cards).values({
+          id: card.id,
           book_id: card.bookId,
           unit_index: card.unitIndex,
           due: card.due.toISOString(),
@@ -154,9 +143,25 @@ export class DrizzleCardRepository implements ICardRepository {
           state: card.state,
           last_review: card.lastReview ? card.lastReview.toISOString() : null,
           photo_path: card.photoPath ?? null,
-        }
-      }).run();
-    }
+        }).onConflictDoUpdate({
+          target: cards.id,
+          set: {
+            book_id: card.bookId,
+            unit_index: card.unitIndex,
+            due: card.due.toISOString(),
+            stability: card.stability,
+            difficulty: card.difficulty,
+            elapsed_days: card.elapsedDays,
+            scheduled_days: card.scheduledDays,
+            reps: card.reps,
+            lapses: card.lapses,
+            state: card.state,
+            last_review: card.lastReview ? card.lastReview.toISOString() : null,
+            photo_path: card.photoPath ?? null,
+          }
+        }).run();
+      }
+    });
   }
 
   async deleteByBook(bookId: string): Promise<void> {

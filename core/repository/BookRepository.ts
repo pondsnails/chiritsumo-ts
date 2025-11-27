@@ -1,8 +1,9 @@
-import { books } from '../database/schema';
+import { books, cards } from '../database/schema';
 import type { Book as RawBook } from '../database/schema';
 import { eq } from 'drizzle-orm';
 import { drizzleDb } from '../database/drizzleClient';
 import type { Book } from '../types';
+import { calculateCardCount } from '../utils/bookLogic';
 // Drizzle client placeholder (to be implemented)
 // TODO(Drizzle-Migration): Provide unified drizzle client (native/web) via factory.
 
@@ -10,6 +11,7 @@ export interface IBookRepository {
   findAll(): Promise<Book[]>;
   findById(id: string): Promise<Book | null>;
   create(book: Book): Promise<void>; // Domain object persisted
+  createWithCards(book: Book): Promise<void>; // Book作成と同時にCard生成（トランザクション）
   update(id: string, updates: Partial<Book>): Promise<void>;
   delete(id: string): Promise<void>;
   bulkUpsert(books: Book[]): Promise<void>; // Upsert multiple books
@@ -69,6 +71,58 @@ export class DrizzleBookRepository implements IBookRepository {
       updated_at: book.updatedAt ?? new Date().toISOString(),
     }).run();
   }
+
+  async createWithCards(book: Book): Promise<void> {
+    // トランザクションでBook作成とCard生成を一括実行（BookService.registerBookと同等）
+    await this.db.transaction(async (tx) => {
+      // 1. Book挿入
+      await tx.insert(books).values({
+        id: book.id,
+        user_id: book.userId ?? 'local-user',
+        subject_id: book.subjectId ?? null,
+        title: book.title,
+        isbn: book.isbn ?? null,
+        mode: book.mode,
+        total_unit: book.totalUnit,
+        chunk_size: book.chunkSize ?? 1,
+        completed_unit: book.completedUnit ?? 0,
+        status: book.status,
+        previous_book_id: book.previousBookId ?? null,
+        priority: book.priority ?? 1,
+        cover_path: book.coverPath ?? null,
+        target_completion_date: book.targetCompletionDate ?? null,
+        created_at: book.createdAt ?? new Date().toISOString(),
+        updated_at: book.updatedAt ?? new Date().toISOString(),
+      }).run();
+
+      // 2. Card生成（chunkSizeに基づいて分割）
+      const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
+      const cardCount = calculateCardCount(book.totalUnit, chunkSize);
+      
+      if (cardCount > 0) {
+        const newCards = [];
+        for (let i = 1; i <= cardCount; i++) {
+          newCards.push({
+            id: `${book.id}_${i}`,
+            book_id: book.id,
+            unit_index: i,
+            state: 0, // New
+            stability: 0,
+            difficulty: 0,
+            elapsed_days: 0,
+            scheduled_days: 0,
+            reps: 0,
+            lapses: 0,
+            due: new Date().toISOString(),
+            last_review: null,
+            photo_path: null,
+          });
+        }
+        await tx.insert(cards).values(newCards).run();
+      }
+    });
+  }
+
   async update(id: string, updates: Partial<Book>): Promise<void> {
     const patch: Partial<RawBook> = {};
     if (updates.title !== undefined) patch.title = updates.title;
@@ -94,28 +148,13 @@ export class DrizzleBookRepository implements IBookRepository {
   }
   
   async bulkUpsert(bookList: Book[]): Promise<void> {
-    // SQLite upsert: INSERT OR REPLACE
-    for (const book of bookList) {
-      await this.db.insert(books).values({
-        id: book.id,
-        user_id: book.userId ?? 'local-user',
-        subject_id: book.subjectId ?? null,
-        title: book.title,
-        isbn: book.isbn ?? null,
-        mode: book.mode,
-        total_unit: book.totalUnit,
-        chunk_size: book.chunkSize ?? 1,
-        completed_unit: book.completedUnit ?? 0,
-        status: book.status,
-        previous_book_id: book.previousBookId ?? null,
-        priority: book.priority ?? 1,
-        cover_path: book.coverPath ?? null,
-        target_completion_date: book.targetCompletionDate ?? null,
-        created_at: book.createdAt ?? new Date().toISOString(),
-        updated_at: book.updatedAt ?? new Date().toISOString(),
-      }).onConflictDoUpdate({
-        target: books.id,
-        set: {
+    if (bookList.length === 0) return;
+    
+    // トランザクションでラップして真のBulk処理を実現
+    await this.db.transaction(async (tx) => {
+      for (const book of bookList) {
+        await tx.insert(books).values({
+          id: book.id,
           user_id: book.userId ?? 'local-user',
           subject_id: book.subjectId ?? null,
           title: book.title,
@@ -129,10 +168,29 @@ export class DrizzleBookRepository implements IBookRepository {
           priority: book.priority ?? 1,
           cover_path: book.coverPath ?? null,
           target_completion_date: book.targetCompletionDate ?? null,
-          updated_at: new Date().toISOString(),
-        }
-      }).run();
-    }
+          created_at: book.createdAt ?? new Date().toISOString(),
+          updated_at: book.updatedAt ?? new Date().toISOString(),
+        }).onConflictDoUpdate({
+          target: books.id,
+          set: {
+            user_id: book.userId ?? 'local-user',
+            subject_id: book.subjectId ?? null,
+            title: book.title,
+            isbn: book.isbn ?? null,
+            mode: book.mode,
+            total_unit: book.totalUnit,
+            chunk_size: book.chunkSize ?? 1,
+            completed_unit: book.completedUnit ?? 0,
+            status: book.status,
+            previous_book_id: book.previousBookId ?? null,
+            priority: book.priority ?? 1,
+            cover_path: book.coverPath ?? null,
+            target_completion_date: book.targetCompletionDate ?? null,
+            updated_at: new Date().toISOString(),
+          }
+        }).run();
+      }
+    });
   }
   
   async deleteAll(): Promise<void> {

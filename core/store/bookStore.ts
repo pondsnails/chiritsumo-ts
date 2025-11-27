@@ -34,7 +34,8 @@ export const useBookStore = create<BookState>((set, get) => ({
 
   addBook: async (book: Book) => {
     try {
-      await bookRepo.create(book);
+      // Book作成と同時にCard生成（トランザクション内で一括処理）
+      await bookRepo.createWithCards(book);
       await get().fetchBooks();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add book';

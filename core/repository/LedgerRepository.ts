@@ -69,9 +69,23 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
   }
   
   async bulkAdd(entries: Omit<LedgerEntry,'id'>[]): Promise<void> {
-    for (const entry of entries) {
-      await this.add(entry); // Reuse add logic to avoid duplicates
-    }
+    if (entries.length === 0) return;
+    
+    // トランザクションでラップして真のBulk処理を実現
+    await this.db.transaction(async (tx) => {
+      for (const entry of entries) {
+        // 日付重複チェック（add ロジックと同じ）
+        const existing = await tx.select().from(ledger).where(eq(ledger.date, entry.date)).get();
+        if (existing) continue; // Skip duplicate dates
+        
+        await tx.insert(ledger).values({
+          date: entry.date,
+          earned_lex: entry.earnedLex,
+          target_lex: entry.targetLex,
+          balance: entry.balance,
+        }).run();
+      }
+    });
   }
   
   async deleteAll(): Promise<void> {
