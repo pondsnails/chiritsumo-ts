@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
 const ONBOARDING_KEY = '@chiritsumo_onboarding_completed';
+const settingsRepo = new DrizzleSystemSettingsRepository();
 
 interface OnboardingState {
   hasCompletedOnboarding: boolean;
@@ -17,7 +18,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
 
   checkOnboardingStatus: async () => {
     try {
-      const value = await AsyncStorage.getItem(ONBOARDING_KEY);
+      const value = await settingsRepo.get(ONBOARDING_KEY);
       set({ 
         hasCompletedOnboarding: value === 'true',
         isLoading: false 
@@ -30,7 +31,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
 
   completeOnboarding: async () => {
     try {
-      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      await settingsRepo.set(ONBOARDING_KEY, 'true');
       set({ hasCompletedOnboarding: true });
     } catch (error) {
       console.error('Failed to save onboarding status:', error);
@@ -39,7 +40,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
 
   resetOnboarding: async () => {
     try {
-      await AsyncStorage.removeItem(ONBOARDING_KEY);
+      await settingsRepo.delete(ONBOARDING_KEY);
       set({ hasCompletedOnboarding: false });
       console.log('Onboarding reset for testing');
     } catch (error) {

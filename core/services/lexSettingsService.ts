@@ -1,19 +1,25 @@
 /**
  * Lex目標設定の管理
+ * 
+ * データ永続化:
+ * - SQLite (system_settings テーブル) に保存
+ * - AsyncStorage依存を排除
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 import { LEX_PROFILES, type UserLexSettings } from '../types/lexProfile';
 
 const LEX_SETTINGS_KEY = 'user_lex_settings';
 const DEFAULT_PROFILE_ID = 'moderate'; // デフォルトは「標準」
+
+const settingsRepo = new DrizzleSystemSettingsRepository();
 
 /**
  * ユーザーのLex設定を取得
  */
 export async function getUserLexSettings(): Promise<UserLexSettings> {
   try {
-    const json = await AsyncStorage.getItem(LEX_SETTINGS_KEY);
+    const json = await settingsRepo.get(LEX_SETTINGS_KEY);
     if (json) {
       return JSON.parse(json);
     }
@@ -30,7 +36,7 @@ export async function getUserLexSettings(): Promise<UserLexSettings> {
  */
 export async function saveUserLexSettings(settings: UserLexSettings): Promise<void> {
   try {
-    await AsyncStorage.setItem(LEX_SETTINGS_KEY, JSON.stringify(settings));
+    await settingsRepo.set(LEX_SETTINGS_KEY, JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to save lex settings:', error);
     throw error;

@@ -1,21 +1,27 @@
 /**
- * Velocity（学習速度）ベースの動的目標設定システム
+ * Velocity(学習速度)ベースの動的目標設定システム
  * 
  * 問題点:
- * - 固定のLexプロファイル（100, 200, 400...）では、ユーザーの実際の学習速度を無視している
+ * - 固定のLexプロファイル(100, 200, 400...)では、ユーザーの実際の学習速度を無視している
  * - 「200 Lex」が何分かかるのか、初見ユーザーには全く分からない
  * 
  * 解決策:
  * - 最初の3日間は計測のみ行い、ユーザーの「Lex/分」を算出
  * - 「1日何分勉強したいか」を聞き、それに基づいて目標を自動算出
- * - 達成率に応じて目標を自動調整（Pro版限定）
+ * - 達成率に応じて目標を自動調整(Pro版限定)
+ * 
+ * データ永続化:
+ * - SQLite (system_settings テーブル) に保存
+ * - AsyncStorage依存を排除し、バックアップに含まれるように修正
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
 const VELOCITY_DATA_KEY = 'velocity_measurement_data';
 const VELOCITY_SETTINGS_KEY = 'velocity_settings';
 const MEASUREMENT_PERIOD_DAYS = 3;
+
+const settingsRepo = new DrizzleSystemSettingsRepository();
 
 export interface VelocityMeasurement {
   date: string; // ISO date string
@@ -74,7 +80,7 @@ export async function recordDailyVelocity(
       }
     }
 
-    await AsyncStorage.setItem(VELOCITY_DATA_KEY, JSON.stringify(data));
+    await settingsRepo.set(VELOCITY_DATA_KEY, JSON.stringify(data));
   } catch (error) {
     console.error('Failed to record velocity:', error);
   }
@@ -85,7 +91,7 @@ export async function recordDailyVelocity(
  */
 export async function getVelocityData(): Promise<VelocityData> {
   try {
-    const json = await AsyncStorage.getItem(VELOCITY_DATA_KEY);
+    const json = await settingsRepo.get(VELOCITY_DATA_KEY);
     if (json) {
       return JSON.parse(json);
     }
@@ -105,7 +111,7 @@ export async function getVelocityData(): Promise<VelocityData> {
  */
 export async function getVelocitySettings(): Promise<VelocitySettings> {
   try {
-    const json = await AsyncStorage.getItem(VELOCITY_SETTINGS_KEY);
+    const json = await settingsRepo.get(VELOCITY_SETTINGS_KEY);
     if (json) {
       return JSON.parse(json);
     }
@@ -139,7 +145,7 @@ export async function setDesiredDailyMinutes(minutes: number): Promise<number> {
       calculatedTarget,
     };
 
-    await AsyncStorage.setItem(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
+    await settingsRepo.set(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
     return calculatedTarget;
   } catch (error) {
     console.error('Failed to set desired daily minutes:', error);
@@ -148,13 +154,13 @@ export async function setDesiredDailyMinutes(minutes: number): Promise<number> {
 }
 
 /**
- * 自動調整を有効化（Pro版限定）
+ * 自動調整を有効化(Pro版限定)
  */
 export async function enableAutoAdjust(): Promise<void> {
   try {
     const settings = await getVelocitySettings();
     settings.autoAdjustEnabled = true;
-    await AsyncStorage.setItem(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
+    await settingsRepo.set(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
   } catch (error) {
     console.error('Failed to enable auto adjust:', error);
   }
@@ -193,7 +199,7 @@ export async function adjustTargetBasedOnPerformance(
     }
 
     settings.calculatedTarget = newTarget;
-    await AsyncStorage.setItem(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
+    await settingsRepo.set(VELOCITY_SETTINGS_KEY, JSON.stringify(settings));
     
     return newTarget;
   } catch (error) {
@@ -203,12 +209,12 @@ export async function adjustTargetBasedOnPerformance(
 }
 
 /**
- * 計測データをリセット（新規ユーザーや再測定時）
+ * 計測データをリセット(新規ユーザーや再測定時)
  */
 export async function resetVelocityMeasurement(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(VELOCITY_DATA_KEY);
-    await AsyncStorage.removeItem(VELOCITY_SETTINGS_KEY);
+    await settingsRepo.delete(VELOCITY_DATA_KEY);
+    await settingsRepo.delete(VELOCITY_SETTINGS_KEY);
   } catch (error) {
     console.error('Failed to reset velocity measurement:', error);
   }

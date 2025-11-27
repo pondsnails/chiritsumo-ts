@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { DrizzleCardRepository } from '../repository/CardRepository';
-import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
-import { createScheduler } from '../fsrs/scheduler';
-import { calculateLexForCard } from '../logic/lexCalculator';
+import { processCardReview, processBulkCardReviews } from '../services/StudyTransactionService';
 import type { Card } from '../types';
 
 interface CardState {
@@ -16,7 +14,6 @@ interface CardState {
 }
 
 const cardRepo = new DrizzleCardRepository();
-const ledgerRepo = new DrizzleLedgerRepository();
 
 export const useCardStore = create<CardState>((set) => ({
   cards: [],
@@ -50,27 +47,8 @@ export const useCardStore = create<CardState>((set) => ({
       const card = cards.find((c) => c.id === cardId);
       if (!card) throw new Error('Card not found');
 
-      const scheduler = createScheduler(mode);
-      const updatedCard = scheduler.review(card, rating);
-
-      await cardRepo.update(cardId, updatedCard);
-
-      if (rating === 3 || rating === 4) {
-        const lexEarned = calculateLexForCard(mode, updatedCard);
-        const ledgerEntries = await ledgerRepo.findRecent(1);
-        const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
-        const currentEarned = today?.earnedLex || 0;
-        const currentTarget = today?.targetLex || 100;
-        const currentBalance = today?.balance || 0;
-
-        const todayDate = new Date().toISOString().split('T')[0];
-        await ledgerRepo.upsert({
-          date: todayDate,
-          earnedLex: currentEarned + lexEarned,
-          targetLex: currentTarget,
-          balance: currentBalance + lexEarned,
-        });
-      }
+      // トランザクション内でCard更新とLedger更新をアトミックに実行
+      await processCardReview(card, rating, mode);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update card';
       set({ error: message });
@@ -80,37 +58,8 @@ export const useCardStore = create<CardState>((set) => ({
 
   bulkUpdateCardReviews: async (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => {
     try {
-      const scheduler = createScheduler(mode);
-      const updatedCards = scheduler.bulkReview(cards, ratings);
-
-      // Bulk update via individual update calls (bulkCreate expects insert semantics)
-      for (const card of updatedCards) {
-        await cardRepo.update(card.id, card);
-      }
-
-      // 成功した復習のLexを個別に計算して合算
-      const lexEarned = updatedCards.reduce((total, card, index) => {
-        if (ratings[index] === 3 || ratings[index] === 4) {
-          return total + calculateLexForCard(mode, card);
-        }
-        return total;
-      }, 0);
-
-      if (lexEarned > 0) {
-        const ledgerEntries = await ledgerRepo.findRecent(1);
-        const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
-        const currentEarned = today?.earnedLex || 0;
-        const currentTarget = today?.targetLex || 100;
-        const currentBalance = today?.balance || 0;
-
-        const todayDate = new Date().toISOString().split('T')[0];
-        await ledgerRepo.upsert({
-          date: todayDate,
-          earnedLex: currentEarned + lexEarned,
-          targetLex: currentTarget,
-          balance: currentBalance + lexEarned,
-        });
-      }
+      // トランザクション内で全カード更新と合算Lex加算をアトミックに実行
+      await processBulkCardReviews(cards, ratings, mode);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to bulk update cards';
       set({ error: message });
