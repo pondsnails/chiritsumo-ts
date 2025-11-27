@@ -464,10 +464,15 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>データ管理</Text>
             
-            {/* バックアップ方針の説明 */}
-            <View style={[glassEffect.card, styles.policyCard]}>
-              <Text style={styles.policyText}>
-                本アプリは手動バックアップのみ対応（自動/クラウド連携なし）。定期的にエクスポートし、任意のクラウドドライブへ保存してください。
+            {/* バックアップ方針の説明（強調版） */}
+            <View style={[glassEffect.card, styles.policyCard, styles.warningCard]}>
+              <Text style={[styles.policyText, styles.warningTitle]}>
+                ⚠️ 重要: 手動バックアップ必須
+              </Text>
+              <Text style={[styles.policyText, styles.warningBody]}>
+                本アプリはサーバーにデータを保存していません。{'\n'}
+                端末紛失・機種変更時、データは自動復元されません。{'\n'}
+                必ず定期的にエクスポートし、任意のクラウドドライブへ保存してください。
               </Text>
             </View>
             
@@ -1015,6 +1020,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  // バックアップ警告カード
+  warningCard: {
+    backgroundColor: '#FF6B6B20',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B6B',
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FF6B6B',
+    marginBottom: 8,
+  },
+  warningBody: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   // 開発者ツール
   devCard: {

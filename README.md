@@ -97,6 +97,24 @@ node >= 18.x
 npm >= 9.x
 ```
 
+### リリース準備
+
+**⚠️ 本番環境でのリリース前に必ず以下を実施してください:**
+
+1. **RevenueCat APIキーの設定**
+   ```bash
+   # .env.example を .env にコピー
+   cp .env.example .env
+   
+   # .env にRevenueCatの本番APIキーを記入
+   EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_xxxxxxxxxxxxxxxx
+   EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_xxxxxxxxxxxxxxxx
+   ```
+
+2. **詳細なチェックリスト**
+   - `RELEASE_CHECKLIST.md` を参照
+   - 実機テスト、課金フロー、バックアップ復元の検証が必須
+
 ### インストール
 
 ```bash
@@ -126,16 +144,37 @@ npm run dev
 
 ### RevenueCat設定（本番環境）
 
-1. `app/core/store/subscriptionStore.ts` のAPI Keyを設定
-```typescript
-const REVENUECAT_API_KEY_IOS = 'your_ios_api_key';
-const REVENUECAT_API_KEY_ANDROID = 'your_android_api_key';
+**⚠️ リリース前に必ず `.env` ファイルを作成してください:**
+
+```bash
+# .env.example を .env にコピー
+cp .env.example .env
+
+# .env にRevenueCatの本番APIキーを記入
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_xxxxxxxxxxxxxxxx
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_xxxxxxxxxxxxxxxx
 ```
 
-2. RevenueCatダッシュボードでEntitlement IDを設定
-   - 推奨: `pro` または `premium`
+詳細は `RELEASE_CHECKLIST.md` を参照してください。
 
 ### プライバシーポリシーのホスティング
+
+`app/privacy-policy.tsx` の内容をHTMLとして抽出し、GitHub Pages等にデプロイしてください。  
+デプロイ後、`app/(tabs)/settings.tsx` のプライバシーポリシーリンクを更新してください。
+
+**ストア申請時は必ずURLを登録してください。**
+
+## 📤 Release Preparation
+
+リリース前の詳細なチェックリストは **`RELEASE_CHECKLIST.md`** を参照してください。
+
+**致命的なブロッカー（リリース前に修正必須）:**
+- [ ] RevenueCat APIキー設定（`.env` ファイル）
+- [ ] プライバシーポリシーのWeb公開
+- [ ] 実機での課金フローテスト（Sandbox）
+- [ ] バックアップ復元の完全検証
+
+## 🛠 Development
 
 `privacy-policy.html` をGitHub PagesやNetlifyにデプロイし、`app/(tabs)/settings.tsx` のURLを更新してください。
 

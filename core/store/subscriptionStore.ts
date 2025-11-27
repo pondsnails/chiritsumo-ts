@@ -9,7 +9,7 @@ import { Platform } from 'react-native';
 
 // 開発モード設定
 const __DEV__ = process.env.NODE_ENV === 'development';
-const DEV_FORCE_PRO = false; // 開発時にPro版として動作させる場合はtrueに
+const DEV_FORCE_PRO = process.env.EXPO_PUBLIC_DEV_FORCE_PRO === 'true';
 
 interface SubscriptionState {
   isProUser: boolean;
@@ -27,9 +27,11 @@ interface SubscriptionState {
   restorePurchases: () => Promise<boolean>;
 }
 
-// RevenueCat API Keys (本番環境では環境変数から読み込むこと)
-const REVENUECAT_API_KEY_IOS = 'YOUR_IOS_API_KEY';
-const REVENUECAT_API_KEY_ANDROID = 'YOUR_ANDROID_API_KEY';
+// RevenueCat API Keys
+// 本番環境: .env ファイルに EXPO_PUBLIC_REVENUECAT_IOS_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_KEY を設定
+// 開発環境: .env.example を参照
+const REVENUECAT_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '';
+const REVENUECAT_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY || '';
 
 /**
  * サブスクリプション管理 Store Factory
@@ -70,8 +72,8 @@ export function createSubscriptionStore() {
         ? REVENUECAT_API_KEY_IOS 
         : REVENUECAT_API_KEY_ANDROID;
 
-      if (apiKey.startsWith('YOUR_')) {
-        console.warn('RevenueCat API key not configured');
+      if (!apiKey || apiKey.length === 0) {
+        console.warn('[RevenueCat] API key not configured. Please set EXPO_PUBLIC_REVENUECAT_IOS_KEY or EXPO_PUBLIC_REVENUECAT_ANDROID_KEY in .env file.');
         set({ isLoading: false });
         return;
       }
