@@ -6,6 +6,7 @@ import { getDrizzleDb } from '../database/drizzleClient';
 
 export interface ICardRepository {
   findAll(): Promise<Card[]>;
+  findAllPaginated(options: { limit: number; offset: number }): Promise<Card[]>; // ページネーション対応
   findByBook(bookId: string): Promise<Card[]>;
   findPaginated(limit: number, offset: number, bookId?: string, state?: number): Promise<Card[]>;
   countCards(bookId?: string, state?: number): Promise<number>;
@@ -52,6 +53,18 @@ export class DrizzleCardRepository implements ICardRepository {
   async findAll(): Promise<Card[]> {
     const db = await this.db();
     const rows = await db.select().from(cards).orderBy(asc(cards.book_id), asc(cards.unit_index)).all();
+    return rows.map(r => mapRow(r as RawCard));
+  }
+
+  async findAllPaginated(options: { limit: number; offset: number }): Promise<Card[]> {
+    const db = await this.db();
+    const rows = await db
+      .select()
+      .from(cards)
+      .orderBy(asc(cards.book_id), asc(cards.unit_index))
+      .limit(options.limit)
+      .offset(options.offset)
+      .all();
     return rows.map(r => mapRow(r as RawCard));
   }
 

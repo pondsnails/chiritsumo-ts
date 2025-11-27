@@ -9,6 +9,7 @@ import { calculateCardCount } from '../utils/bookLogic';
 
 export interface IBookRepository {
   findAll(): Promise<Book[]>;
+  findAllPaginated(options: { limit: number; offset: number }): Promise<Book[]>; // ページネーション対応
   findById(id: string): Promise<Book | null>;
   create(book: Book): Promise<void>; // Domain object persisted
   createWithCards(book: Book): Promise<void>; // Book作成と同時にCard生成（トランザクション）
@@ -49,6 +50,18 @@ export class DrizzleBookRepository implements IBookRepository {
     const rows = await db.select().from(books).all();
     return rows.map(mapRow);
   }
+  
+  async findAllPaginated(options: { limit: number; offset: number }): Promise<Book[]> {
+    const db = await this.db();
+    const rows = await db
+      .select()
+      .from(books)
+      .limit(options.limit)
+      .offset(options.offset)
+      .all();
+    return rows.map(mapRow);
+  }
+  
   async findById(id: string): Promise<Book | null> {
     const db = await this.db();
     const rows = await db.select().from(books).where(eq(books.id, id)).all();
