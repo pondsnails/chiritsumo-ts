@@ -1,6 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+// Expo SDK 54: 新API移行まではレガシー互換APIを使用
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { booksDB, cardsDB, ledgerDB } from '../database/db';
 
