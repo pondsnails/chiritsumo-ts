@@ -9,6 +9,7 @@ interface ServicesContextValue {
   bookRepo: DrizzleBookRepository;
   presetRepo: DrizzleInventoryPresetRepository;
   questService: QuestService;
+  // Additional future services can be added here
 }
 
 const ServicesContext = createContext<ServicesContextValue | null>(null);

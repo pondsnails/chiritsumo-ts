@@ -588,22 +588,7 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
     const fileUri = result.assets[0].uri;
     const content = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
     const lines = content.split('\n').filter(l => l.trim());
-    const bookRepo = new DrizzleBookRepository();
-    const cardRepo = new DrizzleCardRepository();
-    const ledgerRepo = new DrizzleLedgerRepository();
-    const settingsRepo = new DrizzleSystemSettingsRepository();
-    let booksAdded = 0, booksUpdated = 0, cardsUpserted = 0, ledgerAdded = 0, systemSettingsRestored = 0;
-    const existingBooks = await bookRepo.findAll();
-    const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
     const mode = options?.mode ?? 'merge';
-
-    // Replaceモードは通常importBackupを利用するべきだが、ここでも簡易対応
-    if (mode === 'replace') {
-      const db = await getDrizzleDb();
-      await db.transaction(async tx => {
-        await tx.delete(cards); await tx.delete(books); await tx.delete(ledger); await tx.delete(presetBooks);
-      });
-    }
 
     const toUnixNullable = (v: any): number | null => {
       if (v === null || v === undefined || v === '') return null;
@@ -612,75 +597,121 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
     };
     const toUnix = (v: any): number => (toUnixNullable(v) ?? Math.floor(Date.now()/1000));
 
-    for (const line of lines) {
-      let obj: any; try { obj = JSON.parse(line); } catch { continue; }
-      if (obj.type === 'metadata') continue;
-      if (obj.type === 'book') {
-        const b = obj.data;
-        const normalized = {
-          id: b.id,
-            userId: b.userId ?? b.user_id ?? 'local-user',
-            subjectId: b.subjectId ?? b.subject_id ?? null,
+    let booksAdded = 0, booksUpdated = 0, cardsUpserted = 0, ledgerAdded = 0, systemSettingsRestored = 0;
+    const db = await getDrizzleDb();
+
+    // Atomic strategy: create staging tables then swap
+    await db.transaction(async tx => {
+      if (mode === 'replace') {
+        // Create staging tables
+        tx.run(sql`CREATE TABLE IF NOT EXISTS books_staging AS SELECT * FROM books WHERE 0`);
+        tx.run(sql`CREATE TABLE IF NOT EXISTS cards_staging AS SELECT * FROM cards WHERE 0`);
+        tx.run(sql`CREATE TABLE IF NOT EXISTS ledger_staging AS SELECT * FROM ledger WHERE 0`);
+        tx.run(sql`CREATE TABLE IF NOT EXISTS preset_books_staging AS SELECT * FROM preset_books WHERE 0`);
+      }
+
+      // Load existing books (for merge diff)
+      const existingBooks = mode === 'merge' ? await tx.select().from(books).all() : [];
+      const existingBooksMap = new Map(existingBooks.map((b: any) => [b.id, b]));
+
+      for (const line of lines) {
+        let obj: any; try { obj = JSON.parse(line); } catch { continue; }
+        if (obj.type === 'metadata') continue;
+        if (obj.type === 'book') {
+          const b = obj.data;
+          const normalized = {
+            id: b.id,
+            user_id: b.userId ?? b.user_id ?? 'local-user',
+            subject_id: b.subjectId ?? b.subject_id ?? null,
             title: b.title,
             isbn: b.isbn ?? null,
             mode: b.mode ?? 1,
-            totalUnit: b.totalUnit ?? b.total_unit ?? 0,
-            chunkSize: b.chunkSize ?? b.chunk_size ?? 1,
-            completedUnit: b.completedUnit ?? b.completed_unit ?? 0,
+            total_unit: b.totalUnit ?? b.total_unit ?? 0,
+            chunk_size: b.chunkSize ?? b.chunk_size ?? 1,
+            completed_unit: b.completedUnit ?? b.completed_unit ?? 0,
             status: b.status ?? 0,
-            previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
+            previous_book_id: b.previousBookId ?? b.previous_book_id ?? null,
             priority: b.priority ?? 1,
-            coverPath: b.coverPath ?? b.cover_path ?? null,
-            targetCompletionDate: toUnixNullable(b.targetCompletionDate ?? b.target_completion_date),
-            createdAt: toUnix(b.createdAt ?? b.created_at),
-            updatedAt: toUnix(b.updatedAt ?? b.updated_at ?? b.createdAt ?? b.created_at),
-        };
-        const existing = existingBooksMap.get(normalized.id);
-        if (!existing) { await bookRepo.bulkUpsert([normalized]); booksAdded++; existingBooksMap.set(normalized.id, normalized as any); }
-        else {
-          const existingTime = (existing.updatedAt || existing.createdAt) * 1000;
-          const importTime = (normalized.updatedAt || normalized.createdAt) * 1000;
-          if (importTime > existingTime) { await bookRepo.bulkUpsert([normalized]); booksUpdated++; existingBooksMap.set(normalized.id, normalized as any); }
+            cover_path: b.coverPath ?? b.cover_path ?? null,
+            target_completion_date: toUnixNullable(b.targetCompletionDate ?? b.target_completion_date),
+            created_at: toUnix(b.createdAt ?? b.created_at),
+            updated_at: toUnix(b.updatedAt ?? b.updated_at ?? b.createdAt ?? b.created_at),
+          };
+          if (mode === 'replace') {
+            await tx.insert(sql`books_staging`).values(normalized as any).run();
+            booksAdded++;
+          } else {
+            const existing = existingBooksMap.get(normalized.id);
+            if (!existing) { await tx.insert(books).values(normalized).run(); booksAdded++; existingBooksMap.set(normalized.id, normalized); }
+            else {
+              const existingTime = (existing.updated_at || existing.created_at) * 1000;
+              const importTime = (normalized.updated_at || normalized.created_at) * 1000;
+              if (importTime > existingTime) { await tx.update(books).set(normalized).where(eq(books.id, normalized.id)).run(); booksUpdated++; existingBooksMap.set(normalized.id, normalized); }
+            }
+          }
+        }
+        else if (obj.type === 'card') {
+          const c = obj.data;
+          const normalized = {
+            id: c.id,
+            book_id: c.bookId ?? c.book_id ?? '',
+            unit_index: c.unitIndex ?? c.unit_index ?? 0,
+            state: c.state ?? 0,
+            stability: c.stability ?? 0,
+            difficulty: c.difficulty ?? 0,
+            elapsed_days: c.elapsed_days ?? c.elapsedDays ?? 0,
+            scheduled_days: c.scheduled_days ?? c.scheduledDays ?? 0,
+            reps: c.reps ?? 0,
+            lapses: c.lapses ?? 0,
+            due: toUnix(c.due),
+            last_review: toUnixNullable(c.lastReview ?? c.last_review),
+            photo_path: c.photoPath ?? c.photo_path ?? null,
+          };
+          if (mode === 'replace') {
+            await tx.insert(sql`cards_staging`).values(normalized as any).run();
+          } else {
+            await tx.insert(cards).values(normalized).run();
+          }
+          cardsUpserted++;
+        }
+        else if (obj.type === 'ledger') {
+          const l = obj.data;
+            const normalized = {
+              date: toUnix(l.date),
+              earned_lex: l.earnedLex ?? l.earned_lex ?? 0,
+              target_lex: l.targetLex ?? l.target_lex ?? 0,
+              balance: l.balance ?? 0,
+              transaction_type: 'daily',
+              note: null,
+            };
+            if (mode === 'replace') {
+              await tx.insert(sql`ledger_staging`).values(normalized as any).run();
+            } else {
+              await tx.insert(ledger).values(normalized).run();
+            }
+            ledgerAdded++;
+        }
+        else if (obj.type === 'systemSetting') {
+          const s = obj.data;
+          // System settings independent; update directly
+          await tx.insert(systemSettings).values({ key: s.key, value: s.value, updated_at: new Date().toISOString() }).onConflictDoUpdate({ target: systemSettings.key, set: { value: s.value, updated_at: new Date().toISOString() } }).run();
+          systemSettingsRestored++;
         }
       }
-      if (obj.type === 'card') {
-        const c = obj.data;
-        const normalized = {
-          id: c.id,
-          bookId: c.bookId ?? c.book_id ?? '',
-          unitIndex: c.unitIndex ?? c.unit_index ?? 0,
-          state: c.state ?? 0,
-          stability: c.stability ?? 0,
-          difficulty: c.difficulty ?? 0,
-          elapsed_days: c.elapsed_days ?? c.elapsedDays ?? 0,
-          scheduled_days: c.scheduled_days ?? c.scheduledDays ?? 0,
-          reps: c.reps ?? 0,
-          lapses: c.lapses ?? 0,
-          due: toUnix(c.due),
-          lastReview: toUnixNullable(c.lastReview ?? c.last_review),
-          photoPath: c.photoPath ?? c.photo_path ?? null,
-        } as any;
-        await cardRepo.bulkUpsert([normalized]);
-        cardsUpserted++;
+
+      if (mode === 'replace') {
+        // Drop originals and rename staging atomically
+        tx.run(sql`DROP TABLE cards`);
+        tx.run(sql`DROP TABLE books`);
+        tx.run(sql`DROP TABLE ledger`);
+        tx.run(sql`DROP TABLE preset_books`);
+        tx.run(sql`ALTER TABLE books_staging RENAME TO books`);
+        tx.run(sql`ALTER TABLE cards_staging RENAME TO cards`);
+        tx.run(sql`ALTER TABLE ledger_staging RENAME TO ledger`);
+        tx.run(sql`ALTER TABLE preset_books_staging RENAME TO preset_books`);
       }
-      if (obj.type === 'ledger') {
-        const l = obj.data;
-        const normalized = {
-          date: toUnix(l.date),
-          earnedLex: l.earnedLex ?? l.earned_lex ?? 0,
-          targetLex: l.targetLex ?? l.target_lex ?? 0,
-          balance: l.balance ?? 0,
-        } as any;
-        await ledgerRepo.bulkAdd([normalized]);
-        ledgerAdded++;
-      }
-      if (obj.type === 'systemSetting') {
-        const s = obj.data;
-        await settingsRepo.set(s.key, s.value);
-        systemSettingsRestored++;
-      }
-      // presetBook: 現行ユース低 → 後段まとめ挿入でも可（簡易対応省略）
-    }
+    });
+
     return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded, systemSettingsRestored };
   } catch (e) {
     console.error('[StreamingImport] Failed', e);

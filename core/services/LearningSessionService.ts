@@ -88,7 +88,8 @@ export class LearningSessionService {
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 
-export function createLearningSessionService(): LearningSessionService {
+// Deprecated factory: rely on DI ServicesProvider for instantiation
+export function createLearningSessionServiceDeprecated(): LearningSessionService {
   return new LearningSessionService(
     new DrizzleCardRepository(),
     new DrizzleBookRepository()

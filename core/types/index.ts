@@ -2,19 +2,20 @@ export type BookMode = 'read' | 'solve' | 'memo';
 export type BookStatus = 'active' | 'locked' | 'graduated' | 'sleep';
 export type CardState = 'new' | 'learning' | 'review' | 'relearning';
 
+import { BookMode, BookStatus, BookPriority, CardState } from '@core/constants/enums';
 export interface Book {
   id: string;
   userId: string;
   subjectId?: number | null;
   title: string;
   isbn?: string | null;
-  mode: 0 | 1 | 2;
+  mode: BookMode;
   totalUnit: number;
   chunkSize?: number;
   completedUnit?: number;
-  status: 0 | 1 | 2;
+  status: BookStatus;
   previousBookId: string | null;
-  priority?: 0 | 1;
+  priority?: BookPriority;
   coverPath?: string | null;
   targetCompletionDate?: number | null; // Unix秒
   createdAt: number; // Unix秒
@@ -25,7 +26,7 @@ export interface Card {
   id: string;
   bookId: string;
   unitIndex: number;
-  state: 0 | 1 | 2 | 3;
+  state: CardState;
   stability: number;
   difficulty: number;
   elapsedDays: number;

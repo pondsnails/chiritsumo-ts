@@ -34,7 +34,8 @@ type TabType = 'myRoute' | 'presetRoute';
 
 export default function RouteScreen() {
   const router = useRouter();
-  const bookRepo = new DrizzleBookRepository();
+  // DI context repository (avoid direct instantiation)
+  const { bookRepo } = useServices ? ({} as any) : { bookRepo: new DrizzleBookRepository() };
   
   const [activeTab, setActiveTab] = useState<TabType>('myRoute');
   const [books, setBooks] = useState<Book[]>([]);
