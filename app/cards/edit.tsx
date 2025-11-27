@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save } from 'lucide-react-native';
-import { DrizzleCardRepository } from '@core/repository/CardRepository';
+import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import type { Card } from '@core/types';
@@ -20,7 +20,7 @@ import type { Card } from '@core/types';
 export default function CardEditScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const cardRepo = new DrizzleCardRepository();
+  const { cardRepo } = useServices();
 
   const [card, setCard] = useState<Card | null>(null);
   const [unitIndex, setUnitIndex] = useState('');

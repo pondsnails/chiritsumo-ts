@@ -17,12 +17,10 @@ import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-r
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
-import { useBookStore } from '@core/store/bookStore';
-import { useCardStore } from '@core/store/cardStore';
+import { useStores } from '@core/hooks/useStores';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { useOnboardingStore } from '@core/store/onboardingStore';
-import { DrizzleBookRepository } from '@core/repository/BookRepository';
-import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
+import { useServices } from '@core/di/ServicesProvider';
 import { 
   getUserLexSettings,
   saveUserLexSettings,
@@ -36,13 +34,11 @@ import i18n from '@core/i18n';
 export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
-    const { books, fetchBooks } = useBookStore();
+  const { useBookStore } = useStores();
+  const { books, fetchBooks } = useBookStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
-  
-  // Repository instances
-  const bookRepo = new DrizzleBookRepository();
-  const presetRepo = new DrizzleInventoryPresetRepository();
+  const { bookRepo, presetRepo } = useServices();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');

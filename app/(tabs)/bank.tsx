@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useBookStore } from '@core/store/bookStore';
+import { useStores } from '@core/hooks/useStores';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@core/components/BrainAnalyticsDashboard';
@@ -28,15 +28,16 @@ import type { LedgerEntry } from '@core/types';
 export default function BankScreen() {
   const router = useRouter();
   const { ledgerRepo } = useServices();
+  const { useBookStore } = useStores();
+  const { books } = useBookStore();
+  const { isProUser } = useSubscriptionStore();
+  
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [balance, setBalance] = useState(0);
   const [todayTarget, setTodayTarget] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
-    const [currentStreak, setCurrentStreak] = useState(0);
-
-  const { books } = useBookStore();
-  const { isProUser } = useSubscriptionStore();
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   useEffect(() => {
     fetchLedger();

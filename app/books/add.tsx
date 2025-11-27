@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useBookStore } from '@core/store/bookStore';
+import { useStores } from '@core/hooks/useStores';
 import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore';
 import { validateBookAddition } from '@core/utils/circularReferenceDetector';
 import { getBookTitleFromBarcode } from '@core/services/bookDataService';
@@ -28,6 +28,7 @@ import type { Book } from '@core/types';
 
 export default function AddBookScreen() {
   const router = useRouter();
+  const { useBookStore } = useStores();
   const { addBook, books, fetchBooks } = useBookStore();
   const { isProUser } = useSubscriptionStore();
   const [title, setTitle] = useState('');

@@ -14,8 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar, Target, TrendingUp, Share2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useBookStore } from '@core/store/bookStore';
-import { DrizzleCardRepository } from '@core/repository/CardRepository';
+import { useStores } from '@core/hooks/useStores';
+import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
@@ -32,8 +32,9 @@ import {
 export default function EditBookScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { useBookStore } = useStores();
   const { books, updateBook } = useBookStore();
-  const cardRepo = new DrizzleCardRepository();
+  const { cardRepo } = useServices();
   const [cards, setCards] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');

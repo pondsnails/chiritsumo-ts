@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
-import { useBookStore } from '@core/store/bookStore';
+import { useStores } from '@core/hooks/useStores';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
@@ -22,6 +22,7 @@ import type { Book } from '@core/types';
 
 export default function BooksScreen() {
   const router = useRouter();
+  const { useBookStore } = useStores();
   const { books, fetchBooks, deleteBook, isLoading } = useBookStore();
   const { isProUser } = useSubscriptionStore();
 

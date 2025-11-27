@@ -11,8 +11,9 @@ import { createCardStore } from '@core/store/cardStore';
 export function useStores() {
   const { bookRepo, cardRepo } = useServices();
   
-  const bookStore = useMemo(() => createBookStore(bookRepo)(), [bookRepo]);
-  const cardStore = useMemo(() => createCardStore(cardRepo)(), [cardRepo]);
+  // createBookStore(repo) returns the actual zustand hook, not a store instance
+  const useBookStore = useMemo(() => createBookStore(bookRepo), [bookRepo]);
+  const useCardStore = useMemo(() => createCardStore(cardRepo), [cardRepo]);
   
-  return { bookStore, cardStore };
+  return { useBookStore, useCardStore };
 }

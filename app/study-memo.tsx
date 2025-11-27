@@ -11,8 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useCardStore } from '@core/store/cardStore';
-import { useBookStore } from '@core/store/bookStore';
+import { useStores } from '@core/hooks/useStores';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -21,6 +20,7 @@ import type { Card, Book } from '@core/types';
 export default function StudyMemoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { useCardStore, useBookStore } = useStores();
   const { fetchDueCards, bulkUpdateCardReviews } = useCardStore();
   const { books } = useBookStore();
   const [cards, setCards] = useState<Card[]>([]);

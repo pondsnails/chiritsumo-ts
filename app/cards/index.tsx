@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, Filter } from 'lucide-react-native';
-import { DrizzleCardRepository } from '@core/repository/CardRepository';
-import { useBookStore } from '@core/store/bookStore';
+import { useServices } from '@core/di/ServicesProvider';
+import { useStores } from '@core/hooks/useStores';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import type { Card } from '@core/types';
@@ -23,11 +23,12 @@ type SortKey = 'due' | 'stability' | 'difficulty' | 'unitIndex';
 type FilterState = 'all' | 0 | 1 | 2 | 3; // all or card states
 
 const PAGE_SIZE = 50; // ページあたりのカード数
-const cardRepo = new DrizzleCardRepository();
 
 export default function CardListScreen() {
   const router = useRouter();
+  const { cardRepo } = useServices();
   const [cards, setCards] = useState<Card[]>([]);
+  const { useBookStore } = useStores();
   const { books } = useBookStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('due');

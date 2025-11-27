@@ -12,8 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, ChevronRight, BookOpen } from 'lucide-react-native';
-import { useCardStore } from '@core/store/cardStore';
-import { useBookStore } from '@core/store/bookStore';
+import { useStores } from '@core/hooks/useStores';
+import { reportError } from '@core/services/errorReporter';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -27,6 +27,7 @@ interface BookCardGroup {
 export default function StudyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { useCardStore, useBookStore } = useStores();
   const { fetchDueCards } = useCardStore();
   const { books } = useBookStore();
   
@@ -64,7 +65,7 @@ export default function StudyScreen() {
 
       setBookCardGroups(groups);
     } catch (error) {
-      console.error('Failed to load cards:', error);
+      reportError(error, { context: 'study:loadCards' });
     } finally {
       setIsLoading(false);
     }
