@@ -84,6 +84,15 @@ export default function QuestScreen() {
         bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
       }
 
+      // プリセットが空配列の場合は全アクティブ書籍を対象にフォールバック
+      if (bookIdsToQuery.length === 0 && books.length > 0) {
+        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+        if (bookIdsToQuery.length === 0) {
+          // アクティブ書籍が無い場合は全書籍を対象（復元直後の互換性フォールバック）
+          bookIdsToQuery = books.map(b => b.id);
+        }
+      }
+
       if (bookIdsToQuery.length > 0) {
         const cards = await fetchDueCards(bookIdsToQuery);
         setDueCards(cards);
@@ -110,6 +119,15 @@ export default function QuestScreen() {
         bookIdsToQuery = activePreset?.bookIds || [];
       } else {
         bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+      }
+
+      // プリセットが空配列の場合は全アクティブ書籍を対象にフォールバック
+      if (bookIdsToQuery.length === 0 && books.length > 0) {
+        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+        if (bookIdsToQuery.length === 0) {
+          // アクティブ書籍が無い場合は全書籍を対象（復元直後の互換性フォールバック）
+          bookIdsToQuery = books.map(b => b.id);
+        }
       }
 
       if (bookIdsToQuery.length > 0) {
