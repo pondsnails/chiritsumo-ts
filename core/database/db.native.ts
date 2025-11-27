@@ -13,7 +13,7 @@ const initDB = async () => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS books (
       id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT 'local-user',
       subject_id INTEGER,
       title TEXT NOT NULL,
       isbn TEXT,
@@ -65,6 +65,13 @@ const initDB = async () => {
     );
     CREATE INDEX IF NOT EXISTS idx_inventory_presets_default ON inventory_presets(is_default);
   `);
+
+  // 既存データのuser_idがNULLまたは空の場合にデフォルト値を設定（マイグレーション）
+  try {
+    db.runSync(`UPDATE books SET user_id = 'local-user' WHERE user_id IS NULL OR user_id = ''`);
+  } catch (e) {
+    // カラムが存在しない場合や他のエラーは無視（初回起動時など）
+  }
 };
 
 // Books Repository
@@ -127,7 +134,7 @@ export const booksDB = {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         book.id,
-        book.userId,
+        book.userId || 'local-user', // デフォルト値を設定
         book.subjectId ?? null,
         book.title,
         book.isbn ?? null,
@@ -155,10 +162,19 @@ export const booksDB = {
   async add(book: Book): Promise<void> {
     return this.upsert(book);
   },
-  async update(id: string, book: Book): Promise<void> {
-    // idを信頼しつつbook.idを整合させてupsert
-    const normalized: Book = { ...book, id };
-    return this.upsert(normalized);
+  async update(id: string, updates: Partial<Book>): Promise<void> {
+    // 既存データを取得してマージ（NOT NULL制約を回避）
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error(`Book with id ${id} not found`);
+    }
+    const merged: Book = {
+      ...existing,
+      ...updates,
+      id, // IDは変更不可
+      updatedAt: new Date().toISOString(), // 更新日時を自動更新
+    };
+    return this.upsert(merged);
   },
 };
 

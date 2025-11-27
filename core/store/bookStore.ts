@@ -43,6 +43,7 @@ export const useBookStore = create<BookState>((set, get) => ({
 
   updateBook: async (id: string, updates: Partial<Book>) => {
     try {
+      // db.native.tsのupdateメソッドが既存データとマージするので直接渡す
       await booksDB.update(id, updates);
       await get().fetchBooks();
     } catch (error) {
