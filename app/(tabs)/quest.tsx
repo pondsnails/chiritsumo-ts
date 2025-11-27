@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,7 +18,7 @@ import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
-import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { inventoryPresetsDB, cardsDB, ledgerDB } from '@core/database/db';
 import { assignNewCardsToday } from '@core/services/cardPlanService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
@@ -37,6 +38,8 @@ export default function QuestScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showActionsModal, setShowActionsModal] = useState(false);
+  const [ledgerTargetLex, setLedgerTargetLex] = useState<number | null>(null);
+  const DEFAULT_DAILY_LEX_TARGET = 300; // Ledger未設定時のフォールバック
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -57,6 +60,7 @@ export default function QuestScreen() {
       setIsLoading(true);
       await fetchBooks();
       await loadPresets();
+      await loadLedgerTarget();
     } catch (error) {
       console.error('Failed to load quest data:', error);
     } finally {
@@ -152,6 +156,21 @@ export default function QuestScreen() {
     }
   };
 
+  const loadLedgerTarget = async () => {
+    try {
+      const recent = await ledgerDB.getRecent(1);
+      const today = new Date().toISOString().split('T')[0];
+      const entry = recent[0];
+      if (entry && entry.date === today) {
+        setLedgerTargetLex(entry.targetLex);
+      } else {
+        setLedgerTargetLex(null);
+      }
+    } catch (error) {
+      setLedgerTargetLex(null);
+    }
+  };
+
   const calculateTotalLex = (cards: Card[]) => {
     const bookModeMap = new Map(books.map(b => [b.id, b.mode]));
     return cards.reduce((total, card) => {
@@ -225,6 +244,34 @@ export default function QuestScreen() {
   const groupedReviewCards = groupCardsByBook(dueCards);
   const groupedNewCards = groupCardsByBook(newCards);
 
+  // 目標と不足の計算
+  const reviewLex = useMemo(() => calculateTotalLex(dueCards), [dueCards, books]);
+  const newLexCurrent = useMemo(() => calculateTotalLex(newCards), [newCards, books]);
+  const targetLex = ledgerTargetLex ?? DEFAULT_DAILY_LEX_TARGET;
+  const combinedLex = reviewLex + newLexCurrent;
+
+  const selectedBookIds = useMemo(() => {
+    if (activePresetId) {
+      const activePreset = presets.find(p => p.id === activePresetId);
+      return activePreset?.bookIds || [];
+    }
+    return books.filter(b => b.status === 0).map(b => b.id);
+  }, [activePresetId, presets, books]);
+
+  const avgLexPerNew = useMemo(() => {
+    const selected = books.filter(b => selectedBookIds.includes(b.id));
+    if (selected.length === 0) return calculateLexPerCard(0);
+    const sum = selected.reduce((acc, b) => acc + calculateLexPerCard(b.mode), 0);
+    return Math.max(1, Math.floor(sum / selected.length));
+  }, [books, selectedBookIds]);
+
+  const neededNewCount = useMemo(() => {
+    if (combinedLex >= targetLex) return 0;
+    return Math.ceil((targetLex - combinedLex) / avgLexPerNew);
+  }, [combinedLex, targetLex, avgLexPerNew]);
+
+  const newDeemphasized = combinedLex >= targetLex;
+
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -266,12 +313,19 @@ export default function QuestScreen() {
             <View style={[glassEffect.card, styles.summaryCard]}>
               <Text style={styles.summaryLabel}>復習</Text>
               <Text style={styles.summaryValue}>{dueCards.length}</Text>
-              <Text style={styles.summaryLex}>+{calculateTotalLex(dueCards)} Lex</Text>
+              <Text style={styles.summaryLex}>+{reviewLex} Lex</Text>
             </View>
             <View style={[glassEffect.card, styles.summaryCard]}>
               <Text style={styles.summaryLabel}>新規学習</Text>
               <Text style={styles.summaryValue}>{newCards.length}</Text>
-              <Text style={styles.summaryLex}>+{calculateTotalLex(newCards)} Lex</Text>
+              <Text style={styles.summaryLex}>+{newLexCurrent} Lex</Text>
+            </View>
+            <View style={[glassEffect.card, styles.summaryCard]}>
+              <Text style={styles.summaryLabel}>目標</Text>
+              <Text style={styles.summaryValue}>{targetLex}</Text>
+              <Text style={[styles.summaryLex, { color: combinedLex >= targetLex ? colors.success : colors.error }]}>
+                {combinedLex >= targetLex ? '達成済み' : `不足 ${targetLex - combinedLex} Lex`}
+              </Text>
             </View>
           </View>
 
@@ -326,9 +380,9 @@ export default function QuestScreen() {
             </View>
           ) : (
             <>
-              {groupedNewCards.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🌱 新規学習クエスト</Text>
+              <View style={[styles.section, newDeemphasized && styles.dimSection]}>
+                <Text style={styles.sectionTitle}>🌱 新規学習クエスト</Text>
+                {groupedNewCards.length > 0 ? (
                   <View style={styles.taskList}>
                     {groupedNewCards.map(({ book, cards }) => (
                       <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
@@ -356,8 +410,43 @@ export default function QuestScreen() {
                       </View>
                     ))}
                   </View>
-                </View>
-              )}
+                ) : (
+                  <View style={styles.taskList}>
+                    <View style={[glassEffect.card, styles.taskCard]}>
+                      <Text style={styles.emptyText}>
+                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {neededNewCount} 枚
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.startButton, neededNewCount === 0 && { opacity: 0.5 }]}
+                        disabled={neededNewCount === 0}
+                        onPress={async () => {
+                          try {
+                            let bookIdsToQuery = selectedBookIds;
+                            if (bookIdsToQuery.length === 0 && books.length > 0) {
+                              bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
+                              if (bookIdsToQuery.length === 0) {
+                                bookIdsToQuery = books.map(b => b.id);
+                              }
+                            }
+                            if (bookIdsToQuery.length === 0) return;
+                            const created = await assignNewCardsToday(books, bookIdsToQuery, neededNewCount);
+                            if (created > 0) {
+                              await loadDueCards();
+                              await loadNewCards();
+                              await loadLedgerTarget();
+                            }
+                          } catch (e) {
+                            console.error('Assign recommended new failed', e);
+                          }
+                        }}
+                      >
+                        <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                        <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
 
               {groupedReviewCards.length > 0 && (
                 <View style={styles.section}>
@@ -562,6 +651,9 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  dimSection: {
+    opacity: 0.6,
   },
   sectionTitle: {
     fontSize: 18,
