@@ -1,6 +1,6 @@
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import { Paths, File } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { booksDB, cardsDB, ledgerDB } from '../database/db';
 
@@ -50,14 +50,12 @@ export const exportBackup = async (): Promise<void> => {
       throw new Error('Sharing is not available on this device');
     }
 
-    const fileName = `chiritsumo_backup_${new Date().getTime()}.json`;
-    const file = new File(Paths.cache, fileName);
-    
+    const fileUri = `${FileSystem.cacheDirectory}chiritsumo_backup_${new Date().getTime()}.json`;
     // ファイルに書き込み（文字列を直接書き込み）
-    await file.write(jsonString);
-    
+    await FileSystem.writeAsStringAsync(fileUri, jsonString, { encoding: FileSystem.EncodingType.UTF8 });
+
     // シェア機能で保存
-    await Sharing.shareAsync(file.uri, {
+    await Sharing.shareAsync(fileUri, {
       dialogTitle: 'バックアップを保存',
       mimeType: 'application/json',
     });
@@ -84,16 +82,14 @@ export const importBackup = async (): Promise<void> => {
     }
 
     let jsonString: string;
-    
     // Web環境の場合
     if (Platform.OS === 'web' && result.assets[0].file) {
-      const file = result.assets[0].file;
+      const file = result.assets[0].file as File;
       jsonString = await file.text();
     } else {
       // ネイティブ環境ではURIから読み込み
       const fileUri = result.assets[0].uri;
-      const file = new File(fileUri);
-      jsonString = await file.text();
+      jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
     }
 
     const backup: BackupData = JSON.parse(jsonString);
@@ -102,47 +98,7 @@ export const importBackup = async (): Promise<void> => {
       throw new Error('Invalid backup file format');
     }
 
-    // Web: IndexedDBにマージ（Upsertロジック）
-    if (Platform.OS === 'web') {
-      // IndexedDBをインポート
-      const { indexedBooksDB, indexedCardsDB, indexedLedgerDB } = await import('../database/indexedDB');
-      
-      // 書籍データをマージ（updatedAtで新しい方を優先）
-      const existingBooks = await indexedBooksDB.getAll();
-      const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
-      
-      for (const book of backup.books) {
-        const existing = existingBooksMap.get(book.id);
-        if (!existing) {
-          // 新規書籍は追加
-          await indexedBooksDB.add(book);
-        } else {
-          // 既存書籍はタイムスタンプ比較
-          const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
-          const importTime = new Date(book.updatedAt || book.createdAt).getTime();
-          if (importTime > existingTime) {
-            await indexedBooksDB.update(book.id, book);
-          }
-        }
-      }
-
-      // カードはupsert（既にマージ対応）
-      for (const card of backup.cards) {
-        await indexedCardsDB.upsert(card);
-      }
-
-      // 台帳は日付単位でユニーク、既存チェックして追加
-      const existingLedger = await indexedLedgerDB.getAll();
-      const existingDates = new Set(existingLedger.map(e => e.date));
-      for (const entry of backup.ledger) {
-        if (!existingDates.has(entry.date)) {
-          await indexedLedgerDB.add(entry);
-        }
-      }
-
-      console.log('Backup merged successfully (Web - IndexedDB)');
-      return;
-    }
+    // Web専用のIndexedDBマージは廃止（Nativeのみ想定）
 
     // ネイティブ: データベースにマージ（Upsertロジック）
     const existingBooks = await booksDB.getAll();
