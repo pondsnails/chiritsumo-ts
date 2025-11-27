@@ -15,6 +15,9 @@ import { ArrowLeft, Save, Calendar, Target, TrendingUp } from 'lucide-react-nati
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
+import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
+import { useCardStore } from '@core/store/cardStore';
+import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
 
@@ -22,9 +25,11 @@ export default function EditBookScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { books, updateBook } = useBookStore();
+  const { cards } = useCardStore();
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
   const [completedUnit, setCompletedUnit] = useState('');
+  const [chunkSize, setChunkSize] = useState<number>(1);
   const [mode, setMode] = useState<0 | 1 | 2>(0);
   const [status, setStatus] = useState<0 | 1 | 2>(0);
   const [targetCompletionDate, setTargetCompletionDate] = useState<Date | null>(null);
@@ -37,6 +42,7 @@ export default function EditBookScreen() {
       setTitle(book.title);
       setTotalUnit(book.totalUnit.toString());
       setCompletedUnit((book.completedUnit || 0).toString());
+      setChunkSize(book.chunkSize || 1);
       setMode(book.mode);
       setStatus(book.status);
       if (book.targetCompletionDate) {
@@ -44,6 +50,12 @@ export default function EditBookScreen() {
       }
     }
   }, [id, books]);
+
+  // 既存カード数を算出（生成済みがあればサイズ変更は新規カードのみ影響）
+  const existingCardsCount = cards.filter(c => c.bookId === id).length;
+  const hasExistingCards = existingCardsCount > 0;
+  // 単純平均Lex（単一モードなのでそのモードの固定値）
+  const modeAverageLex = calculateLexPerCard(mode);
 
   const calculateDailyQuota = (): number | null => {
     if (!targetCompletionDate) return null;
@@ -74,6 +86,7 @@ export default function EditBookScreen() {
         title: title.trim(),
         totalUnit: parseInt(totalUnit),
         completedUnit: parseInt(completedUnit),
+        chunkSize: chunkSize || 1,
         mode,
         status,
         targetCompletionDate: targetCompletionDate?.toISOString() || null,
@@ -133,6 +146,17 @@ export default function EditBookScreen() {
                 placeholder={i18n.t('books.completedUnitsPlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <ChunkSizeSelector
+                value={chunkSize}
+                onChange={setChunkSize}
+                totalUnit={parseInt(totalUnit || '0') || undefined}
+                disabled={hasExistingCards}
+                modeAverageLex={modeAverageLex}
+                onRequestPro={() => router.push('/paywall')}
               />
             </View>
 

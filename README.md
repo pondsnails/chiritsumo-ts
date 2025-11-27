@@ -34,6 +34,7 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 - [x] IndexedDB（Web） + Drizzle ORM
 - [x] Books/Cards/Ledgerスキーマ定義
 - [x] Chunking機能（1カードあたりの学習量指定）
+- [x] Chunk Size プリセット & Proカスタム（学習単位サイズをプリセット 1/2/3/5/10/15 + Pro追加 20/30/50/75/100 + カスタム入力）
 - [x] 循環参照防止（DAGグラフ管理）
 - [x] FSRS v5アルゴリズム統合
 
@@ -151,6 +152,7 @@ app/
 │   └── edit.tsx         # 書籍編集
 ├── core/
 │   ├── components/      # 再利用可能なコンポーネント
+│   │   └── ChunkSizeSelector.tsx  # 学習単位サイズ選択（Free=プリセット / Pro=+拡張+カスタム）
 │   ├── database/        # Drizzle ORM & SQLite
 │   ├── fsrs/            # FSRS v5スケジューラ
 │   ├── layout/          # 路線図レイアウトエンジン
@@ -177,12 +179,14 @@ app/
 
 - [ ] **実機テスト（iOS）**
   - [ ] Book登録制限の動作確認
+  - [ ] Chunk Size プリセット/カスタム切替（Pro/Free）
   - [ ] カメラ権限の動作確認
   - [ ] バックアップExport/Importテスト
   - [ ] RevenueCat課金フローテスト
 
 - [ ] **実機テスト（Android）**
   - [ ] 同上
+  - [ ] Chunk Size プリセット/カスタム切替（Pro/Free）
 
 - [ ] **ストア素材準備**
   - [ ] アイコン（1024x1024）

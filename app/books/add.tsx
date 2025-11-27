@@ -20,6 +20,8 @@ import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore'
 import { validateBookAddition } from '@core/utils/circularReferenceDetector';
 import { getBookTitleFromBarcode } from '@core/services/bookDataService';
 import { colors } from '@core/theme/colors';
+import ChunkSizeSelector from '@core/components/ChunkSizeSelector';
+import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
 import type { Book } from '@core/types';
@@ -30,7 +32,7 @@ export default function AddBookScreen() {
   const { isProUser } = useSubscriptionStore();
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
-  const [chunkSize, setChunkSize] = useState('1');
+  const [chunkSize, setChunkSize] = useState<number>(1);
   const [mode, setMode] = useState<0 | 1 | 2>(0);
   const [previousBookId, setPreviousBookId] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -127,7 +129,7 @@ export default function AddBookScreen() {
         ...newBookData,
         userId: 'local-user',
         totalUnit: parseInt(totalUnit),
-        chunkSize: parseInt(chunkSize) || 1,
+        chunkSize: chunkSize || 1,
         completedUnit: 0,
         mode,
         status: 0,
@@ -195,20 +197,13 @@ export default function AddBookScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>{i18n.t('books.chunkSizeLabel')}</Text>
-              <TextInput
-                style={styles.input}
+              <ChunkSizeSelector
                 value={chunkSize}
-                onChangeText={setChunkSize}
-                placeholder={i18n.t('books.chunkSizePlaceholder')}
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="numeric"
+                onChange={setChunkSize}
+                totalUnit={parseInt(totalUnit || '0') || undefined}
+                modeAverageLex={calculateLexPerCard(mode)}
+                onRequestPro={() => router.push('/paywall')}
               />
-              <Text style={styles.helpText}>
-                {totalUnit && chunkSize
-                  ? i18n.t('books.generatedCards', { count: Math.ceil(parseInt(totalUnit) / (parseInt(chunkSize) || 1)) })
-                  : i18n.t('books.chunkSizeHelp')}
-              </Text>
             </View>
 
             <View style={styles.formGroup}>

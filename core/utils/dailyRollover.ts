@@ -45,8 +45,17 @@ export async function performDailyRollover(
     const today = new Date().toISOString().split('T')[0];
 
     const dueCount = getDueCardsCount(cards);
-    const lexPerCard = calculateLexPerCard(books);
-    const targetLex = dueCount * lexPerCard;
+    // 書籍が複数モードなら平均 (単純化): モード別平均Lexを weighted by dueCount per bookは後で改善
+    const modeCounts: Record<0|1|2, number> = { 0: 0, 1: 0, 2: 0 };
+    for (const c of cards) {
+      const b = books.find(bk => bk.id === c.bookId);
+      if (b) modeCounts[b.mode] = (modeCounts[b.mode] || 0) + 1;
+    }
+    let targetLex = 0;
+    (Object.keys(modeCounts) as string[]).forEach(k => {
+      const m = parseInt(k, 10) as 0 | 1 | 2;
+      if (modeCounts[m] > 0) targetLex += modeCounts[m] * calculateLexPerCard(m);
+    });
 
     const newBalance = currentBalance - targetLex;
 

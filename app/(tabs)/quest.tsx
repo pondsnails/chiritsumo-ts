@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Play, Settings } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
@@ -24,6 +26,8 @@ import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
+import ProgressBar from '@core/components/ProgressBar';
+import { RotateCcw, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
 import i18n from '@core/i18n';
@@ -43,6 +47,12 @@ export default function QuestScreen() {
   const [registerDefaultBook, setRegisterDefaultBook] = useState<string | undefined>(undefined);
   const [showActionsModal, setShowActionsModal] = useState(false);
   const [dailyTargetLex, setDailyTargetLex] = useState<number>(600); // 設定画面の値
+  const [initialDueCount, setInitialDueCount] = useState<number>(0);
+  const [celebrate, setCelebrate] = useState(false);
+  const [showCompletionToast, setShowCompletionToast] = useState(false);
+  // 詳細表示トグル（初期は非表示で認知負荷を下げる）
+  const [showAdvancedReview, setShowAdvancedReview] = useState(false);
+  const [showAdvancedNew, setShowAdvancedNew] = useState(false);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -107,6 +117,8 @@ export default function QuestScreen() {
       if (bookIdsToQuery.length > 0) {
         const cards = await fetchDueCards(bookIdsToQuery);
         setDueCards(cards);
+        // 初期カウント未設定なら設定（開始時の総復習枚数）
+        setInitialDueCount(prev => prev === 0 ? cards.length : prev);
       } else {
         setDueCards([]);
       }
@@ -257,6 +269,32 @@ export default function QuestScreen() {
 
   const newDeemphasized = combinedLex >= targetLex;
   const hasReviewPending = dueCards.length > 0;
+  // 全 dueCards から最も早い due を取得（グローバル次カード）
+  const globalNext = useMemo(() => {
+    if (dueCards.length === 0) return null;
+    const now = new Date();
+    const filtered = dueCards.filter(c => c.due <= now);
+    if (filtered.length === 0) return null;
+    return filtered.sort((a, b) => a.due.getTime() - b.due.getTime())[0];
+  }, [dueCards]);
+  const globalNextBook = useMemo(() => {
+    if (!globalNext) return null;
+    return books.find(b => b.id === globalNext.bookId) || null;
+  }, [globalNext, books]);
+
+  // 全復習完了検知（前フレーム >0 -> 現在 0）
+  const prevDueCountRef = React.useRef<number>(0);
+  useEffect(() => {
+    const prev = prevDueCountRef.current;
+    if (prev > 0 && dueCards.length === 0) {
+      setCelebrate(true);
+      setShowCompletionToast(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setCelebrate(false), 3500);
+      setTimeout(() => setShowCompletionToast(false), 5000);
+    }
+    prevDueCountRef.current = dueCards.length;
+  }, [dueCards.length]);
 
   if (isLoading) {
     return (
@@ -280,6 +318,11 @@ export default function QuestScreen() {
               <Settings color={colors.textSecondary} size={24} strokeWidth={2} />
             </TouchableOpacity>
           </View>
+          {showCompletionToast && (
+            <View style={styles.completionToast}>
+              <Text style={styles.completionToastText}>復習お疲れさま！新規を進めましょう 🎉</Text>
+            </View>
+          )}
 
           {presets.length > 0 && (
             <ScrollView
@@ -307,6 +350,10 @@ export default function QuestScreen() {
             </ScrollView>
           )}
 
+          <View style={styles.banner}>
+            <Text style={styles.bannerTitle}>今日の流れ</Text>
+            <Text style={styles.bannerText}>1. 復習を全部終わらせる → 2. 不足Lex分を新規で補う → 3. 余裕があれば追加割り当て</Text>
+          </View>
           <View style={styles.summaryContainer}>
             <View style={[glassEffect.card, styles.summaryCard]}>
               <Text style={styles.summaryLabel}>復習</Text>
@@ -380,203 +427,141 @@ export default function QuestScreen() {
             <>
               {groupedReviewCards.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🔄 復習クエスト（まずはこちら）</Text>
-                  <View style={styles.taskList}>
-                    {groupedReviewCards.map(({ book, cards }) => {
-                      const now = new Date();
-                      const dueList = cards.filter(c => c.due <= now).sort((a, b) => a.due.getTime() - b.due.getTime());
-                      const nextCard = dueList[0];
-                      const remaining = dueList.length;
-                      return (
-                        <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                          <View style={styles.taskHeader}>
-                            <View style={styles.taskTitleRow}>
-                              <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                                <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
-                              </View>
-                              <Text style={styles.taskTitle} numberOfLines={1}>{book.title}</Text>
-                            </View>
-                            <View style={styles.taskStats}>
-                              <Text style={styles.taskCount}>残り {remaining} / {cards.length}</Text>
-                              <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
-                            </View>
-                          </View>
-                          {nextCard ? (
-                            <View style={styles.reviewRow}>
-                              <Text style={styles.reviewInfo}>次: チャンク {nextCard.unitIndex}</Text>
-                              <View style={styles.reviewButtons}>
-                                <TouchableOpacity
-                                  style={[styles.ratingBtn, styles.ratingAgain]}
-                                  onPress={async () => {
-                                    try {
-                                      const scheduler = createScheduler(book.mode);
-                                      const updated = scheduler.reviewAgain(nextCard);
-                                      await cardsDB.upsert(updated);
-                                      await loadDueCards();
-                                    } catch (e) { console.error('review again failed', e); }
-                                  }}
-                                >
-                                  <Text style={styles.ratingText}>もう一度</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  style={[styles.ratingBtn, styles.ratingHard]}
-                                  onPress={async () => {
-                                    try {
-                                      const scheduler = createScheduler(book.mode);
-                                      const updated = scheduler.reviewHard(nextCard);
-                                      await cardsDB.upsert(updated);
-                                      await loadDueCards();
-                                    } catch (e) { console.error('review hard failed', e); }
-                                  }}
-                                >
-                                  <Text style={styles.ratingText}>難しい</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  style={[styles.ratingBtn, styles.ratingGood]}
-                                  onPress={async () => {
-                                    try {
-                                      const scheduler = createScheduler(book.mode);
-                                      const updated = scheduler.reviewGood(nextCard);
-                                      await cardsDB.upsert(updated);
-                                      await loadDueCards();
-                                    } catch (e) { console.error('review good failed', e); }
-                                  }}
-                                >
-                                  <Text style={styles.ratingText}>できた</Text>
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          ) : (
-                            <Text style={styles.reviewDone}>この書籍の復習は完了です 🎉</Text>
-                          )}
-                          <View style={styles.inlineActions}>
-                            <TouchableOpacity
-                              style={[styles.smallBtn, styles.primaryBtn]}
-                              onPress={() => startStudy(book.id)}
-                            >
-                              <Text style={styles.smallBtnText}>詳細画面</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.smallBtn]}
-                              onPress={async () => {
-                                try {
-                                  const created = await assignNewCardsToday(books, [book.id], 5);
-                                  if (created > 0) {
-                                    await loadDueCards();
-                                    await loadNewCards();
-                                  }
-                                } catch (e) { console.error('quick new assign per book failed', e); }
-                              }}
-                            >
-                              <Text style={styles.smallBtnText}>+新規5</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.smallBtn]}
-                              onPress={() => { setShowRegisterModal(true); setRegisterDefaultBook(book.id); }}
-                            >
-                              <Text style={styles.smallBtnText}>既習登録</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })}
+                  <Text style={styles.sectionTitle}>🔄 復習（何も考えず評価するだけ）</Text>
+                  <View style={styles.progressWrap}>
+                    <ProgressBar value={initialDueCount === 0 ? 0 : (initialDueCount - dueCards.length) / Math.max(1, initialDueCount)} />
+                    <Text style={styles.progressLabel}>残り {dueCards.length} / 初期 {initialDueCount}</Text>
                   </View>
+                  {/* グローバル次カード */}
+                  <View style={[glassEffect.card, styles.taskCard]}>    
+                    {globalNext && globalNextBook ? (
+                      <View style={styles.globalNextWrap}>
+                        <Text style={styles.globalNextTitle}>{globalNextBook.title}</Text>
+                        {(() => {
+                          const chunkSize = globalNextBook.chunkSize && globalNextBook.chunkSize > 0 ? globalNextBook.chunkSize : 1;
+                          const start = (globalNext.unitIndex - 1) * chunkSize + 1;
+                          const end = Math.min(globalNext.unitIndex * chunkSize, globalNextBook.totalUnit);
+                          return (
+                            <Text style={styles.globalNextSub}>
+                              学習単位 {globalNext.unitIndex}
+                              {chunkSize > 1 ? ` (${start}–${end})` : ''}
+                            </Text>
+                          );
+                        })()}
+                        <Text style={styles.chunkHint}>学習単位＝書籍を chunkSize({globalNextBook.chunkSize || 1}) ごとに区切ったまとまり</Text>
+                        <View style={styles.reviewButtons}>
+                            <TouchableOpacity
+                            style={[styles.ratingBtn, styles.ratingAgain]}
+                            onPress={async () => {
+                              try {
+                                const scheduler = createScheduler(globalNextBook.mode);
+                                const updated = scheduler.reviewAgain(globalNext);
+                                await cardsDB.upsert(updated);
+                                await loadDueCards();
+                                  Haptics.selectionAsync();
+                              } catch (e) { console.error('global review again failed', e); }
+                            }}
+                          >
+                            <RotateCcw size={16} color={colors.text} />
+                            <Text style={styles.ratingText}>もう一度</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.ratingBtn, styles.ratingHard]}
+                            onPress={async () => {
+                              try {
+                                const scheduler = createScheduler(globalNextBook.mode);
+                                const updated = scheduler.reviewHard(globalNext);
+                                await cardsDB.upsert(updated);
+                                await loadDueCards();
+                                Haptics.selectionAsync();
+                              } catch (e) { console.error('global review hard failed', e); }
+                            }}
+                          >
+                            <AlertTriangle size={16} color={colors.text} />
+                            <Text style={styles.ratingText}>難しい</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.ratingBtn, styles.ratingGood]}
+                            onPress={async () => {
+                              try {
+                                const scheduler = createScheduler(globalNextBook.mode);
+                                const updated = scheduler.reviewGood(globalNext);
+                                await cardsDB.upsert(updated);
+                                await loadDueCards();
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                if (dueCards.length - 1 <= 0) {
+                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                }
+                              } catch (e) { console.error('global review good failed', e); }
+                            }}
+                          >
+                            <CheckCircle size={16} color={colors.text} />
+                            <Text style={styles.ratingText}>できた</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <Text style={styles.reviewDone}>今日の復習は全て完了しました 🎉</Text>
+                    )}
+                    <TouchableOpacity
+                      style={styles.advancedToggle}
+                      onPress={() => setShowAdvancedReview(prev => !prev)}
+                    >
+                      <Text style={styles.advancedToggleText}>{showAdvancedReview ? '詳細を閉じる' : '書籍別の残りを見る'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {showAdvancedReview && (
+                    <View style={styles.taskList}>
+                      {groupedReviewCards.map(({ book, cards }) => {
+                        const now = new Date();
+                        const dueList = cards.filter(c => c.due <= now);
+                        return (
+                          <View key={book.id} style={[glassEffect.card, styles.simpleBookCard]}>
+                            <Text style={styles.simpleBookTitle} numberOfLines={1}>{book.title}</Text>
+                            <Text style={styles.simpleBookCount}>残り {dueList.length} 枚</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               )}
 
               <View style={[styles.section, (newDeemphasized || hasReviewPending) && styles.dimSection]}>
-                <Text style={styles.sectionTitle}>🌱 新規学習クエスト{hasReviewPending ? '（復習完了後に推奨）' : ''}</Text>
-                {hasReviewPending && groupedReviewCards.length > 0 && (
-                  <Text style={{ color: colors.textSecondary, marginHorizontal: 16, marginBottom: 8, fontSize: 12 }}>
-                    先に今日の復習を終えてから新規に進みましょう。
-                  </Text>
-                )}
-                {groupedNewCards.length > 0 ? (
+                <Text style={styles.sectionTitle}>🌱 新規{hasReviewPending ? '（復習完了後に推奨）' : ''}</Text>
+                <View style={[glassEffect.card, styles.taskCard]}>
+                  <Text style={styles.emptyText}>不足 {Math.max(0, targetLex - combinedLex)} Lex / 推奨 {recommended.total} 枚</Text>
+                  <TouchableOpacity
+                    style={[styles.startButton, (recommended.total === 0 || hasReviewPending) && { opacity: 0.5 }]}
+                    disabled={recommended.total === 0 || hasReviewPending}
+                    onPress={async () => {
+                      try {
+                        const created = await assignNewCardsByAllocation(books, recommended.perBook);
+                        if (created > 0) {
+                          await loadDueCards();
+                          await loadNewCards();
+                          await loadDailyTarget();
+                        }
+                      } catch (e) {
+                        console.error('Assign recommended new failed', e);
+                      }
+                    }}
+                  >
+                    <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                    <Text style={styles.startButtonText}>推奨を割り当てる</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvancedNew(p => !p)}>
+                    <Text style={styles.advancedToggleText}>{showAdvancedNew ? '詳細を閉じる' : '書籍別を見る'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {showAdvancedNew && groupedNewCards.length > 0 && (
                   <View style={styles.taskList}>
                     {groupedNewCards.map(({ book, cards }) => (
-                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                        <View style={styles.taskHeader}>
-                          <View style={styles.taskTitleRow}>
-                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
-                            </View>
-                            <Text style={styles.taskTitle} numberOfLines={1}>
-                              {book.title}
-                            </Text>
-                          </View>
-                          <View style={styles.taskStats}>
-                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
-                          </View>
-                        </View>
-                        <View style={styles.inlineActions}>
-                          <TouchableOpacity
-                            disabled={hasReviewPending}
-                            style={[styles.smallBtn, styles.primaryBtn, hasReviewPending && { opacity: 0.3 }]}
-                            onPress={() => { if (!hasReviewPending) startStudy(book.id); }}
-                          >
-                            <Text style={styles.smallBtnText}>新規開始</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            disabled={hasReviewPending}
-                            style={[styles.smallBtn, hasReviewPending && { opacity: 0.3 }]}
-                            onPress={async () => {
-                              if (hasReviewPending) return;
-                              try {
-                                const count = recommended.perBook[book.id] || 5;
-                                const created = await assignNewCardsToday(books, [book.id], count);
-                                if (created > 0) {
-                                  await loadDueCards();
-                                  await loadNewCards();
-                                }
-                              } catch (e) {
-                                console.error('recommended per-book assign failed', e);
-                              }
-                            }}
-                          >
-                            <Text style={styles.smallBtnText}>推奨追加</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            disabled={hasReviewPending}
-                            style={[styles.smallBtn, hasReviewPending && { opacity: 0.3 }]}
-                            onPress={() => {
-                              if (hasReviewPending) return;
-                              setShowRegisterModal(true);
-                              setRegisterDefaultBook(book.id);
-                            }}
-                          >
-                            <Text style={styles.smallBtnText}>既習登録</Text>
-                          </TouchableOpacity>
-                        </View>
+                      <View key={book.id} style={[glassEffect.card, styles.simpleBookCard]}>
+                        <Text style={styles.simpleBookTitle} numberOfLines={1}>{book.title}</Text>
+                        <Text style={styles.simpleBookCount}>割り当て済 {cards.length} 枚 / 推奨 {(recommended.perBook[book.id] || 0)} 枚</Text>
                       </View>
                     ))}
-                  </View>
-                ) : (
-                  <View style={styles.taskList}>
-                    <View style={[glassEffect.card, styles.taskCard]}>
-                      <Text style={styles.emptyText}>
-                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚
-                      </Text>
-                      <TouchableOpacity
-                        style={[styles.startButton, (recommended.total === 0 || hasReviewPending) && { opacity: 0.5 }]}
-                        disabled={recommended.total === 0 || hasReviewPending}
-                        onPress={async () => {
-                          try {
-                            const created = await assignNewCardsByAllocation(books, recommended.perBook);
-                            if (created > 0) {
-                              await loadDueCards();
-                              await loadNewCards();
-                              await loadDailyTarget();
-                            }
-                          } catch (e) {
-                            console.error('Assign recommended new failed', e);
-                          }
-                        }}
-                      >
-                        <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                        <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
-                      </TouchableOpacity>
-                    </View>
                   </View>
                 )}
               </View>
@@ -667,6 +652,9 @@ export default function QuestScreen() {
           setRegisterDefaultBook(undefined);
         }}
       />
+      {celebrate && (
+        <ConfettiCannon count={120} origin={{ x: 40, y: 0 }} fadeOut fallSpeed={2500} explosionSpeed={600} />
+      )}
     </LinearGradient>
   );
 }
@@ -723,6 +711,26 @@ const styles = StyleSheet.create({
   },
   allChipTextActive: {
     color: colors.primary,
+  },
+  banner: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    gap: 4,
+  },
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  bannerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
   summaryContainer: {
     flexDirection: 'row',
@@ -871,18 +879,31 @@ const styles = StyleSheet.create({
   reviewInfo: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   reviewButtons: { flexDirection: 'row', gap: 6 },
   ratingBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   ratingAgain: { backgroundColor: '#552222' },
   ratingHard: { backgroundColor: '#554d22' },
   ratingGood: { backgroundColor: '#225522' },
-  ratingText: { fontSize: 11, fontWeight: '700', color: colors.text },
+  ratingText: { fontSize: 13, fontWeight: '700', color: colors.text },
   reviewDone: { fontSize: 12, color: colors.success, marginBottom: 8, fontWeight: '600' },
+  progressWrap: { marginHorizontal: 16, marginBottom: 8, gap: 4 },
+  progressLabel: { fontSize: 11, color: colors.textSecondary, textAlign: 'right' },
+  globalNextWrap: { gap: 8 },
+  globalNextTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  globalNextSub: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  advancedToggle: { marginTop: 12, alignSelf: 'flex-end' },
+  advancedToggleText: { fontSize: 11, fontWeight: '600', color: colors.primary },
+  simpleBookCard: { padding: 12, gap: 4 },
+  simpleBookTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  simpleBookCount: { fontSize: 12, color: colors.textSecondary },
   startButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -930,5 +951,22 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     fontSize: 14,
+  },
+  completionToast: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.success,
+  },
+  completionToastText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  chunkHint: {
+    fontSize: 10,
+    color: colors.textSecondary,
   },
 });

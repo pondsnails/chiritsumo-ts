@@ -3,40 +3,45 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { AlertTriangle, X, Zap, Gift, TrendingUp } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
-import type { BankruptcyResult } from '../logic/bankruptcyLogic';
+import { checkBankruptcyStatus, getDebtBonusMultiplier, applyDebtForgiveness } from '../logic/bankruptcyLogic';
+// 型簡素化: BankruptcyStatus を直接利用
+import type { BankruptcyStatus } from '../logic/bankruptcyLogic';
 
 interface BankruptcyWarningProps {
   visible: boolean;
-  result: BankruptcyResult;
+  balance: number; // 現在Lex残高
+  isProUser: boolean;
   onClose: () => void;
-  onApplyRescue?: (rescueType: string) => void;
+  onExecuteBankruptcy?: () => void;
+  onForgiveDebt?: (newDeficit: number, cost: number) => void;
 }
 
 export function BankruptcyWarning({
   visible,
-  result,
+  balance,
+  isProUser,
   onClose,
-  onApplyRescue,
+  onExecuteBankruptcy,
+  onForgiveDebt,
 }: BankruptcyWarningProps) {
+  const result: BankruptcyStatus = checkBankruptcyStatus(balance, isProUser);
   if (!result.isInDebt) return null;
 
-  const getDebtLevelColor = () => {
-    switch (result.debtLevel) {
-      case 3: return colors.error;
-      case 2: return colors.warning;
-      case 1: return colors.primary;
-      default: return colors.textSecondary;
-    }
-  };
-
-  const getDebtLevelText = () => {
-    switch (result.debtLevel) {
-      case 3: return '重度の借金（ボーナス3倍！）';
-      case 2: return '中程度の借金（ボーナス2倍！）';
-      case 1: return '軽度の借金（ボーナス1.5倍）';
-      default: return '正常';
-    }
-  };
+  const multiplier = getDebtBonusMultiplier(result.warningLevel);
+  const levelColor = result.warningLevel === 3
+    ? colors.error
+    : result.warningLevel === 2
+      ? colors.warning
+      : result.warningLevel === 1
+        ? colors.primary
+        : colors.textSecondary;
+  const levelText = result.warningLevel === 3
+    ? '重度の借金'
+    : result.warningLevel === 2
+      ? '中程度の借金'
+      : result.warningLevel === 1
+        ? '軽度の借金'
+        : '正常';
 
   return (
     <Modal
@@ -56,55 +61,43 @@ export function BankruptcyWarning({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title}>返済チャンス！</Text>
+          <Text style={styles.title}>借金ステータス</Text>
           <Text style={styles.description}>
-            借金状態ですが、学習でボーナスLexを獲得できます！
+            {result.message}
           </Text>
 
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>現在の状態</Text>
-              <Text style={[styles.detailValue, { color: getDebtLevelColor() }]}>
-                {getDebtLevelText()}
-              </Text>
+              <Text style={styles.detailLabel}>状態</Text>
+              <Text style={[styles.detailValue, { color: levelColor }]}>{levelText}</Text>
             </View>
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>借金額</Text>
-              <Text style={[styles.detailValue, { color: colors.error }]}>
-                {result.deficit} Lex
-              </Text>
+              <Text style={[styles.detailValue, { color: colors.error }]}>{result.deficit} Lex</Text>
             </View>
+            {result.warningLevel > 0 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>ボーナス倍率</Text>
+                <Text style={[styles.detailValue, { color: colors.success }]}>x{multiplier.toFixed(1)}</Text>
+              </View>
+            )}
           </View>
-
-          {result.bonusQuests.length > 0 && (
-            <View style={styles.bonusBox}>
-              <View style={styles.bonusHeader}>
-                <TrendingUp color={colors.success} size={20} />
-                <Text style={styles.bonusTitle}>ボーナスクエスト</Text>
-              </View>
-              {result.bonusQuests.map((quest, index) => (
-                <View key={index} style={styles.bonusRow}>
-                  <Text style={styles.bonusBullet}>✨</Text>
-                  <Text style={styles.bonusText}>{quest}</Text>
-                </View>
-              ))}
-            </View>
+          {result.canBankrupt && onExecuteBankruptcy && (
+            <TouchableOpacity style={[styles.button, styles.bankruptcyButton]} onPress={onExecuteBankruptcy}>
+              <Text style={styles.bankruptcyText}>破産して再スタート</Text>
+            </TouchableOpacity>
           )}
-
-          {result.rescueOptions.length > 0 && (
-            <View style={styles.rescueBox}>
-              <View style={styles.rescueHeader}>
-                <Gift color={colors.primary} size={20} />
-                <Text style={styles.rescueTitle}>救済オプション</Text>
-              </View>
-              {result.rescueOptions.map((option, index) => (
-                <View key={index} style={styles.rescueRow}>
-                  <Text style={styles.rescueBullet}>🎁</Text>
-                  <Text style={styles.rescueText}>{option}</Text>
-                </View>
-              ))}
-            </View>
+          {onForgiveDebt && result.isInDebt && !result.canBankrupt && (
+            <TouchableOpacity
+              style={[styles.button, styles.forgiveButton]}
+              onPress={() => {
+                const { cost, newDeficit } = applyDebtForgiveness(result.deficit, result.warningLevel);
+                onForgiveDebt(newDeficit, cost);
+              }}
+            >
+              <Text style={styles.forgiveText}>徳政令を適用して軽減</Text>
+            </TouchableOpacity>
           )}
 
           <View style={styles.tipsBox}>
@@ -113,11 +106,8 @@ export function BankruptcyWarning({
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, styles.confirmButton]}
-            onPress={onClose}
-          >
-            <Text style={styles.confirmButtonText}>学習で返済する！</Text>
+          <TouchableOpacity style={[styles.button, styles.closeBtn]} onPress={onClose}>
+            <Text style={styles.closeText}>閉じる</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -274,6 +264,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  bankruptcyButton: {
+    backgroundColor: colors.error,
+    marginBottom: 12,
+  },
+  bankruptcyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  forgiveButton: {
+    backgroundColor: colors.warning,
+    marginBottom: 12,
+  },
+  forgiveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  closeBtn: {
+    backgroundColor: colors.primary,
+  },
+  closeText: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.background,
