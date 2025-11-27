@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { booksDB } from '../database/db';
+import { DrizzleBookRepository } from '../repository/BookRepository';
 import type { Book } from '../types';
 
 interface BookState {
@@ -12,6 +12,8 @@ interface BookState {
   deleteBook: (id: string) => Promise<void>;
 }
 
+const bookRepo = new DrizzleBookRepository();
+
 export const useBookStore = create<BookState>((set, get) => ({
   books: [],
   isLoading: false,
@@ -20,7 +22,7 @@ export const useBookStore = create<BookState>((set, get) => ({
   fetchBooks: async () => {
     try {
       set({ isLoading: true, error: null });
-      const books = await booksDB.getAll();
+      const books = await bookRepo.findAll();
       set({ books });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch books';
@@ -32,7 +34,7 @@ export const useBookStore = create<BookState>((set, get) => ({
 
   addBook: async (book: Book) => {
     try {
-      await booksDB.add(book);
+      await bookRepo.create(book);
       await get().fetchBooks();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add book';
@@ -43,8 +45,7 @@ export const useBookStore = create<BookState>((set, get) => ({
 
   updateBook: async (id: string, updates: Partial<Book>) => {
     try {
-      // db.native.tsのupdateメソッドが既存データとマージするので直接渡す
-      await booksDB.update(id, updates);
+      await bookRepo.update(id, updates);
       await get().fetchBooks();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update book';
@@ -55,7 +56,7 @@ export const useBookStore = create<BookState>((set, get) => ({
 
   deleteBook: async (id: string) => {
     try {
-      await booksDB.delete(id);
+      await bookRepo.delete(id);
       await get().fetchBooks();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete book';

@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
-import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
@@ -42,8 +43,11 @@ export function useQuestData(): QuestData {
   const [dailyTargetLex, setDailyTargetLex] = useState<number>(600);
   const [initialDueCount, setInitialDueCount] = useState<number>(0);
 
+  const presetRepo = new DrizzleInventoryPresetRepository();
+  const cardRepo = new DrizzleCardRepository();
+
   const loadPresets = useCallback(async () => {
-    const loaded = await inventoryPresetsDB.getAll();
+    const loaded = await presetRepo.findAll();
     setPresets(loaded);
     const def = loaded.find(p => p.isDefault);
     if (def) setActivePresetId(def.id);
@@ -85,7 +89,7 @@ export function useQuestData(): QuestData {
     const today = new Date(); today.setHours(0,0,0,0);
     const ids = resolveBookIds();
     if (ids.length === 0) { setNewCards([]); return; }
-    const allNew = await cardsDB.getNewCards(1000);
+    const allNew = await cardRepo.findNew(1000);
     const todayNew = allNew.filter(card => {
       const d = new Date(card.due); d.setHours(0,0,0,0);
       return d.getTime() === today.getTime() && ids.includes(card.bookId);

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { cardsDB, ledgerDB } from '../database/db';
+import { DrizzleCardRepository } from '../repository/CardRepository';
+import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { createScheduler } from '../fsrs/scheduler';
 import { calculateLexForCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
@@ -14,6 +15,9 @@ interface CardState {
   bulkUpdateCardReviews: (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => Promise<void>;
 }
 
+const cardRepo = new DrizzleCardRepository();
+const ledgerRepo = new DrizzleLedgerRepository();
+
 export const useCardStore = create<CardState>((set) => ({
   cards: [],
   isLoading: false,
@@ -22,7 +26,7 @@ export const useCardStore = create<CardState>((set) => ({
   fetchCards: async () => {
     try {
       set({ isLoading: true });
-      const allCards = await cardsDB.getAll();
+      const allCards = await cardRepo.findAll();
       set({ cards: allCards, isLoading: false });
     } catch (error) {
       console.error('Failed to fetch cards:', error);
@@ -32,7 +36,7 @@ export const useCardStore = create<CardState>((set) => ({
 
   fetchDueCards: async (bookIds: string[]) => {
     try {
-      const dueCards = await cardsDB.getDueCards(bookIds);
+      const dueCards = await cardRepo.findDue(bookIds, new Date());
       return dueCards;
     } catch (error) {
       console.error('Failed to fetch due cards:', error);
@@ -42,25 +46,25 @@ export const useCardStore = create<CardState>((set) => ({
 
   updateCardReview: async (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => {
     try {
-      const cards = await cardsDB.getByBookId(bookId);
+      const cards = await cardRepo.findByBook(bookId);
       const card = cards.find((c) => c.id === cardId);
       if (!card) throw new Error('Card not found');
 
       const scheduler = createScheduler(mode);
       const updatedCard = scheduler.review(card, rating);
 
-      await cardsDB.upsert(updatedCard);
+      await cardRepo.update(cardId, updatedCard);
 
       if (rating === 3 || rating === 4) {
         const lexEarned = calculateLexForCard(mode, updatedCard);
-        const ledgerEntries = await ledgerDB.getRecent(1);
+        const ledgerEntries = await ledgerRepo.findRecent(1);
         const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
         const currentEarned = today?.earnedLex || 0;
         const currentTarget = today?.targetLex || 100;
         const currentBalance = today?.balance || 0;
 
         const todayDate = new Date().toISOString().split('T')[0];
-        await ledgerDB.upsert({
+        await ledgerRepo.upsert({
           date: todayDate,
           earnedLex: currentEarned + lexEarned,
           targetLex: currentTarget,
@@ -79,7 +83,10 @@ export const useCardStore = create<CardState>((set) => ({
       const scheduler = createScheduler(mode);
       const updatedCards = scheduler.bulkReview(cards, ratings);
 
-      await cardsDB.bulkUpsert(updatedCards);
+      // Bulk update via individual update calls (bulkCreate expects insert semantics)
+      for (const card of updatedCards) {
+        await cardRepo.update(card.id, card);
+      }
 
       // 成功した復習のLexを個別に計算して合算
       const lexEarned = updatedCards.reduce((total, card, index) => {
@@ -90,14 +97,14 @@ export const useCardStore = create<CardState>((set) => ({
       }, 0);
 
       if (lexEarned > 0) {
-        const ledgerEntries = await ledgerDB.getRecent(1);
+        const ledgerEntries = await ledgerRepo.findRecent(1);
         const today = ledgerEntries.length > 0 ? ledgerEntries[0] : null;
         const currentEarned = today?.earnedLex || 0;
         const currentTarget = today?.targetLex || 100;
         const currentBalance = today?.balance || 0;
 
         const todayDate = new Date().toISOString().split('T')[0];
-        await ledgerDB.upsert({
+        await ledgerRepo.upsert({
           date: todayDate,
           earnedLex: currentEarned + lexEarned,
           targetLex: currentTarget,
