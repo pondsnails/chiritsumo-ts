@@ -85,20 +85,37 @@ export default function SettingsScreen() {
 
   const handleImport = async () => {
     Alert.alert(
-      i18n.t('settings.importConfirmTitle'),
-      i18n.t('settings.importConfirmMessage'),
+      'バックアップの復元モード',
+      '現在のデータにどう適用しますか？',
       [
         { text: i18n.t('common.cancel'), style: 'cancel' },
         {
-          text: i18n.t('settings.import'),
+          text: 'マージ（推奨）',
+          onPress: async () => {
+            try {
+              setIsImporting(true);
+              const result = await importBackup({ mode: 'merge' });
+              await Promise.all([fetchBooks(), fetchCards()]);
+              const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
+              Alert.alert(i18n.t('common.success'), `バックアップをマージしました。\n\n${msg}`);
+            } catch (error) {
+              console.error('Import failed:', error);
+              Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));
+            } finally {
+              setIsImporting(false);
+            }
+          },
+        },
+        {
+          text: '完全復元（全削除→復元）',
           style: 'destructive',
           onPress: async () => {
             try {
               setIsImporting(true);
-              const result = await importBackup();
+              const result = await importBackup({ mode: 'replace' });
               await Promise.all([fetchBooks(), fetchCards()]);
-              const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
-              Alert.alert(i18n.t('common.success'), `${i18n.t('settings.importSuccess')}\n\n${msg}`);
+              const msg = `書籍: +${result.booksAdded}（置換）\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
+              Alert.alert(i18n.t('common.success'), `完全復元が完了しました。\n\n${msg}`);
             } catch (error) {
               console.error('Import failed:', error);
               Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));

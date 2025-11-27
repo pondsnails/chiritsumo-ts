@@ -78,7 +78,9 @@ export interface ImportResult {
   ledgerAdded: number;
 }
 
-export const importBackup = async (): Promise<ImportResult> => {
+export const importBackup = async (
+  options?: { mode?: 'merge' | 'replace' }
+): Promise<ImportResult> => {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/json',
@@ -149,15 +151,27 @@ export const importBackup = async (): Promise<ImportResult> => {
         } as any;
       });
 
-      // 書籍データをマージ（updatedAtで新しい方を優先）
+      const mode = options?.mode ?? 'merge';
+
+      if (mode === 'replace') {
+        // 依存関係を考慮し、cards -> books -> ledger の順に全削除
+        await cardsDB.deleteAll();
+        await booksDB.deleteAll();
+        await ledgerDB.deleteAll();
+      }
+
+      // 書籍データをマージ（replace時は全追加、merge時は比較）
       for (const book of normalizedBooks) {
+        if (mode === 'replace') {
+          await booksDB.add(book);
+          booksAdded += 1;
+          continue;
+        }
         const existing = existingBooksMap.get(book.id);
         if (!existing) {
-          // 新規書籍は追加
           await booksDB.add(book);
           booksAdded += 1;
         } else {
-          // 既存書籍はタイムスタンプ比較
           const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
           const importTime = new Date(book.updatedAt || book.createdAt).getTime();
           if (importTime > existingTime) {
@@ -173,7 +187,7 @@ export const importBackup = async (): Promise<ImportResult> => {
         cardsUpserted += 1;
       }
 
-      // 台帳は日付単位でユニーク、既存チェックして追加
+      // 台帳は日付単位でユニーク
       const existingLedger = await ledgerDB.getAll();
       const existingDates = new Set(existingLedger.map(e => e.date));
       for (const entryRaw of backup.ledger) {
@@ -183,7 +197,7 @@ export const importBackup = async (): Promise<ImportResult> => {
           targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
           balance: Number(entryRaw.balance ?? 0),
         };
-        if (!existingDates.has(entry.date)) {
+        if (mode === 'replace' || !existingDates.has(entry.date)) {
           await ledgerDB.add(entry);
           ledgerAdded += 1;
         }

@@ -157,6 +157,10 @@ export const booksDB = {
     await initDB();
     db.runSync('DELETE FROM books WHERE id = ?', [id]);
   },
+  async deleteAll(): Promise<void> {
+    await initDB();
+    db.runSync('DELETE FROM books');
+  },
 
   // 互換API: 既存コードで利用される add/update を upsert にマッピング
   async add(book: Book): Promise<void> {
@@ -294,6 +298,10 @@ export const cardsDB = {
     await initDB();
     db.runSync('DELETE FROM cards WHERE book_id = ?', [bookId]);
   },
+  async deleteAll(): Promise<void> {
+    await initDB();
+    db.runSync('DELETE FROM cards');
+  },
 };
 
 // Ledger Repository
@@ -351,6 +359,10 @@ export const ledgerDB = {
        VALUES (?, ?, ?, ?)`,
       [entry.date, entry.earnedLex, entry.targetLex, entry.balance]
     );
+  },
+  async deleteAll(): Promise<void> {
+    await initDB();
+    db.runSync('DELETE FROM ledger');
   },
 };
 
