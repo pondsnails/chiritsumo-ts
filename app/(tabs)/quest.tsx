@@ -254,6 +254,7 @@ export default function QuestScreen() {
   }, [books, selectedBookIds, reviewLex, newLexCurrent, targetLex]);
 
   const newDeemphasized = combinedLex >= targetLex;
+  const hasReviewPending = dueCards.length > 0;
 
   if (isLoading) {
     return (
@@ -375,69 +376,9 @@ export default function QuestScreen() {
             </View>
           ) : (
             <>
-              <View style={[styles.section, newDeemphasized && styles.dimSection]}>
-                <Text style={styles.sectionTitle}>🌱 新規学習クエスト</Text>
-                {groupedNewCards.length > 0 ? (
-                  <View style={styles.taskList}>
-                    {groupedNewCards.map(({ book, cards }) => (
-                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
-                        <View style={styles.taskHeader}>
-                          <View style={styles.taskTitleRow}>
-                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
-                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
-                            </View>
-                            <Text style={styles.taskTitle} numberOfLines={1}>
-                              {book.title}
-                            </Text>
-                          </View>
-                          <View style={styles.taskStats}>
-                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
-                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
-                          </View>
-                        </View>
-                        <TouchableOpacity
-                          style={styles.startButton}
-                          onPress={() => startStudy(book.id)}
-                        >
-                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.taskList}>
-                    <View style={[glassEffect.card, styles.taskCard]}>
-                      <Text style={styles.emptyText}>
-                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚
-                      </Text>
-                      <TouchableOpacity
-                        style={[styles.startButton, recommended.total === 0 && { opacity: 0.5 }]}
-                        disabled={recommended.total === 0}
-                        onPress={async () => {
-                          try {
-                            const created = await assignNewCardsByAllocation(books, recommended.perBook);
-                            if (created > 0) {
-                              await loadDueCards();
-                              await loadNewCards();
-                              await loadDailyTarget();
-                            }
-                          } catch (e) {
-                            console.error('Assign recommended new failed', e);
-                          }
-                        }}
-                      >
-                        <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                        <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              </View>
-
               {groupedReviewCards.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>🔄 復習クエスト</Text>
+                  <Text style={styles.sectionTitle}>🔄 復習クエスト（まずはこちら）</Text>
                   <View style={styles.taskList}>
                     {groupedReviewCards.map(({ book, cards }) => (
                       <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
@@ -467,6 +408,72 @@ export default function QuestScreen() {
                   </View>
                 </View>
               )}
+
+              <View style={[styles.section, (newDeemphasized || hasReviewPending) && styles.dimSection]}>
+                <Text style={styles.sectionTitle}>🌱 新規学習クエスト{hasReviewPending ? '（復習完了後に推奨）' : ''}</Text>
+                {hasReviewPending && groupedReviewCards.length > 0 && (
+                  <Text style={{ color: colors.textSecondary, marginHorizontal: 16, marginBottom: 8, fontSize: 12 }}>
+                    先に今日の復習を終えてから新規に進みましょう。
+                  </Text>
+                )}
+                {groupedNewCards.length > 0 ? (
+                  <View style={styles.taskList}>
+                    {groupedNewCards.map(({ book, cards }) => (
+                      <View key={book.id} style={[glassEffect.card, styles.taskCard]}>
+                        <View style={styles.taskHeader}>
+                          <View style={styles.taskTitleRow}>
+                            <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
+                              <Text style={styles.modeBadgeText}>{getModeLabel(book.mode)}</Text>
+                            </View>
+                            <Text style={styles.taskTitle} numberOfLines={1}>
+                              {book.title}
+                            </Text>
+                          </View>
+                          <View style={styles.taskStats}>
+                            <Text style={styles.taskCount}>{i18n.t('quest.cardCount', { count: cards.length })}</Text>
+                            <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          disabled={hasReviewPending}
+                          style={[styles.startButton, hasReviewPending && { opacity: 0.4 }]}
+                          onPress={() => { if (!hasReviewPending) startStudy(book.id); }}
+                        >
+                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.taskList}>
+                    <View style={[glassEffect.card, styles.taskCard]}>
+                      <Text style={styles.emptyText}>
+                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚
+                      </Text>
+                      <TouchableOpacity
+                        style={[styles.startButton, (recommended.total === 0 || hasReviewPending) && { opacity: 0.5 }]}
+                        disabled={recommended.total === 0 || hasReviewPending}
+                        onPress={async () => {
+                          try {
+                            const created = await assignNewCardsByAllocation(books, recommended.perBook);
+                            if (created > 0) {
+                              await loadDueCards();
+                              await loadNewCards();
+                              await loadDailyTarget();
+                            }
+                          } catch (e) {
+                            console.error('Assign recommended new failed', e);
+                          }
+                        }}
+                      >
+                        <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
+                        <Text style={styles.startButtonText}>推奨枚数を割り当て</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
             </>
           )}
         </ScrollView>
