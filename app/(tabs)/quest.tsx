@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useQuestData } from '../../hooks/useQuestData';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -126,7 +125,6 @@ export default function QuestScreen() {
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
-        <Animated.View entering={FadeIn.duration(180)}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.title}>{i18n.t('quest.title')}</Text>
@@ -263,7 +261,6 @@ export default function QuestScreen() {
             </>
           )}
         </ScrollView>
-        </Animated.View>
       </SafeAreaView>
 
       <InventoryFilterModal
