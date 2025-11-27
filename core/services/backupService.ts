@@ -2,6 +2,9 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 // Expo SDK 54: 新API移行まではレガシー互換APIを使用
 import * as FileSystem from 'expo-file-system/legacy';
+import { z } from 'zod';
+import { drizzleDb } from '../database/drizzleClient';
+import { presetBooks } from '../database/schema';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
@@ -14,7 +17,67 @@ export interface BackupData {
   cards: any[];
   ledger: any[];
   systemSettings?: any[]; // オプショナル（既存バックアップとの互換性）
+  presetBooks?: { preset_id: number; book_id: string }[]; // 正規化後のリンクテーブル
 }
+
+// =====================
+// Zod Schemas
+// =====================
+const BookBackupSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  mode: z.number().int().min(0).max(2).optional(),
+  totalUnit: z.number().int().nonnegative().optional(),
+  total_unit: z.number().int().nonnegative().optional(),
+  chunkSize: z.number().int().positive().optional(),
+  chunk_size: z.number().int().positive().optional(),
+  completedUnit: z.number().int().min(0).optional(),
+  completed_unit: z.number().int().min(0).optional(),
+  updatedAt: z.string().optional(),
+  updated_at: z.string().optional(),
+  createdAt: z.string().optional(),
+  created_at: z.string().optional(),
+}).passthrough();
+
+const CardBackupSchema = z.object({
+  id: z.string(),
+  bookId: z.string().optional(),
+  book_id: z.string().optional(),
+  unitIndex: z.number().int().min(0).optional(),
+  unit_index: z.number().int().min(0).optional(),
+  due: z.union([z.string(), z.date()]),
+  lastReview: z.union([z.string(), z.date()]).nullish(),
+  last_review: z.union([z.string(), z.date()]).nullish().optional(),
+}).passthrough();
+
+const LedgerBackupSchema = z.object({
+  date: z.string(),
+  earnedLex: z.number().optional(),
+  earned_lex: z.number().optional(),
+  targetLex: z.number().optional(),
+  target_lex: z.number().optional(),
+  balance: z.number().optional(),
+}).passthrough();
+
+const SystemSettingBackupSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+}).passthrough();
+
+const PresetBookLinkSchema = z.object({
+  preset_id: z.number().int(),
+  book_id: z.string(),
+});
+
+const BackupSchema = z.object({
+  version: z.string(),
+  exportedAt: z.string(),
+  books: z.array(BookBackupSchema),
+  cards: z.array(CardBackupSchema),
+  ledger: z.array(LedgerBackupSchema),
+  systemSettings: z.array(SystemSettingBackupSchema).optional(),
+  presetBooks: z.array(PresetBookLinkSchema).optional(),
+});
 
 /**
  * 全データをJSONとしてエクスポートし、シェア機能で保存
@@ -31,6 +94,8 @@ export const exportBackup = async (): Promise<void> => {
     const cardsData = await cardRepo.findAll();
     const ledgerData = await ledgerRepo.findAll();
     const systemSettingsData = await settingsRepo.getAll();
+    // 正規化されたプリセット関連（リンクテーブル）
+    const presetLinks = await (drizzleDb.select().from(presetBooks)).all();
 
     const backup: BackupData = {
       version: '1.0.0',
@@ -39,6 +104,7 @@ export const exportBackup = async (): Promise<void> => {
       cards: cardsData,
       ledger: ledgerData,
       systemSettings: systemSettingsData,
+      presetBooks: presetLinks,
     };
 
     const jsonString = JSON.stringify(backup, null, 2);
@@ -99,10 +165,12 @@ export const importBackup = async (
     const fileUri = result.assets[0].uri;
     const jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
 
-    const backup: BackupData = JSON.parse(jsonString);
-
-    if (!backup.version || !backup.books || !backup.cards || !backup.ledger) {
-      throw new Error('Invalid backup file format');
+    let backup: BackupData;
+    try {
+      backup = BackupSchema.parse(JSON.parse(jsonString));
+    } catch (e: any) {
+      const message = e?.issues ? JSON.stringify(e.issues) : (e?.message ?? 'Unknown parse error');
+      throw new Error(`Invalid backup file format: ${message}`);
     }
 
     // Web専用のIndexedDBマージは廃止（Nativeのみ想定）
@@ -169,6 +237,11 @@ export const importBackup = async (
         }));
         await ledgerRepo.bulkAdd(normalizedLedger);
         ledgerAdded = normalizedLedger.length;
+        // preset_books の復元（存在する場合のみ、プリセット自体は保持されている前提）
+        if (backup.presetBooks && backup.presetBooks.length > 0) {
+          await drizzleDb.delete(presetBooks).run();
+          await drizzleDb.insert(presetBooks).values(backup.presetBooks).run();
+        }
         
         // systemSettings復元（あれば）
         let systemSettingsRestored = 0;
@@ -227,6 +300,13 @@ export const importBackup = async (
         ledgerAdded = ledgerToAdd.length;
       }
       
+      // preset_books マージ（重複考慮せず挿入のみ）
+      if (backup.presetBooks && backup.presetBooks.length > 0) {
+        // すでに存在するリンクの重複挿入を避けるには unique 制約が必要だが、
+        // 現行スキーマに無いので一旦ベタ挿入のみ（後続で改善可）
+        await drizzleDb.insert(presetBooks).values(backup.presetBooks).run();
+      }
+
       // systemSettings復元（あれば上書き）
       let systemSettingsRestored = 0;
       if (backup.systemSettings && backup.systemSettings.length > 0) {
