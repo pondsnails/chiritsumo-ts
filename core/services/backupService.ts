@@ -433,7 +433,32 @@ export const exportBackupStreaming = async (): Promise<void> => {
       for (const card of chunk) {
         await FileSystem.writeAsStringAsync(
           fileUri,
-          JSON.stringify({ type: 'card', data: card }) + '\n',
+      }).transform((b) => {
+        const toUnix = (v: any): number | null => {
+          if (v === null || v === undefined || v === '') return null;
+          if (typeof v === 'number') return v;
+          const d = new Date(v);
+          return Math.floor(d.getTime() / 1000);
+        };
+        return {
+          id: b.id,
+          userId: b.userId ?? b.user_id ?? 'local-user',
+          subjectId: b.subjectId ?? b.subject_id ?? null,
+          title: b.title,
+          isbn: b.isbn ?? null,
+          mode: (b.mode ?? 1) as 0 | 1 | 2,
+          totalUnit: (b.totalUnit ?? b.total_unit ?? 0) as number,
+          chunkSize: (b.chunkSize ?? b.chunk_size ?? 1) as number,
+          completedUnit: (b.completedUnit ?? b.completed_unit ?? 0) as number,
+          status: (b.status ?? 0) as 0 | 1 | 2,
+          previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
+          priority: (b.priority ?? 1) as 0 | 1,
+          coverPath: b.coverPath ?? b.cover_path ?? null,
+          targetCompletionDate: toUnix(b.targetCompletionDate ?? b.target_completion_date),
+          createdAt: toUnix(b.createdAt ?? b.created_at) ?? Math.floor(Date.now()/1000),
+          updatedAt: toUnix(b.updatedAt ?? b.updated_at) ?? toUnix(b.createdAt ?? b.created_at) ?? Math.floor(Date.now()/1000),
+        };
+      }).passthrough();
           { encoding: 'utf8' }
         );
       }
@@ -444,7 +469,25 @@ export const exportBackupStreaming = async (): Promise<void> => {
     const allLedger = await ledgerRepo.findAll();
     for (const entry of allLedger) {
       await FileSystem.writeAsStringAsync(
-        fileUri,
+      }).transform((c) => {
+        const toUnixNullable = (v: any): number | null => {
+          if (v === null || v === undefined || v === '') return null;
+          if (typeof v === 'number') return v;
+          const d = new Date(v);
+          return Math.floor(d.getTime() / 1000);
+        };
+        const toUnix = (v: any): number => {
+          const r = toUnixNullable(v);
+          return r ?? Math.floor(Date.now()/1000);
+        };
+        return {
+          id: c.id,
+          bookId: c.bookId ?? c.book_id ?? '',
+          unitIndex: (c.unitIndex ?? c.unit_index ?? 0) as number,
+          due: toUnix(c.due),
+          lastReview: toUnixNullable(c.lastReview ?? c.last_review),
+        };
+      }).passthrough();
         JSON.stringify({ type: 'ledger', data: entry }) + '\n',
         { encoding: 'utf8' }
       );
@@ -453,7 +496,18 @@ export const exportBackupStreaming = async (): Promise<void> => {
     console.log('[StreamingBackup] Export completed');
     
     // 共有ダイアログ
-    const isAvailable = await Sharing.isAvailableAsync();
+      }).transform((l) => {
+        const toUnix = (v: any): number => {
+          if (typeof v === 'number') return v;
+          return Math.floor(new Date(v).getTime()/1000);
+        };
+        return {
+          date: toUnix(l.date),
+          earnedLex: l.earnedLex ?? l.earned_lex ?? 0,
+          targetLex: l.targetLex ?? l.target_lex ?? 0,
+          balance: l.balance ?? 0,
+        };
+      }).passthrough();
     if (!isAvailable) {
       throw new Error('Sharing is not available on this device');
     }
