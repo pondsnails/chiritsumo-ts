@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------
@@ -6,14 +6,21 @@ import { sql } from 'drizzle-orm';
 // ---------------------------------------------------------
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(), // UUID
+  user_id: text('user_id').notNull().default('local-user'),
+  subject_id: integer('subject_id'),
   title: text('title').notNull(),
+  isbn: text('isbn'),
   mode: integer('mode').notNull().default(1), // 0=Read, 1=Solve, 2=Memo
   total_unit: integer('total_unit').notNull(), // 総ページ数/総問題数
-  chunk_size: integer('chunk_size').notNull().default(1), // [New] 1カードあたりの学習量
+  chunk_size: integer('chunk_size').notNull().default(1), // [New]
+  completed_unit: integer('completed_unit').notNull().default(0),
   status: integer('status').notNull().default(0), // 0=Active, 1=Completed, 2=Frozen
-  previous_book_id: text('previous_book_id'), // 親となるBook ID (ルート描画用)
+  previous_book_id: text('previous_book_id'), // 親Book ID
   priority: integer('priority').notNull().default(1), // 0=Branch, 1=MainLine
-  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  cover_path: text('cover_path'),
+  target_completion_date: text('target_completion_date'),
+  created_at: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updated_at: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ---------------------------------------------------------
@@ -43,13 +50,26 @@ export const cards = sqliteTable('cards', {
 // 3.3 ledger (読書銀行・取引履歴)
 // ---------------------------------------------------------
 export const ledger = sqliteTable('ledger', {
-  id: text('id').primaryKey(),
-  date: text('date').notNull(), // YYYY-MM-DD
-  earned_lex: integer('earned_lex').notNull().default(0), // 獲得実績
-  target_lex: integer('target_lex').notNull().default(0), // 当日の目標
-  balance: integer('balance').notNull().default(0), // 累積残高 (プラス=貯蓄, マイナス=借金)
-  transaction_type: text('transaction_type').default('daily'), // daily, item_purchase, adjustment
+  id: integer('id').primaryKey(),
+  date: text('date').notNull(), // YYYY-MM-DD (UNIQUE)
+  earned_lex: integer('earned_lex').notNull().default(0),
+  target_lex: integer('target_lex').notNull().default(0),
+  balance: integer('balance').notNull().default(0),
+  transaction_type: text('transaction_type').default('daily'),
   note: text('note'),
+}, (t) => ({
+  dateUnique: uniqueIndex('ledger_date_unique').on(t.date),
+}));
+
+// ---------------------------------------------------------
+// 3.4 inventory_presets (蔵書フィルタプリセット)
+// ---------------------------------------------------------
+export const inventoryPresets = sqliteTable('inventory_presets', {
+  id: integer('id').primaryKey(),
+  label: text('label').notNull(),
+  icon_code: integer('icon_code').notNull().default(0),
+  book_ids: text('book_ids').notNull(), // JSON配列文字列
+  is_default: integer('is_default').notNull().default(0),
 });
 
 // Types Export
@@ -57,3 +77,4 @@ export type Book = typeof books.$inferSelect;
 export type NewBook = typeof books.$inferInsert;
 export type Card = typeof cards.$inferSelect;
 export type Ledger = typeof ledger.$inferSelect;
+export type InventoryPresetRow = typeof inventoryPresets.$inferSelect;

@@ -1,6 +1,8 @@
 import { ledger } from '../database/schema';
 import type { Ledger as RawLedger } from '../database/schema';
 import type { LedgerEntry } from '../types';
+import { eq, desc, asc } from 'drizzle-orm';
+import { drizzleDb } from '../database/drizzleClient';
 
 export interface ILedgerRepo {
   findAll(): Promise<LedgerEntry[]>;
@@ -21,9 +23,50 @@ function mapRow(row: RawLedger): LedgerEntry {
 }
 
 export class DrizzleLedgerRepository implements ILedgerRepo {
-  async findAll(): Promise<LedgerEntry[]> { return []; }
-  async findRecent(limit: number): Promise<LedgerEntry[]> { return []; }
-  async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {}
-  async add(entry: Omit<LedgerEntry,'id'>): Promise<void> {}
-  async deleteAll(): Promise<void> {}
+  private db = drizzleDb;
+
+  async findAll(): Promise<LedgerEntry[]> {
+    const rows = await this.db.select().from(ledger).orderBy(asc(ledger.date)).all();
+    return rows.map(r => mapRow(r as RawLedger));
+  }
+  async findRecent(limit: number): Promise<LedgerEntry[]> {
+    const rows = await this.db.select().from(ledger).orderBy(desc(ledger.date)).limit(limit).all();
+    return rows.map(r => mapRow(r as RawLedger));
+  }
+  async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {
+    const existing = await this.db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
+    if (existing.length) {
+      await this.db.update(ledger).set({
+        earned_lex: entry.earnedLex,
+        target_lex: entry.targetLex,
+        balance: entry.balance,
+        transaction_type: 'daily',
+        note: null,
+      }).where(eq(ledger.date, entry.date)).run();
+    } else {
+      await this.db.insert(ledger).values({
+        date: entry.date,
+        earned_lex: entry.earnedLex,
+        target_lex: entry.targetLex,
+        balance: entry.balance,
+        transaction_type: 'daily',
+        note: null,
+      }).run();
+    }
+  }
+  async add(entry: Omit<LedgerEntry,'id'>): Promise<void> {
+    const existing = await this.db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
+    if (existing.length) return; // ignore duplicate
+    await this.db.insert(ledger).values({
+      date: entry.date,
+      earned_lex: entry.earnedLex,
+      target_lex: entry.targetLex,
+      balance: entry.balance,
+      transaction_type: 'daily',
+      note: null,
+    }).run();
+  }
+  async deleteAll(): Promise<void> {
+    await this.db.delete(ledger).run();
+  }
 }

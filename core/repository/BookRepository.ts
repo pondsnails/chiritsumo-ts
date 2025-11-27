@@ -18,21 +18,21 @@ export interface IBookRepository {
 function mapRow(row: RawBook): Book {
   return {
     id: row.id,
-    userId: 'local-user', // TODO: add userId column in schema for multi-user
-    subjectId: null,
+    userId: row.user_id ?? 'local-user',
+    subjectId: row.subject_id ?? null,
     title: row.title,
-    isbn: null,
+    isbn: row.isbn ?? null,
     mode: row.mode as 0 | 1 | 2,
     totalUnit: row.total_unit,
     chunkSize: row.chunk_size,
-    completedUnit: 0, // TODO(Drizzle-Migration): add completed_unit column to schema
+    completedUnit: row.completed_unit ?? 0,
     status: row.status as 0 | 1 | 2,
     previousBookId: row.previous_book_id ?? null,
     priority: (row.priority ?? 1) as 0 | 1,
-    coverPath: null,
-    targetCompletionDate: null,
+    coverPath: row.cover_path ?? null,
+    targetCompletionDate: row.target_completion_date ?? null,
     createdAt: row.created_at ?? new Date().toISOString(),
-    updatedAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
   };
 }
 
@@ -50,25 +50,39 @@ export class DrizzleBookRepository implements IBookRepository {
   async create(book: Book): Promise<void> {
     await this.db.insert(books).values({
       id: book.id,
+      user_id: book.userId ?? 'local-user',
+      subject_id: book.subjectId ?? null,
       title: book.title,
+      isbn: book.isbn ?? null,
       mode: book.mode,
       total_unit: book.totalUnit,
       chunk_size: book.chunkSize ?? 1,
+      completed_unit: book.completedUnit ?? 0,
       status: book.status,
       previous_book_id: book.previousBookId ?? null,
       priority: book.priority ?? 1,
-      // created_at: book.createdAt, // Let default CURRENT_TIMESTAMP apply
+      cover_path: book.coverPath ?? null,
+      target_completion_date: book.targetCompletionDate ?? null,
+      created_at: book.createdAt ?? new Date().toISOString(),
+      updated_at: book.updatedAt ?? new Date().toISOString(),
     }).run();
   }
   async update(id: string, updates: Partial<Book>): Promise<void> {
     const patch: Partial<RawBook> = {};
     if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.userId !== undefined) patch.user_id = updates.userId;
+    if (updates.subjectId !== undefined) patch.subject_id = updates.subjectId ?? null;
+    if (updates.isbn !== undefined) patch.isbn = updates.isbn ?? null;
     if (updates.mode !== undefined) patch.mode = updates.mode;
     if (updates.totalUnit !== undefined) patch.total_unit = updates.totalUnit;
     if (updates.chunkSize !== undefined) patch.chunk_size = updates.chunkSize;
+    if (updates.completedUnit !== undefined) patch.completed_unit = updates.completedUnit ?? 0;
     if (updates.status !== undefined) patch.status = updates.status;
     if (updates.previousBookId !== undefined) patch.previous_book_id = updates.previousBookId ?? null;
     if (updates.priority !== undefined) patch.priority = updates.priority;
+    if (updates.coverPath !== undefined) patch.cover_path = updates.coverPath ?? null;
+    if (updates.targetCompletionDate !== undefined) patch.target_completion_date = updates.targetCompletionDate ?? null;
+    patch.updated_at = new Date().toISOString();
 
     if (Object.keys(patch).length === 0) return; // nothing to update
     await this.db.update(books).set(patch).where(eq(books.id, id)).run();
