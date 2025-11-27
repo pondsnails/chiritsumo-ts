@@ -30,9 +30,12 @@ export class FSRSScheduler {
       state: 0,
       stability: 0,
       difficulty: 0,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
       due: new Date(),
       lastReview: null,
-      reps: 0,
       photoPath: null,
     };
   }
@@ -42,10 +45,10 @@ export class FSRSScheduler {
       due: card.due,
       stability: card.stability,
       difficulty: card.difficulty,
-      elapsed_days: 0,
-      scheduled_days: 0,
+      elapsed_days: card.elapsedDays,
+      scheduled_days: card.scheduledDays,
       reps: card.reps,
-      lapses: 0,
+      lapses: card.lapses,
       state: card.state as State,
       last_review: card.lastReview || undefined,
     } as FSRSCard;
@@ -62,9 +65,12 @@ export class FSRSScheduler {
       state: recordLog.card.state as 0 | 1 | 2 | 3,
       stability: recordLog.card.stability,
       difficulty: recordLog.card.difficulty,
+      elapsedDays: recordLog.card.elapsed_days,
+      scheduledDays: recordLog.card.scheduled_days,
+      reps: recordLog.card.reps,
+      lapses: recordLog.card.lapses,
       due: recordLog.card.due,
       lastReview: now,
-      reps: recordLog.card.reps,
     };
   }
 

@@ -56,9 +56,12 @@ export async function assignNewCardsToday(
         state: 0, // new
         stability: 0,
         difficulty: DEFAULT_DIFFICULTY,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
         due: dueToday,
         lastReview: null,
-        reps: 0,
         photoPath: null,
       };
 
@@ -106,9 +109,12 @@ export async function assignNewCardsByAllocation(
         state: 0,
         stability: 0,
         difficulty: DEFAULT_DIFFICULTY,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
         due: dueToday,
         lastReview: null,
-        reps: 0,
         photoPath: null,
       };
       allCreated.push(card);
@@ -162,9 +168,12 @@ export async function registerStudiedRange(
         state: 2, // review
         stability: 1,
         difficulty: DEFAULT_DIFFICULTY,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
         due: when,
         lastReview: null,
-        reps: 0,
         photoPath: null,
       });
     }

@@ -25,9 +25,12 @@ function mapRow(row: RawCard): Card {
     state: row.state as 0 | 1 | 2 | 3,
     stability: row.stability,
     difficulty: row.difficulty,
+    elapsedDays: row.elapsed_days,
+    scheduledDays: row.scheduled_days,
+    reps: row.reps,
+    lapses: row.lapses,
     due: new Date(row.due),
     lastReview: row.last_review ? new Date(row.last_review) : null,
-    reps: row.reps,
     photoPath: row.photo_path ?? null,
   };
 }
@@ -75,11 +78,13 @@ export class DrizzleCardRepository implements ICardRepository {
       state: card.state,
       stability: card.stability,
       difficulty: card.difficulty,
+      elapsed_days: card.elapsedDays,
+      scheduled_days: card.scheduledDays,
       reps: card.reps,
+      lapses: card.lapses,
       due: card.due.toISOString(),
       last_review: card.lastReview ? card.lastReview.toISOString() : null,
       photo_path: card.photoPath ?? null,
-      // elapsed_days, scheduled_days, lapses は現行ドメイン型に未統合のため未設定
     }).run();
   }
 
@@ -92,7 +97,10 @@ export class DrizzleCardRepository implements ICardRepository {
       state: c.state,
       stability: c.stability,
       difficulty: c.difficulty,
+      elapsed_days: c.elapsedDays,
+      scheduled_days: c.scheduledDays,
       reps: c.reps,
+      lapses: c.lapses,
       due: c.due.toISOString(),
       last_review: c.lastReview ? c.lastReview.toISOString() : null,
       photo_path: c.photoPath ?? null,
@@ -104,7 +112,10 @@ export class DrizzleCardRepository implements ICardRepository {
     if (updates.state !== undefined) patch.state = updates.state;
     if (updates.stability !== undefined) patch.stability = updates.stability;
     if (updates.difficulty !== undefined) patch.difficulty = updates.difficulty;
+    if (updates.elapsedDays !== undefined) patch.elapsed_days = updates.elapsedDays;
+    if (updates.scheduledDays !== undefined) patch.scheduled_days = updates.scheduledDays;
     if (updates.reps !== undefined) patch.reps = updates.reps;
+    if (updates.lapses !== undefined) patch.lapses = updates.lapses;
     if (updates.due !== undefined) patch.due = updates.due.toISOString();
     if (updates.lastReview !== undefined) patch.last_review = updates.lastReview ? updates.lastReview.toISOString() : null;
     if (updates.photoPath !== undefined) patch.photo_path = updates.photoPath;
@@ -121,7 +132,10 @@ export class DrizzleCardRepository implements ICardRepository {
         due: card.due.toISOString(),
         stability: card.stability,
         difficulty: card.difficulty,
+        elapsed_days: card.elapsedDays,
+        scheduled_days: card.scheduledDays,
         reps: card.reps,
+        lapses: card.lapses,
         state: card.state,
         last_review: card.lastReview ? card.lastReview.toISOString() : null,
         photo_path: card.photoPath ?? null,
@@ -133,7 +147,10 @@ export class DrizzleCardRepository implements ICardRepository {
           due: card.due.toISOString(),
           stability: card.stability,
           difficulty: card.difficulty,
+          elapsed_days: card.elapsedDays,
+          scheduled_days: card.scheduledDays,
           reps: card.reps,
+          lapses: card.lapses,
           state: card.state,
           last_review: card.lastReview ? card.lastReview.toISOString() : null,
           photo_path: card.photoPath ?? null,

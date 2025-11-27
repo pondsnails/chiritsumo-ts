@@ -28,9 +28,12 @@ export interface Card {
   state: 0 | 1 | 2 | 3;
   stability: number;
   difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lapses: number;
   due: Date;
   lastReview: Date | null;
-  reps: number;
   photoPath: string | null;
 }
 
