@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useCardStore } from '@core/store/cardStore';
 import { useBookStore } from '@core/store/bookStore';
+import { useOnboardingStore } from '@core/store/onboardingStore';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { RolloverNotification } from '@core/components/RolloverNotification';
 import { ledgerDB } from '@core/database/db';
@@ -11,12 +11,31 @@ import { ledgerDB } from '@core/database/db';
 export default function Index() {
   const [showRollover, setShowRollover] = useState(false);
   const [rolloverData, setRolloverData] = useState({ targetLex: 0, newBalance: 0 });
+  const router = useRouter();
   const { cards, fetchCards } = useCardStore();
   const { books, fetchBooks } = useBookStore();
+  const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
 
   useEffect(() => {
-    checkRollover();
+    initialize();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (hasCompletedOnboarding) {
+        // 2回目以降は直接questへ
+        router.replace('/(tabs)/quest');
+      } else {
+        // 初回はオンボーディングへ
+        router.replace('/onboarding');
+      }
+    }
+  }, [isLoading, hasCompletedOnboarding]);
+
+  const initialize = async () => {
+    await checkOnboardingStatus();
+    await checkRollover();
+  };
 
   const checkRollover = async () => {
     try {
@@ -40,14 +59,8 @@ export default function Index() {
   };
 
   return (
-    <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>ChiriTsumo</Text>
-        <Text style={styles.subtitle}>間隔反復学習アプリ</Text>
-        <Link href="/(tabs)/quest" style={styles.link}>
-          <Text style={styles.linkText}>開始</Text>
-        </Link>
-      </View>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#00F260" />
 
       <RolloverNotification
         visible={showRollover}
@@ -55,39 +68,15 @@ export default function Index() {
         newBalance={rolloverData.newBalance}
         onClose={() => setShowRollover(false)}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  content: {
-    flex: 1,
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#94A3B8',
-  },
-  link: {
-    marginTop: 32,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    backgroundColor: '#00F260',
-    borderRadius: 12,
-  },
-  linkText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
   },
 });

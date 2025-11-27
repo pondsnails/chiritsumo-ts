@@ -19,6 +19,7 @@ import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
 import { useBookStore } from '@core/store/bookStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { useOnboardingStore } from '@core/store/onboardingStore';
 import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@core/database/db';
 import { 
   getUserLexSettings,
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
   const { exportBackup, importBackup } = useBackupService();
   const { fetchBooks } = useBookStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
+  const { resetOnboarding } = useOnboardingStore();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');
@@ -207,6 +209,25 @@ export default function SettingsScreen() {
     devToggleProStatus();
     // 状態変更後に強制的に再レンダリング
     setForceUpdate(prev => prev + 1);
+  };
+
+  // 開発用: オンボーディングリセット
+  const handleDevResetOnboarding = () => {
+    Alert.alert(
+      'オンボーディングリセット',
+      'アプリを再起動すると初回起動時のチュートリアルが再表示されます。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { 
+          text: 'リセット', 
+          style: 'destructive',
+          onPress: async () => {
+            await resetOnboarding();
+            Alert.alert('完了', 'アプリを再起動してください');
+          }
+        },
+      ]
+    );
   };
 
   return (
@@ -465,6 +486,27 @@ export default function SettingsScreen() {
                   • 本番ビルドでは表示されません
                 </Text>
               </View>
+
+              <TouchableOpacity
+                style={[glassEffect.card, styles.devToggleCard]}
+                onPress={handleDevResetOnboarding}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={[
+                    styles.statusIndicator,
+                    { backgroundColor: colors.textSecondary }
+                  ]} />
+                  <View>
+                    <Text style={styles.devToggleTitle}>
+                      オンボーディングリセット
+                    </Text>
+                    <Text style={styles.devToggleStatus}>
+                      初回起動チュートリアルを再表示
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.devToggleHint}>リセット</Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
