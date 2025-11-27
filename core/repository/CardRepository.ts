@@ -8,9 +8,10 @@ export interface ICardRepository {
   findAll(): Promise<Card[]>;
   findByBook(bookId: string): Promise<Card[]>;
   findDue(bookIds: string[], now: Date): Promise<Card[]>;
-  findNew(limit: number): Promise<Card[]>;
+  findNew(bookIds: string[]): Promise<Card[]>;
   create(card: Card): Promise<void>;
   bulkCreate(cards: Card[]): Promise<void>;
+  bulkUpsert(cards: Card[]): Promise<void>; // Upsert multiple cards
   update(id: string, updates: Partial<Card>): Promise<void>;
   deleteByBook(bookId: string): Promise<void>;
   deleteAll(): Promise<void>;
@@ -56,13 +57,12 @@ export class DrizzleCardRepository implements ICardRepository {
     return rows.map(r => mapRow(r as RawCard));
   }
 
-  async findNew(limit: number): Promise<Card[]> {
+  async findNew(bookIds: string[]): Promise<Card[]> {
     const rows = await this.db
       .select()
       .from(cards)
-      .where(eq(cards.state, 0))
+      .where(and(eq(cards.state, 0), inArray(cards.book_id, bookIds)))
       .orderBy(asc(cards.book_id), asc(cards.unit_index))
-      .limit(limit)
       .all();
     return rows.map(r => mapRow(r as RawCard));
   }
@@ -110,6 +110,36 @@ export class DrizzleCardRepository implements ICardRepository {
     if (updates.photoPath !== undefined) patch.photo_path = updates.photoPath;
     if (Object.keys(patch).length === 0) return;
     await this.db.update(cards).set(patch).where(eq(cards.id, id)).run();
+  }
+
+  async bulkUpsert(cardList: Card[]): Promise<void> {
+    for (const card of cardList) {
+      await this.db.insert(cards).values({
+        id: card.id,
+        book_id: card.bookId,
+        unit_index: card.unitIndex,
+        due: card.due.toISOString(),
+        stability: card.stability,
+        difficulty: card.difficulty,
+        reps: card.reps,
+        state: card.state,
+        last_review: card.lastReview ? card.lastReview.toISOString() : null,
+        photo_path: card.photoPath ?? null,
+      }).onConflictDoUpdate({
+        target: cards.id,
+        set: {
+          book_id: card.bookId,
+          unit_index: card.unitIndex,
+          due: card.due.toISOString(),
+          stability: card.stability,
+          difficulty: card.difficulty,
+          reps: card.reps,
+          state: card.state,
+          last_review: card.lastReview ? card.lastReview.toISOString() : null,
+          photo_path: card.photoPath ?? null,
+        }
+      }).run();
+    }
   }
 
   async deleteByBook(bookId: string): Promise<void> {

@@ -12,6 +12,8 @@ export interface IBookRepository {
   create(book: Book): Promise<void>; // Domain object persisted
   update(id: string, updates: Partial<Book>): Promise<void>;
   delete(id: string): Promise<void>;
+  bulkUpsert(books: Book[]): Promise<void>; // Upsert multiple books
+  deleteAll(): Promise<void>; // Delete all books
 }
 
 // Mapper: DB row -> Domain
@@ -89,5 +91,51 @@ export class DrizzleBookRepository implements IBookRepository {
   }
   async delete(id: string): Promise<void> {
     await this.db.delete(books).where(eq(books.id, id)).run();
+  }
+  
+  async bulkUpsert(bookList: Book[]): Promise<void> {
+    // SQLite upsert: INSERT OR REPLACE
+    for (const book of bookList) {
+      await this.db.insert(books).values({
+        id: book.id,
+        user_id: book.userId ?? 'local-user',
+        subject_id: book.subjectId ?? null,
+        title: book.title,
+        isbn: book.isbn ?? null,
+        mode: book.mode,
+        total_unit: book.totalUnit,
+        chunk_size: book.chunkSize ?? 1,
+        completed_unit: book.completedUnit ?? 0,
+        status: book.status,
+        previous_book_id: book.previousBookId ?? null,
+        priority: book.priority ?? 1,
+        cover_path: book.coverPath ?? null,
+        target_completion_date: book.targetCompletionDate ?? null,
+        created_at: book.createdAt ?? new Date().toISOString(),
+        updated_at: book.updatedAt ?? new Date().toISOString(),
+      }).onConflictDoUpdate({
+        target: books.id,
+        set: {
+          user_id: book.userId ?? 'local-user',
+          subject_id: book.subjectId ?? null,
+          title: book.title,
+          isbn: book.isbn ?? null,
+          mode: book.mode,
+          total_unit: book.totalUnit,
+          chunk_size: book.chunkSize ?? 1,
+          completed_unit: book.completedUnit ?? 0,
+          status: book.status,
+          previous_book_id: book.previousBookId ?? null,
+          priority: book.priority ?? 1,
+          cover_path: book.coverPath ?? null,
+          target_completion_date: book.targetCompletionDate ?? null,
+          updated_at: new Date().toISOString(),
+        }
+      }).run();
+    }
+  }
+  
+  async deleteAll(): Promise<void> {
+    await this.db.delete(books).run();
   }
 }

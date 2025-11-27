@@ -3,7 +3,9 @@ import * as DocumentPicker from 'expo-document-picker';
 // Expo SDK 54: 新API移行まではレガシー互換APIを使用
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { booksDB, cardsDB, ledgerDB } from '../database/db';
+import { DrizzleBookRepository } from '../repository/BookRepository';
+import { DrizzleCardRepository } from '../repository/CardRepository';
+import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 
 export interface BackupData {
   version: string;
@@ -18,10 +20,14 @@ export interface BackupData {
  */
 export const exportBackup = async (): Promise<void> => {
   try {
+    const bookRepo = new DrizzleBookRepository();
+    const cardRepo = new DrizzleCardRepository();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    
     // 全テーブルからデータを取得
-    const booksData = await booksDB.getAll();
-    const cardsData = await cardsDB.getAll();
-    const ledgerData = await ledgerDB.getAll();
+    const booksData = await bookRepo.findAll();
+    const cardsData = await cardRepo.findAll();
+    const ledgerData = await ledgerRepo.findAll();
 
     const backup: BackupData = {
       version: '1.0.0',
@@ -82,6 +88,10 @@ export const importBackup = async (
   options?: { mode?: 'merge' | 'replace' }
 ): Promise<ImportResult> => {
   try {
+    const bookRepo = new DrizzleBookRepository();
+    const cardRepo = new DrizzleCardRepository();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/json',
       copyToCacheDirectory: true,
@@ -111,7 +121,7 @@ export const importBackup = async (
     // Web専用のIndexedDBマージは廃止（Nativeのみ想定）
 
     // ネイティブ: データベースにマージ（Upsertロジック）
-    const existingBooks = await booksDB.getAll();
+    const existingBooks = await bookRepo.findAll();
     const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
 
     try {
@@ -155,14 +165,14 @@ export const importBackup = async (
 
       if (mode === 'replace') {
         // 依存関係を考慮し、cards -> books -> ledger の順に全削除
-        await cardsDB.deleteAll();
-        await booksDB.deleteAll();
-        await ledgerDB.deleteAll();
+        await cardRepo.deleteAll();
+        await bookRepo.deleteAll();
+        await ledgerRepo.deleteAll();
 
         // 一括挿入で高速化
-        await booksDB.bulkUpsert(normalizedBooks);
+        await bookRepo.bulkUpsert(normalizedBooks);
         booksAdded = normalizedBooks.length;
-        await cardsDB.bulkUpsert(normalizedCards);
+        await cardRepo.bulkUpsert(normalizedCards);
         cardsUpserted = normalizedCards.length;
         const normalizedLedger = backup.ledger.map((entryRaw: any) => ({
           date: entryRaw.date,
@@ -170,7 +180,7 @@ export const importBackup = async (
           targetLex: Number(entryRaw.targetLex ?? entryRaw.target_lex ?? 0),
           balance: Number(entryRaw.balance ?? 0),
         }));
-        await ledgerDB.bulkAdd(normalizedLedger);
+        await ledgerRepo.bulkAdd(normalizedLedger);
         ledgerAdded = normalizedLedger.length;
 
         console.log('Backup replaced successfully (Native)');
@@ -193,22 +203,22 @@ export const importBackup = async (
         }
       }
       if (booksToAdd.length > 0) {
-        await booksDB.bulkUpsert(booksToAdd);
+        await bookRepo.bulkUpsert(booksToAdd);
         booksAdded += booksToAdd.length;
       }
       if (booksToUpdate.length > 0) {
-        await booksDB.bulkUpsert(booksToUpdate);
+        await bookRepo.bulkUpsert(booksToUpdate);
         booksUpdated += booksToUpdate.length;
       }
 
       // カードは一括upsert
       if (normalizedCards.length > 0) {
-        await cardsDB.bulkUpsert(normalizedCards);
+        await cardRepo.bulkUpsert(normalizedCards);
         cardsUpserted = normalizedCards.length;
       }
 
       // 台帳は日付単位でユニーク → 追加対象のみ抽出して一括追加
-      const existingLedger = await ledgerDB.getAll();
+      const existingLedger = await ledgerRepo.findAll();
       const existingDates = new Set(existingLedger.map(e => e.date));
       const ledgerToAdd = backup.ledger.map((entryRaw: any) => ({
         date: entryRaw.date,
@@ -217,7 +227,7 @@ export const importBackup = async (
         balance: Number(entryRaw.balance ?? 0),
       })).filter((e: any) => !existingDates.has(e.date));
       if (ledgerToAdd.length > 0) {
-        await ledgerDB.bulkAdd(ledgerToAdd);
+        await ledgerRepo.bulkAdd(ledgerToAdd);
         ledgerAdded = ledgerToAdd.length;
       }
 

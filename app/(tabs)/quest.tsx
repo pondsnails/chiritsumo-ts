@@ -22,7 +22,8 @@ import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { createScheduler } from '@core/fsrs/scheduler';
-import { inventoryPresetsDB, cardsDB } from '@core/database/db';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
+import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
@@ -38,6 +39,11 @@ export default function QuestScreen() {
   const router = useRouter();
   const { books, fetchBooks } = useBookStore();
   const { fetchDueCards } = useCardStore();
+  
+  // Repository instances
+  const cardRepo = new DrizzleCardRepository();
+  const presetRepo = new DrizzleInventoryPresetRepository();
+  
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
   const [newCards, setNewCards] = useState<Card[]>([]);
@@ -84,7 +90,7 @@ export default function QuestScreen() {
 
   const loadPresets = async () => {
     try {
-      const loadedPresets = await inventoryPresetsDB.getAll();
+      const loadedPresets = await presetRepo.findAll();
       setPresets(loadedPresets);
       const defaultPreset = loadedPresets.find(p => p.isDefault);
       if (defaultPreset) {
@@ -156,7 +162,7 @@ export default function QuestScreen() {
 
       if (bookIdsToQuery.length > 0) {
         // 今日割り当てられた新規カード（state=0, due=today）を取得
-        const allNewCards = await cardsDB.getNewCards(1000);
+        const allNewCards = await cardRepo.findNew(bookIdsToQuery);
         const todayNewCards = allNewCards.filter(card => {
           const cardDue = new Date(card.due);
           cardDue.setHours(0, 0, 0, 0);
@@ -457,7 +463,7 @@ export default function QuestScreen() {
                               try {
                                 const scheduler = createScheduler(globalNextBook.mode);
                                 const updated = scheduler.reviewAgain(globalNext);
-                                await cardsDB.upsert(updated);
+                                await cardRepo.update(updated.id, updated);
                                 await loadDueCards();
                                   Haptics.selectionAsync();
                               } catch (e) { console.error('global review again failed', e); }
@@ -472,7 +478,7 @@ export default function QuestScreen() {
                               try {
                                 const scheduler = createScheduler(globalNextBook.mode);
                                 const updated = scheduler.reviewHard(globalNext);
-                                await cardsDB.upsert(updated);
+                                await cardRepo.update(updated.id, updated);
                                 await loadDueCards();
                                 Haptics.selectionAsync();
                               } catch (e) { console.error('global review hard failed', e); }
@@ -487,7 +493,7 @@ export default function QuestScreen() {
                               try {
                                 const scheduler = createScheduler(globalNextBook.mode);
                                 const updated = scheduler.reviewGood(globalNext);
-                                await cardsDB.upsert(updated);
+                                await cardRepo.update(updated.id, updated);
                                 await loadDueCards();
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 if (dueCards.length - 1 <= 0) {

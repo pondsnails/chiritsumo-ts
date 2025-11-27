@@ -9,6 +9,7 @@ export interface ILedgerRepo {
   findRecent(limit: number): Promise<LedgerEntry[]>;
   upsert(entry: Omit<LedgerEntry,'id'>): Promise<void>;
   add(entry: Omit<LedgerEntry,'id'>): Promise<void>;
+  bulkAdd(entries: Omit<LedgerEntry,'id'>[]): Promise<void>; // Bulk add for backup restore
   deleteAll(): Promise<void>;
 }
 
@@ -66,6 +67,13 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
       note: null,
     }).run();
   }
+  
+  async bulkAdd(entries: Omit<LedgerEntry,'id'>[]): Promise<void> {
+    for (const entry of entries) {
+      await this.add(entry); // Reuse add logic to avoid duplicates
+    }
+  }
+  
   async deleteAll(): Promise<void> {
     await this.db.delete(ledger).run();
   }

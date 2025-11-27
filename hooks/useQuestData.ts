@@ -89,7 +89,7 @@ export function useQuestData(): QuestData {
     const today = new Date(); today.setHours(0,0,0,0);
     const ids = resolveBookIds();
     if (ids.length === 0) { setNewCards([]); return; }
-    const allNew = await cardRepo.findNew(1000);
+    const allNew = await cardRepo.findNew(ids);
     const todayNew = allNew.filter(card => {
       const d = new Date(card.due); d.setHours(0,0,0,0);
       return d.getTime() === today.getTime() && ids.includes(card.bookId);

@@ -1,17 +1,5 @@
 import type { Book, Card } from '../types';
-
-// 基本Lex値（モード別の最低保証値）
-const BASE_LEX = {
-  read: 30,  // 3分想定 → 30 Lex
-  solve: 50, // 5分想定 → 50 Lex
-  memo: 1,   // 6秒想定 → 1 Lex
-} as const;
-
-// 難易度係数（difficulty: 1-10の範囲）
-const DIFFICULTY_MULTIPLIER = 1.5;
-
-// 忘却係数（久しぶりに復習するほど高い報酬）
-const RETENTION_BONUS_THRESHOLD = 0.7; // 想起率70%以下でボーナス
+import { BASE_LEX, DIFFICULTY_MULTIPLIER, RETENTION_BONUS_THRESHOLD } from '../constants/lexProfile';
 
 /**
  * カードの難易度と忘却状態を考慮した動的Lex計算
