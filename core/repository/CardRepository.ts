@@ -115,6 +115,14 @@ export class DrizzleCardRepository implements ICardRepository {
     return await this.countCards(bookId, state);
   }
 
+  /**
+   * 期限切れカードを取得（メモリ効率化版）
+   * 
+   * 改善点:
+   * - IDのみを先に取得してメモリ使用量を削減
+   * - 必要な場合のみ詳細データを取得
+   * - チャンク処理でSQLite IN句制限を回避
+   */
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {
     if (bookIds.length === 0) return [];
     const nowUnix = Math.floor(now.getTime() / 1000);
@@ -122,23 +130,47 @@ export class DrizzleCardRepository implements ICardRepository {
     
     // SQLite IN clause limit対策: 900個ずつチャンク分割
     const CHUNK_SIZE = 900;
-    const allRows: RawCard[] = [];
+    
+    // 最適化: まずIDと期限のみを取得（軽量クエリ）
+    const dueCardIds: Array<{ id: string; due: number }> = [];
     
     for (let i = 0; i < bookIds.length; i += CHUNK_SIZE) {
       const chunk = bookIds.slice(i, i + CHUNK_SIZE);
       const rows = await db
-        .select()
+        .select({ id: cards.id, due: cards.due })
         .from(cards)
         .where(and(inArray(cards.book_id, chunk), lte(cards.due, nowUnix)))
-        .orderBy(asc(cards.due))
+        .all();
+      dueCardIds.push(...rows.map(r => ({ id: r.id, due: r.due })));
+    }
+    
+    // IDリストが空なら即座に返す
+    if (dueCardIds.length === 0) return [];
+    
+    // due順にソート（IDのみなので軽量）
+    dueCardIds.sort((a, b) => a.due - b.due);
+    
+    // 必要な分だけ詳細データを取得（大量にある場合は上限を設ける）
+    const MAX_DUE_CARDS = 1000; // 一度に読み込む最大枚数
+    const limitedIds = dueCardIds.slice(0, MAX_DUE_CARDS).map(c => c.id);
+    
+    // 詳細データを取得
+    const allRows: RawCard[] = [];
+    for (let i = 0; i < limitedIds.length; i += CHUNK_SIZE) {
+      const chunk = limitedIds.slice(i, i + CHUNK_SIZE);
+      const rows = await db
+        .select()
+        .from(cards)
+        .where(inArray(cards.id, chunk))
         .all();
       allRows.push(...(rows as RawCard[]));
     }
     
-    // 全チャンクをマージ後、due順にソート
+    // IDの順序を保持してソート
+    const idOrder = new Map(limitedIds.map((id, index) => [id, index]));
     return allRows
       .map(r => mapRow(r))
-      .sort((a, b) => a.due - b.due);
+      .sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
   }
 
   async findNew(bookIds: string[]): Promise<Card[]> {

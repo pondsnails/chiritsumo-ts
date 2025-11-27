@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
+import { ChunkSizeSchema } from '@core/validation/schemas';
+import { z } from 'zod';
 
 interface ChunkSizeSelectorProps {
   value: number;
@@ -32,26 +34,23 @@ export default function ChunkSizeSelector({ value, onChange, totalUnit, disabled
       return;
     }
     
-    // 厳密なバリデーション
     const trimmed = customInput.trim();
     if (trimmed === '') return;
     
     const n = parseInt(trimmed, 10);
     
-    // NaN、無限、負の数、小数、0を弾く
-    if (!Number.isFinite(n) || n <= 0 || n !== parseFloat(trimmed)) {
-      // 不正な入力の場合、現在の値に戻す
+    // Zodスキーマでバリデーション
+    const result = ChunkSizeSchema.safeParse(n);
+    
+    if (!result.success) {
+      // バリデーションエラーを表示
+      const errorMessage = result.error.errors.map(e => e.message).join('\n');
+      Alert.alert('入力エラー', errorMessage);
       setCustomInput(String(value));
       return;
     }
     
-    // 上限チェック（1000を超える値は非現実的）
-    if (n > 1000) {
-      setCustomInput(String(value));
-      return;
-    }
-    
-    onChange(n);
+    onChange(result.data);
   };
 
   const estimatedCycleLex = totalChunks && modeAverageLex > 0 ? totalChunks * modeAverageLex : null;

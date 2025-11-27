@@ -13,7 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
 import { useServices } from '@core/di/ServicesProvider';
-import { useBookStore } from '@core/store/bookStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
@@ -23,17 +22,17 @@ import type { Book } from '@core/types';
 
 export default function BooksScreen() {
   const router = useRouter();
-  const { bookRepo } = useServices();
+  const { useBookStore } = useServices();
   const { books, fetchBooks, deleteBook, isLoading } = useBookStore();
   const { isProUser } = useSubscriptionStore();
 
   useEffect(() => {
-    fetchBooks(bookRepo);
+    fetchBooks(); // Repository を渡す必要なし
   }, []);
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteBook(bookRepo, id);
+      await deleteBook(id); // Repository を渡す必要なし
     } catch (error) {
       console.error('Failed to delete book:', error);
     }

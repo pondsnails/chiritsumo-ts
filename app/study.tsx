@@ -13,8 +13,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, ChevronRight, BookOpen } from 'lucide-react-native';
 import { useServices } from '@core/di/ServicesProvider';
-import { useCardStore } from '@core/store/cardStore';
-import { useBookStore } from '@core/store/bookStore';
 import { reportError } from '@core/services/errorReporter';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
@@ -29,7 +27,7 @@ interface BookCardGroup {
 export default function StudyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { cardRepo, bookRepo } = useServices();
+  const { useBookStore, useCardStore } = useServices();
   const { books } = useBookStore();
   const { fetchDueCards } = useCardStore();
   
@@ -54,7 +52,7 @@ export default function StudyScreen() {
         return;
       }
 
-      const dueCards = await fetchDueCards(cardRepo, targetBookIds);
+      const dueCards = await fetchDueCards(targetBookIds);
       
       // 書籍ごとにカードをグループ化
       const groups: BookCardGroup[] = targetBookIds

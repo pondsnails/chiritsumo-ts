@@ -16,6 +16,7 @@ import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
 import { SummaryCards, ReviewSection, NewSection } from '@core/components/quest';
+import { SkeletonQuestHeader } from '@core/components/Skeleton';
 import i18n from '@core/i18n';
 import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
@@ -100,9 +101,12 @@ export default function QuestScreen() {
     return (
       <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
         <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <Text style={styles.title}>{i18n.t('quest.title')}</Text>
+            </View>
+            <SkeletonQuestHeader />
+          </ScrollView>
         </SafeAreaView>
       </LinearGradient>
     );

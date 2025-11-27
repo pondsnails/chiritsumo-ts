@@ -16,7 +16,6 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useServices } from '@core/di/ServicesProvider';
-import { useBookStore } from '@core/store/bookStore';
 import { useSubscriptionStore, canAddBook } from '@core/store/subscriptionStore';
 import { validateBookAddition } from '@core/utils/circularReferenceDetector';
 import { getBookTitleFromBarcode } from '@core/services/bookDataService';
@@ -30,7 +29,7 @@ import type { Book } from '@core/types';
 
 export default function AddBookScreen() {
   const router = useRouter();
-  const { bookRepo } = useServices();
+  const { useBookStore } = useServices();
   const { addBook, books, fetchBooks } = useBookStore();
   const { isProUser } = useSubscriptionStore();
   const [title, setTitle] = useState('');
@@ -47,7 +46,7 @@ export default function AddBookScreen() {
   const [isLoadingBookInfo, setIsLoadingBookInfo] = useState(false);
 
   useEffect(() => {
-    fetchBooks(bookRepo);
+    fetchBooks();
   }, []);
 
   const handleBarcodeScan = async () => {
@@ -140,7 +139,7 @@ export default function AddBookScreen() {
         updatedAt: Math.floor(Date.now() / 1000),
       };
 
-      await addBook(bookRepo, newBook);
+      await addBook(newBook);
       router.back();
     } catch (error) {
       console.error('Failed to add book:', error);

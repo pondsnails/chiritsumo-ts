@@ -100,11 +100,28 @@ export const velocityMeasurements = sqliteTable('velocity_measurements', {
   created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),
 });
 
+// ---------------------------------------------------------
+// 3.7 ledger_monthly_summary (Ledger月次集計 - パフォーマンス最適化)
+// ---------------------------------------------------------
+export const ledgerMonthlySummary = sqliteTable('ledger_monthly_summary', {
+  year_month: text('year_month').primaryKey(), // Format: 'YYYY-MM'
+  total_earned_lex: integer('total_earned_lex').notNull().default(0),
+  total_target_lex: integer('total_target_lex').notNull().default(0),
+  avg_daily_earned: integer('avg_daily_earned').notNull().default(0),
+  avg_daily_target: integer('avg_daily_target').notNull().default(0),
+  days_count: integer('days_count').notNull().default(0),
+  max_balance: integer('max_balance').notNull().default(0),
+  min_balance: integer('min_balance').notNull().default(0),
+  created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),
+  updated_at: integer('updated_at').notNull().default(sql`strftime('%s','now')`),
+});
+
 // Types Export
 export type Book = typeof books.$inferSelect;
 export type NewBook = typeof books.$inferInsert;
 export type Card = typeof cards.$inferSelect;
 export type Ledger = typeof ledger.$inferSelect;
+export type LedgerMonthlySummary = typeof ledgerMonthlySummary.$inferSelect;
 export type InventoryPresetRow = typeof inventoryPresets.$inferSelect;
 export type PresetBookRow = typeof presetBooks.$inferSelect;
 export type SystemSetting = typeof systemSettings.$inferSelect;

@@ -17,8 +17,6 @@ import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-r
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
-import { useBookStore } from '@core/store/bookStore';
-import { useCardStore } from '@core/store/cardStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { useServices } from '@core/di/ServicesProvider';
@@ -35,8 +33,8 @@ import i18n from '@core/i18n';
 export default function SettingsScreen() {
   const router = useRouter();
   const { exportBackup, importBackup } = useBackupService();
-  const { bookRepo, presetRepo } = useServices();
-  const { books, fetchBooks } = useBookStore();
+  const { presetRepo, useBookStore, bookRepo } = useServices();
+  const { books, fetchBooks, deleteBook } = useBookStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
   const [isExporting, setIsExporting] = useState(false);
@@ -95,7 +93,7 @@ export default function SettingsScreen() {
             try {
               setIsImporting(true);
               const result = await importBackup({ mode: 'merge' });
-              await fetchBooks(bookRepo);
+              await fetchBooks();
               const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
               Alert.alert(
                 i18n.t('common.success'),
@@ -121,7 +119,7 @@ export default function SettingsScreen() {
               // mode: 'overwrite' は型定義にないため削除（デフォルト動作がoverwriteなら引数なし、または型定義修正が必要）
               // ここでは一旦引数なしで呼び出し、backupServiceの実装に合わせる
               const result = await importBackup();
-              await fetchBooks(bookRepo);
+              await fetchBooks();
               const msg = `書籍: ${result.booksAdded}件\nカード: ${result.cardsUpserted}件\n台帳: ${result.ledgerAdded}件`;
               Alert.alert(
                 i18n.t('common.success'),
@@ -154,9 +152,8 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               // 全テーブルのデータを削除
-              const allBooks = await bookRepo.findAll();
-              for (const book of allBooks) {
-                await bookRepo.delete(book.id);
+              for (const book of books) {
+                await deleteBook(book.id);
               }
               
               const allPresets = await presetRepo.findAll();
@@ -165,7 +162,7 @@ export default function SettingsScreen() {
               }
 
               // 取得できない場合に備えてIndexedDB/SQLiteを直接クリア
-              await fetchBooks(bookRepo);
+              await fetchBooks();
               
               Alert.alert(i18n.t('common.success'), i18n.t('settings.deleteAllSuccess'));
             } catch (error) {
@@ -276,8 +273,8 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { cardRepo } = useServices();
-              await useCardStore.getState().resetAllCards(cardRepo);
+              const { useCardStore } = useServices();
+              await useCardStore.getState().resetAllCards();
               Alert.alert('完了', 'すべてのカードを新規状態にリセットしました。');
             } catch (error) {
               console.error('Failed to reset cards:', error);

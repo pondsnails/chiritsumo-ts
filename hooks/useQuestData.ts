@@ -39,7 +39,7 @@ interface QuestData {
 }
 
 export function useQuestData(): QuestData {
-  const { bookRepo } = useServices();
+  const { useBookStore, questService } = useServices();
   const { books, fetchBooks } = useBookStore();
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
@@ -51,13 +51,10 @@ export function useQuestData(): QuestData {
   
   const isInitialized = useRef(false);
 
-  // DIコンテキストからサービス取得（Repositoryの直接newを排除）
-  const { questService } = useServices();
-
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      await fetchBooks(bookRepo);
+      await fetchBooks();
       const loaded = await questService.getInventoryPresets();
       setPresets(loaded);
       const def = loaded.find(p => p.isDefault);
