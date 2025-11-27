@@ -20,7 +20,8 @@ import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { inventoryPresetsDB, cardsDB } from '@core/database/db';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
-import { assignNewCardsToday } from '@core/services/cardPlanService';
+import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
+import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
@@ -253,17 +254,15 @@ export default function QuestScreen() {
     return books.filter(b => b.status === 0).map(b => b.id);
   }, [activePresetId, presets, books]);
 
-  const avgLexPerNew = useMemo(() => {
-    const selected = books.filter(b => selectedBookIds.includes(b.id));
-    if (selected.length === 0) return calculateLexPerCard(0);
-    const sum = selected.reduce((acc, b) => acc + calculateLexPerCard(b.mode), 0);
-    return Math.max(1, Math.floor(sum / selected.length));
-  }, [books, selectedBookIds]);
-
-  const neededNewCount = useMemo(() => {
-    if (combinedLex >= targetLex) return 0;
-    return Math.ceil((targetLex - combinedLex) / avgLexPerNew);
-  }, [combinedLex, targetLex, avgLexPerNew]);
+  const recommended = useMemo(() => {
+    return computeRecommendedNewAllocation({
+      books,
+      selectedBookIds,
+      reviewLex,
+      newLexCurrent,
+      targetLex,
+    });
+  }, [books, selectedBookIds, reviewLex, newLexCurrent, targetLex]);
 
   const newDeemphasized = combinedLex >= targetLex;
 
@@ -409,26 +408,18 @@ export default function QuestScreen() {
                   <View style={styles.taskList}>
                     <View style={[glassEffect.card, styles.taskCard]}>
                       <Text style={styles.emptyText}>
-                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {neededNewCount} 枚
+                        目標まで {Math.max(0, targetLex - combinedLex)} Lex / 推奨 新規 {recommended.total} 枚
                       </Text>
                       <TouchableOpacity
-                        style={[styles.startButton, neededNewCount === 0 && { opacity: 0.5 }]}
-                        disabled={neededNewCount === 0}
+                        style={[styles.startButton, recommended.total === 0 && { opacity: 0.5 }]}
+                        disabled={recommended.total === 0}
                         onPress={async () => {
                           try {
-                            let bookIdsToQuery = selectedBookIds;
-                            if (bookIdsToQuery.length === 0 && books.length > 0) {
-                              bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-                              if (bookIdsToQuery.length === 0) {
-                                bookIdsToQuery = books.map(b => b.id);
-                              }
-                            }
-                            if (bookIdsToQuery.length === 0) return;
-                            const created = await assignNewCardsToday(books, bookIdsToQuery, neededNewCount);
+                            const created = await assignNewCardsByAllocation(books, recommended.perBook);
                             if (created > 0) {
                               await loadDueCards();
                               await loadNewCards();
-                              await loadLedgerTarget();
+                              await loadDailyTarget();
                             }
                           } catch (e) {
                             console.error('Assign recommended new failed', e);

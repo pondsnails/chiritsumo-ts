@@ -70,6 +70,52 @@ export async function assignNewCardsToday(
   return created.length;
 }
 
+export async function assignNewCardsByAllocation(
+  books: Book[],
+  allocation: Record<string, number>
+): Promise<number> {
+  const dueToday = todayAtMidnight();
+  const bookMap = new Map(books.map(b => [b.id, b]));
+  let createdCount = 0;
+
+  for (const [bookId, count] of Object.entries(allocation)) {
+    const book = bookMap.get(bookId);
+    if (!book || count <= 0) continue;
+
+    const existing = await cardsDB.getByBookId(book.id);
+    const existingUnits = new Set(existing.map(c => c.unitIndex));
+    const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
+    const totalChunks = Math.ceil(book.totalUnit / chunkSize);
+
+    let createdForBook = 0;
+    let nextIdx = 1;
+    while (createdForBook < count && nextIdx <= totalChunks) {
+      while (existingUnits.has(nextIdx) && nextIdx <= totalChunks) nextIdx++;
+      if (nextIdx > totalChunks) break;
+
+      const card: Card = {
+        id: makeCardId(book.id, nextIdx),
+        bookId: book.id,
+        unitIndex: nextIdx,
+        state: 0,
+        stability: 0,
+        difficulty: DEFAULT_DIFFICULTY,
+        due: dueToday,
+        lastReview: null,
+        reps: 0,
+        photoPath: null,
+      };
+      await cardsDB.upsert(card);
+      existingUnits.add(nextIdx);
+      createdForBook++;
+      createdCount++;
+      nextIdx++;
+    }
+  }
+
+  return createdCount;
+}
+
 export async function registerStudiedRange(
   book: Book,
   startUnitIndex: number,
