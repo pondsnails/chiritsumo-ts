@@ -6,22 +6,29 @@ import { ToastProvider } from '@core/ui/ToastProvider';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useAppStateRollover } from '@/hooks/useAppStateRollover';
 
+function AppContent() {
+  // バックグラウンド復帰時の日付変更を監視
+  // ⚠️ ServicesProvider内で呼び出す必要がある
+  useAppStateRollover();
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   useFrameworkReady();
-  
-  // バックグラウンド復帰時の日付変更を監視
-  useAppStateRollover();
 
   return (
     <SafeAreaProvider>
       <ServicesProvider>
         <ToastProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="light" />
+          <AppContent />
+          <StatusBar style="light" />
         </ToastProvider>
       </ServicesProvider>
     </SafeAreaProvider>
