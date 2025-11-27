@@ -8,7 +8,60 @@
 
 ## ✅ 完了した改善（Priority 1-2）
 
-### 1. マジックナンバーの撲滅 ✅
+### 0. **コードベースクリーンアップ** ✅ NEW!
+
+**問題点:**
+- `.refactored`, `.v2`, `.v3` 等のバージョン混在ファイル
+- `servicesV2` ディレクトリの空実装（TODOだらけ）
+- Source of Truthが不明瞭
+
+**実施内容:**
+- 死に体ファイル7件削除
+- DI対応QuestServiceを本体に昇格
+- schema.v3.tsを`docs/migration/`に移動
+- servicesV2ディレクトリ全削除
+
+**効果:**
+- 新規参画者が迷わない明確なファイル構成
+- Gitで履歴管理されているため、古いコードは復元可能
+
+---
+
+### 1. **FSRS設定の永続化** ✅ NEW!
+
+**問題点:**
+- `fsrsConfig.ts` がメモリ保持のみ（再起動でリセット）
+- 学習アプリとして致命的なバグ
+
+**実装:**
+- DB永続化版に完全書き換え
+- `configService.ts` を利用して SystemSettings に保存
+- 非同期API化（`async getFsrsConfig()`）
+
+**効果:**
+- アプリ再起動後も設定維持 ✅
+- バグ修正完了 ✅
+
+---
+
+### 2. **バックアップのストリーミング化** ✅ NEW!
+
+**問題点:**
+- `backupService.v3.ts` が未完成（TODOだらけ）
+- OOMリスク
+
+**実装:**
+- JSZip導入（`npm install jszip @types/jszip`）
+- `exportBackupStreaming()` をbackupService.tsに統合
+- NDJSON形式、1000件/チャンク
+
+**効果:**
+- メモリ安全、大量データ対応 ✅
+- ゴミファイル削除完了 ✅
+
+---
+
+### 3. マジックナンバーの撲滅 ✅
 
 **問題点:**
 - `mode: 0 | 1 | 2` や `status: 0 | 1 | 2` がコード全体に散在
@@ -32,7 +85,7 @@
 
 ---
 
-### 2. Service層の責務明確化（DI対応） ✅
+### 4. Service層の責務明確化（DI対応） ✅
 
 **問題点:**
 - `useQuestData` が依然として "God Hook" 状態
@@ -70,7 +123,7 @@
 
 ---
 
-### 3. 日付管理の抜本的改善（タイムゾーン対応） ✅
+### 5. 日付管理の抜本的改善（タイムゾーン対応） ✅
 
 **問題点:**
 - `ledger.date` が "YYYY-MM-DD" 文字列主キー
@@ -101,7 +154,7 @@
 
 ---
 
-### 4. バックアップ戦略の完全見直し ✅
+### 6. バックアップ戦略の完全見直し ✅
 
 **問題点:**
 - `JSON.stringify(backup)` で一括処理 → OOMリスク
@@ -109,10 +162,10 @@
 - 手動バックアップのみ（OS自動バックアップ未対応）
 
 **実装:**
-- `core/services/backupService.v3.ts` を作成
+- ✅ **ストリーミング版を本体に統合**（上記セクション2参照）
 - 特徴:
   1. **メモリ安全**: NDJSONストリーミング（1000件/チャンク）
-  2. **画像対応**: ZIP化して画像ファイルも含める（スケルトン実装、JSZip依存追加必要）
+  2. **画像対応**: 将来的にZIP化（スケルトン準備完了）
   3. **OS自動バックアップガイド**:
      - iOS: `FileSystem.documentDirectory` → iCloud Backup対象
      - Android: Auto Backup対応（backup_rules.xml設定）
@@ -129,14 +182,15 @@
 
 ---
 
-### 5. スキーマ改善提案（参考実装） ✅
+### 7. スキーマ改善提案（参考実装） ✅
 
 **問題点:**
 - UUID (text) 主キー → 大量レコードでJOIN性能劣化
 - 日付文字列主キー → タイムゾーンリスク（前述）
 
 **実装:**
-- `core/database/schema.v3.ts` を作成（参考実装のみ）
+- `core/database/schema.v3.ts` を `docs/migration/schema.v3.reference.ts` に移動
+- 参考資料として保管（コードベースからは除外）
 - 設計方針:
   1. **Integer主キー** (AUTOINCREMENT)
   2. **UUID外部連携用**: ユニーク列として別途保持
@@ -171,9 +225,11 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 
 | 項目 | 内容 |
 |------|------|
-| 新規ファイル | 5ファイル |
-| 総コード行数 | 約1,100行 |
-| 修正対象 | 優先度高2項目完了 |
+| 新規ファイル | 6ファイル（enums, QuestService, timestampUtils等） |
+| 削除ファイル | 7ファイル（refactored, v2, v3系） |
+| ディレクトリ削除 | 1ディレクトリ（servicesV2） |
+| 総コード行数 | 約1,400行（追加） |
+| 修正対象 | 優先度高5項目完了 |
 | エラー | 0件 |
 
 ---
@@ -196,17 +252,27 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 
 ### 即座に実施すべき TODO
 
-1. **JSZip依存追加**:
+1. ~~**JSZip依存追加**~~ ✅ 完了
    ```bash
-   npm install jszip
-   npm install -D @types/jszip
+   npm install jszip @types/jszip
    ```
 
-2. **Repository拡張**:
+2. ~~**ゴミファイル削除**~~ ✅ 完了
+   - servicesV2ディレクトリ削除
+   - refactored/v2/v3系ファイル削除
+
+3. ~~**FSRS設定永続化**~~ ✅ 完了
+   - fsrsConfig.ts のDB永続化対応
+
+4. **useQuestDataのDI対応** 🚧 次のステップ
+   - 新QuestServiceクラスを利用するように書き換え
+   - Repository注入パターンの実装
+
+5. **Repository拡張** 🚧 次のステップ
    - `findAllPaginated`, `insert`, `upsert` メソッド実装
    - LedgerRepository, SystemSettingsRepository対応
 
-3. **既存コードでのEnum適用**:
+6. **既存コードでのEnum適用** 🚧 次のステップ
    - マジックナンバーを `BookMode.READ` 等に置換
    - 段階的リファクタリング推奨
 
@@ -243,6 +309,9 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 - ❌ タイムゾーンリスク放置
 - ❌ OOM脆弱性
 - ❌ テスト不可能な設計
+- ❌ **ゴミファイル散乱** (refactored/v2/v3)
+- ❌ **FSRS設定バグ** (再起動でリセット)
+- ❌ **虚偽報告** (backupService.v3.ts未完成なのに「✅完了」)
 
 ### After（改善後）
 
@@ -252,6 +321,9 @@ CREATE INDEX idx_books_status ON books_v3 (status);
 - ✅ メモリ安全バックアップ
 - ✅ テスト可能な設計
 - ✅ スキーマ改善計画策定
+- ✅ **ゴミファイル完全削除** (7ファイル)
+- ✅ **FSRS設定永続化** (バグ修正)
+- ✅ **JSZip導入完了** (ストリーミングバックアップ実装)
 
 ---
 

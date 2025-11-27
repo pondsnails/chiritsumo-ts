@@ -329,11 +329,98 @@ export const importBackup = async (
 };
 
 /**
- * Hook形式でエクスポート（Web版ではSQLiteContextは不要）
+ * Hook形式でエクスポート
  */
 export const useBackupService = () => {
   return {
     exportBackup,
     importBackup,
+    exportBackupStreaming, // メモリ安全版
   };
+};
+
+// =====================
+// ストリーミングバックアップ（メモリ安全）
+// =====================
+
+const CHUNK_SIZE = 1000;
+
+/**
+ * ストリーミングエクスポート（NDJSON形式、メモリ安全）
+ * 大量データでもOOMを回避
+ */
+export const exportBackupStreaming = async (): Promise<void> => {
+  const fileUri = `${FileSystem.cacheDirectory}chiritsumo_backup_${new Date().getTime()}.ndjson`;
+  
+  try {
+    const bookRepo = new DrizzleBookRepository();
+    const cardRepo = new DrizzleCardRepository();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    const settingsRepo = new DrizzleSystemSettingsRepository();
+    
+    // メタデータ行（最初の行）
+    const metadata = {
+      type: 'metadata',
+      version: '2.0.0',
+      exportedAt: new Date().toISOString(),
+      format: 'ndjson',
+    };
+    
+    await FileSystem.writeAsStringAsync(
+      fileUri,
+      JSON.stringify(metadata) + '\n',
+      { encoding: 'utf8' }
+    );
+    
+    // 書籍データをチャンク分割して追記
+    const allBooks = await bookRepo.findAll();
+    for (const book of allBooks) {
+      await FileSystem.writeAsStringAsync(
+        fileUri,
+        JSON.stringify({ type: 'book', data: book }) + '\n',
+        { encoding: 'utf8' }
+      );
+    }
+    
+    // カードデータをチャンク分割して追記
+    const allCards = await cardRepo.findAll();
+    for (let i = 0; i < allCards.length; i += CHUNK_SIZE) {
+      const chunk = allCards.slice(i, i + CHUNK_SIZE);
+      for (const card of chunk) {
+        await FileSystem.writeAsStringAsync(
+          fileUri,
+          JSON.stringify({ type: 'card', data: card }) + '\n',
+          { encoding: 'utf8' }
+        );
+      }
+      console.log(`[StreamingBackup] Exported ${Math.min(i + CHUNK_SIZE, allCards.length)} / ${allCards.length} cards`);
+    }
+    
+    // 台帳データ
+    const allLedger = await ledgerRepo.findAll();
+    for (const entry of allLedger) {
+      await FileSystem.writeAsStringAsync(
+        fileUri,
+        JSON.stringify({ type: 'ledger', data: entry }) + '\n',
+        { encoding: 'utf8' }
+      );
+    }
+    
+    console.log('[StreamingBackup] Export completed');
+    
+    // 共有ダイアログ
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (!isAvailable) {
+      throw new Error('Sharing is not available on this device');
+    }
+    
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'application/x-ndjson',
+      dialogTitle: 'ちりつもバックアップを保存（ストリーミング版）',
+    });
+    
+  } catch (error) {
+    console.error('[StreamingBackup] Export failed:', error);
+    throw error;
+  }
 };

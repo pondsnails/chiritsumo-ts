@@ -1,26 +1,189 @@
 /**
  * QuestService
- * クエスト画面のビジネスロジックを純粋関数として提供
- * useQuestDataから分離して、テスト可能にする
+ * Repository依存性注入対応：Service層でデータ取得から計算まで完結
+ * 
+ * 設計方針:
+ * - Repository interfaceに依存（テスト時にモック可能）
+ * - 純粋関数は後方互換のため残存（Legacy関数として）
+ * - Hook層はUIロジックのみに専念
  */
 
-import type { Card, Book } from '@core/types';
+import type { Card, Book, InventoryPreset } from '@core/types';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
+import { BookMode, BookStatus, CardState } from '@core/constants/enums';
 
 /**
- * カードリストから総Lex数を計算
+ * Repository Interfaces (DI用)
+ */
+export interface ICardRepository {
+  findDue(date: Date): Promise<Card[]>;
+  findNew(bookId: string, limit: number): Promise<Card[]>;
+  countByBookAndState(bookId: string, state: CardState): Promise<number>;
+}
+
+export interface IBookRepository {
+  findAll(): Promise<Book[]>;
+  findActive(): Promise<Book[]>;
+  findById(id: string): Promise<Book | null>;
+}
+
+export interface IInventoryPresetRepository {
+  findAll(): Promise<InventoryPreset[]>;
+  findDefault(): Promise<InventoryPreset | null>;
+}
+
+/**
+ * QuestServiceクラス（依存性注入対応）
+ */
+export class QuestService {
+  constructor(
+    private cardRepo: ICardRepository,
+    private bookRepo: IBookRepository,
+    private presetRepo: IInventoryPresetRepository
+  ) {}
+
+  /**
+   * 今日の期限到来カードを取得（Service層でDB呼び出し）
+   */
+  async getDueCardsForToday(): Promise<Card[]> {
+    const now = new Date();
+    return await this.cardRepo.findDue(now);
+  }
+
+  /**
+   * 指定書籍の新規カードを取得（制限付き）
+   */
+  async getNewCardsForBook(bookId: string, limit: number): Promise<Card[]> {
+    return await this.cardRepo.findNew(bookId, limit);
+  }
+
+  /**
+   * アクティブな書籍を取得
+   */
+  async getActiveBooks(): Promise<Book[]> {
+    const allBooks = await this.bookRepo.findAll();
+    return allBooks.filter(b => b.status === BookStatus.ACTIVE);
+  }
+
+  /**
+   * プリセット一覧取得
+   */
+  async getInventoryPresets(): Promise<InventoryPreset[]> {
+    return await this.presetRepo.findAll();
+  }
+
+  /**
+   * デフォルトプリセット取得
+   */
+  async getDefaultPreset(): Promise<InventoryPreset | null> {
+    return await this.presetRepo.findDefault();
+  }
+
+  /**
+   * カードリストから総Lex数を計算
+   */
+  calculateTotalLex(cards: Card[], books: Book[]): number {
+    const modeMap = new Map(books.map(b => [b.id, b.mode]));
+    return cards.reduce((sum, card) => {
+      const mode = modeMap.get(card.bookId) ?? BookMode.READ;
+      return sum + calculateLexPerCard(mode);
+    }, 0);
+  }
+
+  /**
+   * カードを書籍別にグループ化
+   */
+  groupCardsByBook(
+    cards: Card[], 
+    books: Book[]
+  ): Array<{ book: Book; cards: Card[] }> {
+    const bookMap = new Map(books.map(b => [b.id, b]));
+    const grouped = new Map<string, { book: Book; cards: Card[] }>();
+    
+    cards.forEach(card => {
+      const book = bookMap.get(card.bookId);
+      if (!book) return;
+      
+      if (!grouped.has(card.bookId)) {
+        grouped.set(card.bookId, { book, cards: [] });
+      }
+      grouped.get(card.bookId)!.cards.push(card);
+    });
+    
+    return Array.from(grouped.values());
+  }
+
+  /**
+   * 次に復習すべきカードを取得（期限が最も古いもの）
+   */
+  getGlobalNextCard(dueCards: Card[]): Card | null {
+    if (dueCards.length === 0) return null;
+    
+    const now = new Date();
+    return dueCards.reduce((earliest, card) => {
+      const cardDue = new Date(card.due);
+      const earliestDue = new Date(earliest.due);
+      return cardDue < earliestDue ? card : earliest;
+    }, dueCards[0]);
+  }
+
+  /**
+   * 対象書籍IDの解決（プリセット指定またはすべて）
+   */
+  resolveTargetBookIds(
+    books: Book[], 
+    presets: InventoryPreset[], 
+    activePresetId: number | null
+  ): string[] {
+    if (!activePresetId) {
+      return books.map(b => b.id);
+    }
+    
+    const preset = presets.find(p => p.id === activePresetId);
+    if (!preset) return books.map(b => b.id);
+    
+    // bookIdsはstring[]型（types/index.tsで定義済み）
+    const bookIds = preset.bookIds.filter(Boolean);
+    return bookIds.length > 0 ? bookIds : books.map(b => b.id);
+  }
+
+  /**
+   * 今日作成された新規カードをフィルタ（ロールオーバー対策）
+   */
+  filterTodayNewCards(cards: Card[]): Card[] {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return cards.filter(c => {
+      // createdAtがない場合はスキップ（型安全性）
+      if (!('createdAt' in c)) return false;
+      const createdDate = new Date((c as any).createdAt).toISOString().slice(0, 10);
+      return createdDate === today;
+    });
+  }
+
+  /**
+   * 書籍統計の取得（新規カード数、復習待ちカード数）
+   */
+  async getBookStatistics(bookId: string): Promise<{
+    newCount: number;
+    reviewCount: number;
+  }> {
+    const newCount = await this.cardRepo.countByBookAndState(bookId, CardState.NEW);
+    const reviewCount = await this.cardRepo.countByBookAndState(bookId, CardState.REVIEW);
+    return { newCount, reviewCount };
+  }
+}
+
+/**
+ * Legacy純粋関数（互換性のため残す）
  */
 export function calculateTotalLex(cards: Card[], books: Book[]): number {
   const modeMap = new Map(books.map(b => [b.id, b.mode]));
   return cards.reduce((sum, card) => {
-    const mode = modeMap.get(card.bookId) || 0;
+    const mode = modeMap.get(card.bookId) ?? BookMode.READ;
     return sum + calculateLexPerCard(mode);
   }, 0);
 }
 
-/**
- * カードを書籍別にグループ化
- */
 export function groupCardsByBook(
   cards: Card[], 
   books: Book[]
@@ -41,106 +204,13 @@ export function groupCardsByBook(
   return Array.from(grouped.values());
 }
 
-/**
- * 次に復習すべきカードを取得（期限が最も古いもの）
- */
 export function getGlobalNextCard(dueCards: Card[]): Card | null {
   if (dueCards.length === 0) return null;
   
   const now = new Date();
-  const filtered = dueCards.filter(c => c.due <= now);
-  
-  if (filtered.length === 0) return null;
-  
-  return filtered.sort((a, b) => a.due.getTime() - b.due.getTime())[0];
-}
-
-/**
- * カードが所属する書籍を取得
- */
-export function getCardBook(card: Card | null, books: Book[]): Book | null {
-  if (!card) return null;
-  return books.find(b => b.id === card.bookId) || null;
-}
-
-/**
- * 今日の新規カードをフィルタリング
- */
-export function filterTodayNewCards(allNewCards: Card[], bookIds: string[]): Card[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  return allNewCards.filter(card => {
-    const cardDate = new Date(card.due);
-    cardDate.setHours(0, 0, 0, 0);
-    return cardDate.getTime() === today.getTime() && bookIds.includes(card.bookId);
-  });
-}
-
-/**
- * プリセットまたはアクティブな書籍から対象書籍IDを解決
- */
-export function resolveTargetBookIds(
-  activePresetId: number | null,
-  presets: Array<{ id: number; bookIds: string[] }>,
-  books: Book[]
-): string[] {
-  let ids: string[];
-  
-  if (activePresetId) {
-    const preset = presets.find(p => p.id === activePresetId);
-    ids = preset?.bookIds || [];
-  } else {
-    ids = books.filter(b => b.status === 0).map(b => b.id);
-  }
-  
-  // フォールバック: 対象がない場合は全書籍
-  if (ids.length === 0 && books.length > 0) {
-    ids = books.filter(b => b.status === 0).map(b => b.id);
-    if (ids.length === 0) {
-      ids = books.map(b => b.id);
-    }
-  }
-  
-  return ids;
-}
-
-/**
- * Quest画面の計算済みデータを一括で取得
- * （将来的にキャッシュ可能な設計）
- */
-export interface QuestComputedData {
-  reviewLex: number;
-  newLexCurrent: number;
-  combinedLex: number;
-  groupedReviewCards: Array<{ book: Book; cards: Card[] }>;
-  groupedNewCards: Array<{ book: Book; cards: Card[] }>;
-  globalNext: Card | null;
-  globalNextBook: Book | null;
-}
-
-export function computeQuestData(
-  dueCards: Card[],
-  newCards: Card[],
-  books: Book[]
-): QuestComputedData {
-  const reviewLex = calculateTotalLex(dueCards, books);
-  const newLexCurrent = calculateTotalLex(newCards, books);
-  const combinedLex = reviewLex + newLexCurrent;
-  
-  const groupedReviewCards = groupCardsByBook(dueCards, books);
-  const groupedNewCards = groupCardsByBook(newCards, books);
-  
-  const globalNext = getGlobalNextCard(dueCards);
-  const globalNextBook = getCardBook(globalNext, books);
-  
-  return {
-    reviewLex,
-    newLexCurrent,
-    combinedLex,
-    groupedReviewCards,
-    groupedNewCards,
-    globalNext,
-    globalNextBook,
-  };
+  return dueCards.reduce((earliest, card) => {
+    const cardDue = new Date(card.due);
+    const earliestDue = new Date(earliest.due);
+    return cardDue < earliestDue ? card : earliest;
+  }, dueCards[0]);
 }
