@@ -46,6 +46,16 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
       );
     `);
 
+    // 🔧 失敗したマイグレーションの一時テーブルをクリーンアップ
+    try {
+      _sqlite.execSync(`DROP TABLE IF EXISTS __new_books`);
+      _sqlite.execSync(`DROP TABLE IF EXISTS __new_cards`);
+      _sqlite.execSync(`DROP TABLE IF EXISTS __new_ledger`);
+      _sqlite.execSync(`DROP TABLE IF EXISTS __new_velocity_measurements`);
+    } catch (cleanupError) {
+      console.warn('[Migration] Cleanup warning:', cleanupError);
+    }
+
     // 適用済みマイグレーションを取得
     const appliedMigrations = _sqlite.getAllSync<{ hash: string }>(
       'SELECT hash FROM __drizzle_migrations'
@@ -71,23 +81,32 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
 
       console.log(`[Migration] 📦 Applying migration ${entry.tag}...`);
       
-      // SQL文を実行（複数文対応）
-      const statements = migrationSql
-        .split(';')
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
-
-      for (const statement of statements) {
-        _sqlite.execSync(statement);
-      }
-
-      // マイグレーション履歴に記録
-      _sqlite.runSync(
-        'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
-        [hash, Date.now()]
-      );
+      // トランザクション内で実行
+      _sqlite.execSync('BEGIN TRANSACTION');
       
-      console.log(`[Migration] ✅ Migration ${entry.tag} applied successfully`);
+      try {
+        // SQL文を実行（複数文対応）
+        const statements = migrationSql
+          .split(';')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0);
+
+        for (const statement of statements) {
+          _sqlite.execSync(statement);
+        }
+
+        // マイグレーション履歴に記録
+        _sqlite.runSync(
+          'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+          [hash, Date.now()]
+        );
+        
+        _sqlite.execSync('COMMIT');
+        console.log(`[Migration] ✅ Migration ${entry.tag} applied successfully`);
+      } catch (migrationError) {
+        _sqlite.execSync('ROLLBACK');
+        throw migrationError;
+      }
     }
 
     _initialized = true;

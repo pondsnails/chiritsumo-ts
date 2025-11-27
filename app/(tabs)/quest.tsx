@@ -21,7 +21,6 @@ import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
 
 export default function QuestScreen() {
-  console.log('[QuestScreen] Rendering...');
   const router = useRouter();
   const { useBookStore, learningSessionService } = useServices();
   const { books } = useBookStore();
