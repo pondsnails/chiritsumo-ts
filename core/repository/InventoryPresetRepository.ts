@@ -12,16 +12,17 @@ export interface IInventoryPresetRepository {
 }
 
 export class DrizzleInventoryPresetRepository implements IInventoryPresetRepository {
-  private get db() {
-    return getDrizzleDb();
+  private async db() {
+    return await getDrizzleDb();
   }
   async findAll(): Promise<InventoryPreset[]> {
-    const rows = await this.db.select().from(inventoryPresets).orderBy(asc(inventoryPresets.id)).all();
+    const db = await this.db();
+    const rows = await db.select().from(inventoryPresets).orderBy(asc(inventoryPresets.id)).all();
     const presetIds = (rows as InventoryPresetRow[]).map(r => r.id).filter((v): v is number => typeof v === 'number');
 
     let links: PresetBookRow[] = [];
     if (presetIds.length > 0) {
-      links = await this.db.select().from(presetBooks).where(inArray(presetBooks.preset_id, presetIds)).all() as PresetBookRow[];
+      links = await db.select().from(presetBooks).where(inArray(presetBooks.preset_id, presetIds)).all() as PresetBookRow[];
     }
 
     const booksByPreset = new Map<number, string[]>();
@@ -34,7 +35,8 @@ export class DrizzleInventoryPresetRepository implements IInventoryPresetReposit
     return (rows as InventoryPresetRow[]).map(r => this.mapRow(r, booksByPreset.get(r.id ?? 0) ?? []));
   }
   async create(preset: Omit<InventoryPreset,'id'>): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       const res: any = await tx.insert(inventoryPresets).values({
         label: preset.label,
         icon_code: preset.iconCode,
@@ -54,7 +56,8 @@ export class DrizzleInventoryPresetRepository implements IInventoryPresetReposit
     });
   }
   async update(id: number, preset: Partial<Omit<InventoryPreset,'id'>>): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       const updates: any = {};
       if (preset.label !== undefined) updates.label = preset.label;
       if (preset.iconCode !== undefined) updates.icon_code = preset.iconCode;
@@ -75,7 +78,8 @@ export class DrizzleInventoryPresetRepository implements IInventoryPresetReposit
     });
   }
   async delete(id: number): Promise<void> {
-    await this.db.delete(inventoryPresets).where(eq(inventoryPresets.id, id)).run();
+    const db = await this.db();
+    await db.delete(inventoryPresets).where(eq(inventoryPresets.id, id)).run();
   }
 
   private mapRow(row: InventoryPresetRow, bookIds: string[]): InventoryPreset {

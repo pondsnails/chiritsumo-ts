@@ -18,8 +18,6 @@ import { calculateLexForCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
 import { getTodayDateString } from '../utils/dateUtils';
 
-const db = getDrizzleDb();
-
 /**
  * 単一カードの復習をトランザクション内で処理
  * Card更新とLedger更新をアトミックに実行
@@ -29,6 +27,7 @@ export async function processCardReview(
   rating: 1 | 2 | 3 | 4,
   mode: 0 | 1 | 2
 ): Promise<Card> {
+  const db = await getDrizzleDb();
   return await db.transaction(async (tx) => {
     // 1. FSRSスケジューラでカードを更新
     const scheduler = createScheduler(mode);
@@ -105,6 +104,7 @@ export async function processBulkCardReviews(
     throw new Error('Cards and ratings length mismatch');
   }
 
+  const db = await getDrizzleDb();
   return await db.transaction(async (tx) => {
     const scheduler = createScheduler(mode);
     const updatedCards: Card[] = [];

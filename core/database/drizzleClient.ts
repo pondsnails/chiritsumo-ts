@@ -1,115 +1,87 @@
 /**
  * Drizzle Client Factory (Expo SQLite)
- * Lazy initialization with auto-schema creation
+ * Lazy initialization with automatic migration
  */
 import * as SQLite from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import type { ExpoSQLiteDatabase } from 'drizzle-orm/expo-sqlite';
+import migrationData from '../../drizzle/migrations';
 
 let _db: ExpoSQLiteDatabase | null = null;
 let _sqlite: SQLite.SQLiteDatabase | null = null;
 let _initialized = false;
 
-function ensureSchema(sqlite: SQLite.SQLiteDatabase): void {
+async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
   if (_initialized) return;
   
   try {
-    // まず既存のテーブル構造を確認して、不足しているカラムを追加
-    const columnsToAdd = [
-      'elapsed_days INTEGER NOT NULL DEFAULT 0',
-      'scheduled_days INTEGER NOT NULL DEFAULT 0',
-      'reps INTEGER NOT NULL DEFAULT 0',
-      'lapses INTEGER NOT NULL DEFAULT 0',
-      'last_review TEXT',
-      'photo_path TEXT'
-    ];
+    console.log('[Migration] Running database migrations...');
     
-    for (const column of columnsToAdd) {
-      try {
-        sqlite.execSync(`ALTER TABLE cards ADD COLUMN ${column};`);
-        console.log(`[Migration] Added ${column.split(' ')[0]} column`);
-      } catch (e) {
-        // カラムが既に存在する場合はエラーになるが無視
-      }
-    }
-    
-    sqlite.execSync(`
-      CREATE TABLE IF NOT EXISTS books (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL DEFAULT 'local-user',
-        subject_id INTEGER,
-        title TEXT NOT NULL,
-        isbn TEXT,
-        mode INTEGER NOT NULL DEFAULT 1,
-        total_unit INTEGER NOT NULL,
-        chunk_size INTEGER NOT NULL DEFAULT 1,
-        completed_unit INTEGER NOT NULL DEFAULT 0,
-        status INTEGER NOT NULL DEFAULT 0,
-        previous_book_id TEXT,
-        priority INTEGER NOT NULL DEFAULT 1,
-        cover_path TEXT,
-        target_completion_date TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
+    if (!_sqlite) throw new Error('SQLite not initialized');
 
-      CREATE TABLE IF NOT EXISTS cards (
-        id TEXT PRIMARY KEY,
-        book_id TEXT NOT NULL,
-        unit_index INTEGER NOT NULL,
-        state INTEGER NOT NULL DEFAULT 0,
-        stability REAL NOT NULL DEFAULT 0,
-        difficulty REAL NOT NULL DEFAULT 0,
-        elapsed_days INTEGER NOT NULL DEFAULT 0,
-        scheduled_days INTEGER NOT NULL DEFAULT 0,
-        reps INTEGER NOT NULL DEFAULT 0,
-        lapses INTEGER NOT NULL DEFAULT 0,
-        due TEXT NOT NULL DEFAULT (datetime('now')),
-        last_review TEXT,
-        photo_path TEXT,
-        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS ledger (
-        id INTEGER PRIMARY KEY,
-        date TEXT NOT NULL,
-        earned_lex INTEGER NOT NULL DEFAULT 0,
-        target_lex INTEGER NOT NULL DEFAULT 0,
-        balance INTEGER NOT NULL DEFAULT 0,
-        transaction_type TEXT DEFAULT 'daily',
-        note TEXT
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS ledger_date_unique ON ledger(date);
-
-      CREATE TABLE IF NOT EXISTS inventory_presets (
-        id INTEGER PRIMARY KEY,
-        label TEXT NOT NULL,
-        icon_code INTEGER NOT NULL DEFAULT 0,
-        is_default INTEGER NOT NULL DEFAULT 0
-      );
-
-      CREATE TABLE IF NOT EXISTS preset_books (
+    // マイグレーション履歴テーブルの作成
+    _sqlite.execSync(`
+      CREATE TABLE IF NOT EXISTS __drizzle_migrations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        preset_id INTEGER NOT NULL,
-        book_id TEXT NOT NULL,
-        FOREIGN KEY (preset_id) REFERENCES inventory_presets(id) ON DELETE CASCADE,
-        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS system_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        hash TEXT NOT NULL,
+        created_at INTEGER NOT NULL
       );
     `);
+
+    // 適用済みマイグレーションを取得
+    const appliedMigrations = _sqlite.getAllSync<{ hash: string }>(
+      'SELECT hash FROM __drizzle_migrations'
+    );
+    const appliedHashes = new Set(appliedMigrations.map(m => m.hash));
+
+    // 未適用のマイグレーションを実行
+    for (const entry of migrationData.journal.entries) {
+      const migrationKey = `m${String(entry.idx).padStart(4, '0')}`;
+      const migrationSql = migrationData.migrations[migrationKey];
+      
+      if (!migrationSql) {
+        console.warn(`[Migration] ⚠️  Migration ${migrationKey} not found`);
+        continue;
+      }
+
+      const hash = `${entry.tag}_${entry.idx}`;
+      
+      if (appliedHashes.has(hash)) {
+        console.log(`[Migration] ✓ Migration ${entry.tag} already applied`);
+        continue;
+      }
+
+      console.log(`[Migration] 📦 Applying migration ${entry.tag}...`);
+      
+      // SQL文を実行（複数文対応）
+      const statements = migrationSql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      for (const statement of statements) {
+        _sqlite.execSync(statement);
+      }
+
+      // マイグレーション履歴に記録
+      _sqlite.runSync(
+        'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+        [hash, Date.now()]
+      );
+      
+      console.log(`[Migration] ✅ Migration ${entry.tag} applied successfully`);
+    }
+
     _initialized = true;
+    console.log('[Migration] Migrations completed successfully');
   } catch (e) {
-    console.warn('Schema creation warning:', e);
+    console.error('[Migration] Failed to run migrations:', e);
+    throw e;
   }
 }
 
-export function getDrizzleDb(): ExpoSQLiteDatabase {
-  if (_db) return _db;
+export async function getDrizzleDb(): Promise<ExpoSQLiteDatabase> {
+  if (_db && _initialized) return _db;
   
   if (!_sqlite) {
     _sqlite = SQLite.openDatabaseSync('chiritsumo.db');
@@ -120,16 +92,22 @@ export function getDrizzleDb(): ExpoSQLiteDatabase {
     } catch (e) {
       console.warn('PRAGMA setup failed:', e);
     }
-    
-    // Create tables if needed
-    ensureSchema(_sqlite);
   }
   
-  _db = drizzle(_sqlite);
+  if (!_db) {
+    _db = drizzle(_sqlite);
+  }
+  
+  // Run migrations on first initialization
+  if (!_initialized) {
+    await runMigrations(_db);
+  }
+  
   return _db;
 }
 
 // Convenience for future injection
 export function setDrizzleDb(db: ExpoSQLiteDatabase) {
   _db = db;
+  _initialized = true;
 }

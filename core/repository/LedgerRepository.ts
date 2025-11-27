@@ -23,23 +23,26 @@ function mapRow(row: RawLedger): LedgerEntry {
   };
 }
 
-export class DrizzleLedgerRepository implements ILedgerRepo {
-  private get db() {
-    return getDrizzleDb();
+export class DrizzleLedgerRepository implements ILedgerRepository {
+  private async db() {
+    return await getDrizzleDb();
   }
 
   async findAll(): Promise<LedgerEntry[]> {
-    const rows = await this.db.select().from(ledger).orderBy(asc(ledger.date)).all();
+    const db = await this.db();
+    const rows = await db.select().from(ledger).orderBy(asc(ledger.date)).all();
     return rows.map(r => mapRow(r as RawLedger));
   }
   async findRecent(limit: number): Promise<LedgerEntry[]> {
-    const rows = await this.db.select().from(ledger).orderBy(desc(ledger.date)).limit(limit).all();
+    const db = await this.db();
+    const rows = await db.select().from(ledger).orderBy(desc(ledger.date)).limit(limit).all();
     return rows.map(r => mapRow(r as RawLedger));
   }
   async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {
-    const existing = await this.db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
+    const db = await this.db();
+    const existing = await db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
     if (existing.length) {
-      await this.db.update(ledger).set({
+      await db.update(ledger).set({
         earned_lex: entry.earnedLex,
         target_lex: entry.targetLex,
         balance: entry.balance,
@@ -47,7 +50,7 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
         note: null,
       }).where(eq(ledger.date, entry.date)).run();
     } else {
-      await this.db.insert(ledger).values({
+      await db.insert(ledger).values({
         date: entry.date,
         earned_lex: entry.earnedLex,
         target_lex: entry.targetLex,
@@ -58,9 +61,10 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
     }
   }
   async add(entry: Omit<LedgerEntry,'id'>): Promise<void> {
-    const existing = await this.db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
+    const db = await this.db();
+    const existing = await db.select().from(ledger).where(eq(ledger.date, entry.date)).all();
     if (existing.length) return; // ignore duplicate
-    await this.db.insert(ledger).values({
+    await db.insert(ledger).values({
       date: entry.date,
       earned_lex: entry.earnedLex,
       target_lex: entry.targetLex,
@@ -74,7 +78,8 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
     if (entries.length === 0) return;
     
     // トランザクションでラップして真のBulk処理を実現
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       for (const entry of entries) {
         // 日付重複チェック（add ロジックと同じ）
         const existing = await tx.select().from(ledger).where(eq(ledger.date, entry.date)).get();
@@ -91,6 +96,7 @@ export class DrizzleLedgerRepository implements ILedgerRepo {
   }
   
   async deleteAll(): Promise<void> {
-    await this.db.delete(ledger).run();
+    const db = await this.db();
+    await db.delete(ledger).run();
   }
 }

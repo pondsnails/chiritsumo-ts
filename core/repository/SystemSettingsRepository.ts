@@ -20,8 +20,8 @@ async function enqueue<T>(task: () => Promise<T>): Promise<T> {
 }
 
 export class DrizzleSystemSettingsRepository implements ISystemSettingsRepository {
-  private get db() {
-    return getDrizzleDb();
+  private async db() {
+    return await getDrizzleDb();
   }
 
   private async withRetry<T>(fn: () => Promise<T>, retries = 10, delayMs = 100): Promise<T> {
@@ -39,7 +39,8 @@ export class DrizzleSystemSettingsRepository implements ISystemSettingsRepositor
 
   async get(key: string): Promise<string | null> {
     try {
-      const result = await this.db
+      const db = await this.db();
+      const result = await db
         .select()
         .from(systemSettings)
         .where(eq(systemSettings.key, key))
@@ -55,7 +56,8 @@ export class DrizzleSystemSettingsRepository implements ISystemSettingsRepositor
   async set(key: string, value: string): Promise<void> {
     await enqueue(
       () => this.withRetry(async () => {
-        await this.db
+        const db = await this.db();
+        await db
           .insert(systemSettings)
           .values({
             key,
@@ -75,11 +77,13 @@ export class DrizzleSystemSettingsRepository implements ISystemSettingsRepositor
   }
 
   async getAll(): Promise<SystemSetting[]> {
-    return await this.db.select().from(systemSettings);
+    const db = await this.db();
+    return await db.select().from(systemSettings);
   }
 
   async delete(key: string): Promise<void> {
-    await this.db
+    const db = await this.db();
+    await db
       .delete(systemSettings)
       .where(eq(systemSettings.key, key))
       .run();

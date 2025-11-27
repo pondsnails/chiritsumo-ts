@@ -41,20 +41,23 @@ function mapRow(row: RawBook): Book {
 }
 
 export class DrizzleBookRepository implements IBookRepository {
-  private get db() {
-    return getDrizzleDb();
+  private async db() {
+    return await getDrizzleDb();
   }
   async findAll(): Promise<Book[]> {
-    const rows = await this.db.select().from(books).all();
+    const db = await this.db();
+    const rows = await db.select().from(books).all();
     return rows.map(mapRow);
   }
   async findById(id: string): Promise<Book | null> {
-    const rows = await this.db.select().from(books).where(eq(books.id, id)).all();
+    const db = await this.db();
+    const rows = await db.select().from(books).where(eq(books.id, id)).all();
     const row = rows[0];
     return row ? mapRow(row as RawBook) : null;
   }
   async create(book: Book): Promise<void> {
-    await this.db.insert(books).values({
+    const db = await this.db();
+    await db.insert(books).values({
       id: book.id,
       user_id: book.userId ?? 'local-user',
       subject_id: book.subjectId ?? null,
@@ -76,7 +79,8 @@ export class DrizzleBookRepository implements IBookRepository {
 
   async createWithCards(book: Book): Promise<void> {
     // トランザクションでBook作成とCard生成を一括実行（BookService.registerBookと同等）
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       // 1. Book挿入
       await tx.insert(books).values({
         id: book.id,
@@ -143,17 +147,20 @@ export class DrizzleBookRepository implements IBookRepository {
     patch.updated_at = new Date().toISOString();
 
     if (Object.keys(patch).length === 0) return; // nothing to update
-    await this.db.update(books).set(patch).where(eq(books.id, id)).run();
+    const db = await this.db();
+    await db.update(books).set(patch).where(eq(books.id, id)).run();
   }
   async delete(id: string): Promise<void> {
-    await this.db.delete(books).where(eq(books.id, id)).run();
+    const db = await this.db();
+    await db.delete(books).where(eq(books.id, id)).run();
   }
   
   async bulkUpsert(bookList: Book[]): Promise<void> {
     if (bookList.length === 0) return;
     
     // トランザクションでラップして真のBulk処理を実現
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       for (const book of bookList) {
         await tx.insert(books).values({
           id: book.id,
@@ -196,6 +203,7 @@ export class DrizzleBookRepository implements IBookRepository {
   }
   
   async deleteAll(): Promise<void> {
-    await this.db.delete(books).run();
+    const db = await this.db();
+    await db.delete(books).run();
   }
 }

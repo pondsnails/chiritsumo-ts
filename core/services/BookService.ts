@@ -4,8 +4,6 @@ import { books, cards, NewBook } from '../database/schema';
 import { calculateCardCount, generateCardId } from '../utils/bookLogic';
 import { eq } from 'drizzle-orm';
 
-const db = getDrizzleDb();
-
 /**
  * 本を新規登録し、チャンク設定に基づいてカードを一括生成する
  */
@@ -20,6 +18,7 @@ export const registerBook = async (
   const cardCount = calculateCardCount(totalUnit, chunkSize);
 
   try {
+    const db = await getDrizzleDb();
     await db.transaction(async (tx) => {
       // 1. Bookの挿入
       const newBook: NewBook = {
@@ -71,6 +70,7 @@ export const registerBook = async (
  */
 export const deleteBook = async (bookId: string) => {
   try {
+    const db = await getDrizzleDb();
     await db.transaction(async (tx) => {
       // Cascade設定によりCardsも消えるはずだが、Drizzleの外部キー制約設定によっては
       // 明示的に消す方が安全な場合もある。ここではシンプルにBook削除を実行。

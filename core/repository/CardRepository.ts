@@ -38,24 +38,27 @@ function mapRow(row: RawCard): Card {
 }
 
 export class DrizzleCardRepository implements ICardRepository {
-  private get db() {
-    return getDrizzleDb();
+  private async db() {
+    return await getDrizzleDb();
   }
 
   async findAll(): Promise<Card[]> {
-    const rows = await this.db.select().from(cards).orderBy(asc(cards.book_id), asc(cards.unit_index)).all();
+    const db = await this.db();
+    const rows = await db.select().from(cards).orderBy(asc(cards.book_id), asc(cards.unit_index)).all();
     return rows.map(r => mapRow(r as RawCard));
   }
 
   async findByBook(bookId: string): Promise<Card[]> {
-    const rows = await this.db.select().from(cards).where(eq(cards.book_id, bookId)).orderBy(asc(cards.unit_index)).all();
+    const db = await this.db();
+    const rows = await db.select().from(cards).where(eq(cards.book_id, bookId)).orderBy(asc(cards.unit_index)).all();
     return rows.map(r => mapRow(r as RawCard));
   }
 
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {
     if (bookIds.length === 0) return [];
     const nowIso = now.toISOString();
-    const rows = await this.db
+    const db = await this.db();
+    const rows = await db
       .select()
       .from(cards)
       .where(and(inArray(cards.book_id, bookIds), lte(cards.due, nowIso)))
@@ -65,7 +68,8 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   async findNew(bookIds: string[]): Promise<Card[]> {
-    const rows = await this.db
+    const db = await this.db();
+    const rows = await db
       .select()
       .from(cards)
       .where(and(eq(cards.state, 0), inArray(cards.book_id, bookIds)))
@@ -75,7 +79,8 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   async create(card: Card): Promise<void> {
-    await this.db.insert(cards).values({
+    const db = await this.db();
+    await db.insert(cards).values({
       id: card.id,
       book_id: card.bookId,
       unit_index: card.unitIndex,
@@ -94,7 +99,8 @@ export class DrizzleCardRepository implements ICardRepository {
 
   async bulkCreate(batch: Card[]): Promise<void> {
     if (batch.length === 0) return;
-    await this.db.insert(cards).values(batch.map(c => ({
+    const db = await this.db();
+    await db.insert(cards).values(batch.map(c => ({
       id: c.id,
       book_id: c.bookId,
       unit_index: c.unitIndex,
@@ -124,14 +130,16 @@ export class DrizzleCardRepository implements ICardRepository {
     if (updates.lastReview !== undefined) patch.last_review = updates.lastReview ? updates.lastReview.toISOString() : null;
     if (updates.photoPath !== undefined) patch.photo_path = updates.photoPath;
     if (Object.keys(patch).length === 0) return;
-    await this.db.update(cards).set(patch).where(eq(cards.id, id)).run();
+    const db = await this.db();
+    await db.update(cards).set(patch).where(eq(cards.id, id)).run();
   }
 
   async bulkUpsert(cardList: Card[]): Promise<void> {
     if (cardList.length === 0) return;
     
     // トランザクションでラップして真のBulk処理を実現
-    await this.db.transaction(async (tx) => {
+    const db = await this.db();
+    await db.transaction(async (tx) => {
       for (const card of cardList) {
         await tx.insert(cards).values({
           id: card.id,
@@ -169,16 +177,19 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   async deleteByBook(bookId: string): Promise<void> {
-    await this.db.delete(cards).where(eq(cards.book_id, bookId)).run();
+    const db = await this.db();
+    await db.delete(cards).where(eq(cards.book_id, bookId)).run();
   }
 
   async deleteAll(): Promise<void> {
-    await this.db.delete(cards).run();
+    const db = await this.db();
+    await db.delete(cards).run();
   }
 
   async resetAll(): Promise<void> {
     // すべてのカードを新規状態にリセット
-    await this.db.update(cards).set({
+    const db = await this.db();
+    await db.update(cards).set({
       state: 0,
       stability: 0,
       difficulty: 0,
@@ -192,7 +203,8 @@ export class DrizzleCardRepository implements ICardRepository {
   }
 
   async getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]> {
-    const result = await this.db
+    const db = await this.db();
+    const result = await db
       .select({
         mode: books.mode,
         count: sql<number>`count(${cards.id})`,
