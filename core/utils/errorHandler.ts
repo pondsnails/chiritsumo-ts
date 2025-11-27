@@ -52,18 +52,15 @@ export function logError(
   const operation = context?.operation || 'unknown operation';
   
   // 開発環境ではスタックトレースを表示
-  if (__DEV__) {
-    console.error(`[${category}] ${operation}:`, error);
-    if (error instanceof Error && error.stack) {
-      console.error('Stack trace:', error.stack);
+    const errObj = error instanceof Error ? error : new Error(getErrorMessage(error));
+    // Minimal wrapper since current reportError signature only accepts (err, options)
+    try {
+      // @ts-ignore - extended options allowed
+      reportError(errObj, { context: `${category}:${operation}`, severity: 'error', extra: context?.metadata });
+    } catch {
+      // Fallback console
+      console.error(`[${category}] ${operation}:`, errObj);
     }
-    if (context?.metadata) {
-      console.error('Metadata:', context.metadata);
-    }
-  } else {
-    // 本番環境では最小限のログ
-    console.error(`[${category}] ${operation}:`, getErrorMessage(error));
-  }
   
   // TODO: Sentry連携（本番環境のみ）
   // if (!__DEV__) {

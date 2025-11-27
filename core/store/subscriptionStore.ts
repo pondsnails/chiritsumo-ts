@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { reportError } from '@core/services/errorReporter';
 import Purchases, {
   CustomerInfo,
   PurchasesOffering,
@@ -73,7 +74,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       set({ offerings: offerings.current });
 
     } catch (error) {
-      console.error('Failed to initialize purchases:', error);
+      reportError(error, { context: 'subscription:init' });
     } finally {
       set({ isLoading: false });
     }
@@ -97,7 +98,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       
       return isProUser;
     } catch (error) {
-      console.error('Failed to check subscription status:', error);
+      reportError(error, { context: 'subscription:checkStatus' });
       // 開発モードの場合は現在の状態を維持
       if (__DEV__) {
         return get().isProUser;
@@ -122,7 +123,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       if (error.userCancelled) {
         console.log('User cancelled purchase');
       } else {
-        console.error('Purchase failed:', error);
+        reportError(error, { context: 'subscription:purchase' });
       }
       return false;
     } finally {
@@ -143,7 +144,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       
       return isProUser;
     } catch (error) {
-      console.error('Failed to restore purchases:', error);
+      reportError(error, { context: 'subscription:restore' });
       return false;
     } finally {
       set({ isLoading: false });

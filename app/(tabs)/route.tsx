@@ -17,7 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
 import { DrizzleBookRepository } from '@core/repository/BookRepository';
-import { sortBooksByDependency, calculateRouteProgress } from '@core/utils/bookSorting';
+import { calculateRouteProgress } from '@core/utils/bookSorting';
+import { getCachedSortedBooks } from '@core/utils/routeCache';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { MetroLayoutEngine } from '@core/layout/metroLayout';
@@ -60,7 +61,7 @@ export default function RouteScreen() {
     setIsCalculating(true);
     const task = InteractionManager.runAfterInteractions(() => {
       try {
-        const { routes, circularRefs } = sortBooksByDependency(books);
+        const { routes, circularRefs } = getCachedSortedBooks(books);
         setBookRoutes(routes);
         setCircularRefs(circularRefs);
       } catch (e) {

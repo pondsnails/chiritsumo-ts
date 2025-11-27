@@ -3,6 +3,7 @@ import { getDrizzleDb } from '../database/drizzleClient';
 import { books, cards, NewBook } from '../database/schema';
 import { calculateCardCount, generateCardId } from '../utils/bookLogic';
 import { eq } from 'drizzle-orm';
+import { reportError } from '@core/services/errorReporter';
 
 /**
  * 本を新規登録し、チャンク設定に基づいてカードを一括生成する
@@ -60,7 +61,7 @@ export const registerBook = async (
     return newBookId;
 
   } catch (error) {
-    console.error("Failed to register book:", error);
+    reportError(error, { context: 'BookService:register' });
     throw error;
   }
 };
@@ -77,7 +78,7 @@ export const deleteBook = async (bookId: string) => {
       await tx.delete(books).where(eq(books.id, bookId));
     });
   } catch (error) {
-    console.error("Failed to delete book:", error);
+    reportError(error, { context: 'BookService:delete' });
     throw error;
   }
 };

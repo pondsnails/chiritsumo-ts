@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { reportError } from '@core/services/errorReporter';
 import { DrizzleSystemSettingsRepository, type ISystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
 const ONBOARDING_KEY = '@chiritsumo_onboarding_completed';
@@ -27,7 +28,7 @@ export function createOnboardingStore(settingsRepo: ISystemSettingsRepository) {
         });
         console.log('[OnboardingStore] State updated');
       } catch (error) {
-        console.error('[OnboardingStore] Error:', error);
+        reportError(error, { context: 'onboarding:load' });
         set({ 
           hasCompletedOnboarding: false,
           isLoading: false 
@@ -40,7 +41,7 @@ export function createOnboardingStore(settingsRepo: ISystemSettingsRepository) {
         await settingsRepo.set(ONBOARDING_KEY, 'true');
         set({ hasCompletedOnboarding: true });
       } catch (error) {
-        console.error('Failed to save onboarding status:', error);
+        reportError(error, { context: 'onboarding:save' });
       }
     },
 
@@ -50,7 +51,7 @@ export function createOnboardingStore(settingsRepo: ISystemSettingsRepository) {
         set({ hasCompletedOnboarding: false });
         console.log('Onboarding reset for testing');
       } catch (error) {
-        console.error('Failed to reset onboarding:', error);
+        reportError(error, { context: 'onboarding:reset' });
       }
     },
   }));

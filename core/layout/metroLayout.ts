@@ -53,7 +53,7 @@ export class MetroLayoutEngine {
         if (!visited.has(child.id)) {
           if (detectCycle(child.id)) return true;
         } else if (recursionStack.has(child.id)) {
-          console.error(`Circular reference detected: ${child.title} (${child.id})`);
+            reportError(new Error(`Circular reference detected: ${child.title} (${child.id})`), { context: 'metroLayout:cycle' });
           const book = this.bookMap.get(child.id);
           if (book) {
             book.previousBookId = null;

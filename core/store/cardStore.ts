@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { reportError } from '@core/services/errorReporter';
 import { DrizzleCardRepository, type ICardRepository } from '../repository/CardRepository';
 import { processCardReview, processBulkCardReviews } from '../services/StudyTransactionService';
 import type { Card } from '../types';
@@ -22,7 +23,7 @@ export function createCardStore(cardRepo: ICardRepository) {
         const dueCards = await cardRepo.findDue(bookIds, new Date());
         return dueCards;
       } catch (error) {
-        console.error('Failed to fetch due cards:', error);
+        reportError(error, { context: 'cardStore:fetchDue' });
         return [];
       }
     },
@@ -59,7 +60,7 @@ export function createCardStore(cardRepo: ICardRepository) {
         await cardRepo.resetAll();
         set({ isLoading: false });
       } catch (error) {
-        console.error('Failed to reset cards:', error);
+        reportError(error, { context: 'cardStore:reset' });
         set({ error: 'Failed to reset cards', isLoading: false });
         throw error;
       }

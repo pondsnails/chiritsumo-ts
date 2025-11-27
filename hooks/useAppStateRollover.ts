@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { reportError } from '@core/services/errorReporter';
 import { AppState, AppStateStatus } from 'react-native';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { useBookStore } from '@core/store/bookStore';
@@ -35,7 +36,7 @@ export function useAppStateRollover(onRolloverPerformed?: () => void) {
             onRolloverPerformed?.();
           }
         } catch (error) {
-          console.error('Failed to check rollover on app state change:', error);
+          reportError(error, { context: 'appStateRollover' });
         }
       }
 
