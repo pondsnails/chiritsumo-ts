@@ -15,6 +15,13 @@
       "when": 1764247270643,
       "tag": "0001_far_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764266524348,
+      "tag": "0002_ambiguous_zuras",
+      "breakpoints": true
     }
   ]
 }

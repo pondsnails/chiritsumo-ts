@@ -279,7 +279,14 @@ export default function QuestScreen() {
                     }
                   }
                   if (bookIdsToQuery.length === 0) return;
-                  const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
+                  
+                  // LearningSessionService経由で新規カードを割り当て（アーキテクチャ統一）
+                  const created = await learningService.distributeNewCards(
+                    activePresetId,
+                    presets,
+                    10
+                  );
+                  
                   if (created > 0) {
                     await refreshAll();
                   }
