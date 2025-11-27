@@ -69,3 +69,54 @@ export async function assignNewCardsToday(
 
   return created.length;
 }
+
+export async function registerStudiedRange(
+  book: Book,
+  startUnitIndex: number,
+  endUnitIndex: number,
+  asDueToday: boolean = true
+): Promise<number> {
+  const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
+  const totalChunks = Math.ceil(book.totalUnit / chunkSize);
+  const start = Math.max(1, Math.min(startUnitIndex, totalChunks));
+  const end = Math.max(start, Math.min(endUnitIndex, totalChunks));
+
+  const existing = await cardsDB.getByBookId(book.id);
+  const byUnit = new Map(existing.map(c => [c.unitIndex, c]));
+
+  const when = new Date();
+  if (asDueToday) when.setHours(0, 0, 0, 0);
+
+  const upserts: Card[] = [];
+  for (let idx = start; idx <= end; idx++) {
+    const current = byUnit.get(idx);
+    if (current) {
+      upserts.push({
+        ...current,
+        state: 2, // review
+        stability: Math.max(current.stability, 1),
+        difficulty: current.difficulty || DEFAULT_DIFFICULTY,
+        due: when,
+      });
+    } else {
+      upserts.push({
+        id: `${book.id}_${idx}`,
+        bookId: book.id,
+        unitIndex: idx,
+        state: 2, // review
+        stability: 1,
+        difficulty: DEFAULT_DIFFICULTY,
+        due: when,
+        lastReview: null,
+        reps: 0,
+        photoPath: null,
+      });
+    }
+  }
+
+  if (upserts.length > 0) {
+    await cardsDB.bulkUpsert(upserts);
+  }
+
+  return upserts.length;
+}

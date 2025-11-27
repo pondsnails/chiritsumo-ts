@@ -21,6 +21,7 @@ import { inventoryPresetsDB, cardsDB } from '@core/database/db';
 import { assignNewCardsToday } from '@core/services/cardPlanService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
+import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
 import i18n from '@core/i18n';
 import type { Card, InventoryPreset } from '@core/types';
 
@@ -34,6 +35,7 @@ export default function QuestScreen() {
   const [presets, setPresets] = useState<InventoryPreset[]>([]);
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -314,6 +316,12 @@ export default function QuestScreen() {
               >
                 <Text style={styles.quickStartText}>今日の新規カードを10枚割り当てる</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickStartButton, { marginTop: 8, backgroundColor: colors.success }]}
+                onPress={() => setShowRegisterModal(true)}
+              >
+                <Text style={styles.quickStartText}>既習範囲を復習として登録する</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <>
@@ -393,6 +401,22 @@ export default function QuestScreen() {
         books={books}
         presets={presets}
         onPresetsChange={handlePresetsChange}
+      />
+      <RegisterStudiedModal
+        visible={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        books={books}
+        onSubmit={async (book, s, e) => {
+          try {
+            const created = await (await import('@core/services/cardPlanService')).registerStudiedRange(book, s, e, true);
+            if (created > 0) {
+              await loadDueCards();
+              await loadNewCards();
+            }
+          } catch (err) {
+            console.error('failed to register studied range', err);
+          }
+        }}
       />
     </LinearGradient>
   );
