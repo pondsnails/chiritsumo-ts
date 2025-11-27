@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
-import { booksDB } from '@core/database/db';
+import { DrizzleBookRepository } from '@core/repository/BookRepository';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { MetroLayoutEngine } from '@core/layout/metroLayout';
@@ -31,6 +31,8 @@ type TabType = 'myRoute' | 'presetRoute';
 
 export default function RouteScreen() {
   const router = useRouter();
+  const bookRepo = new DrizzleBookRepository();
+  
   const [activeTab, setActiveTab] = useState<TabType>('myRoute');
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function RouteScreen() {
   const fetchAllBooks = async () => {
     try {
       setIsLoading(true);
-      const allBooks = await booksDB.getAll();
+      const allBooks = await bookRepo.findAll();
       setBooks(allBooks);
     } catch (error) {
       console.error('Failed to fetch books:', error);

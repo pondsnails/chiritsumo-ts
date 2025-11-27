@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { X, Home, Coffee, Library, Plus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
-import { inventoryPresetsDB } from '../database/db';
+import { DrizzleInventoryPresetRepository } from '../repository/InventoryPresetRepository';
 import type { InventoryPreset, Book } from '../types';
 
 interface Props {
@@ -33,6 +33,8 @@ const ICONS = [
 ];
 
 export function InventoryFilterModal({ visible, onClose, books, presets, onPresetsChange }: Props) {
+  const presetRepo = new DrizzleInventoryPresetRepository();
+  
   const [editingId, setEditingId] = useState<number | null>(null);
   const [label, setLabel] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(0);
@@ -67,9 +69,18 @@ export function InventoryFilterModal({ visible, onClose, books, presets, onPrese
       };
 
       if (editingId === -1) {
-        await inventoryPresetsDB.add(presetData);
+        await presetRepo.create({
+          label: presetData.label,
+          iconCode: presetData.iconCode,
+          bookIds: presetData.bookIds,
+          isDefault: false,
+        });
       } else if (editingId) {
-        await inventoryPresetsDB.update(editingId, presetData);
+        await presetRepo.update(editingId, { 
+          label: presetData.label,
+          iconCode: presetData.iconCode,
+          bookIds: presetData.bookIds,
+        });
       }
 
       setEditingId(null);
@@ -88,7 +99,7 @@ export function InventoryFilterModal({ visible, onClose, books, presets, onPrese
         style: 'destructive',
         onPress: async () => {
           try {
-            await inventoryPresetsDB.delete(id);
+            await presetRepo.delete(id);
             onPresetsChange();
           } catch (error) {
             console.error('Failed to delete preset:', error);

@@ -4,7 +4,7 @@ import { Svg, Rect, Line, Text as SvgText, Circle, Path } from 'react-native-svg
 import { Brain, TrendingUp, Clock, Target } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { cardsDB } from '@core/database/db';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import type { Card } from '@core/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,7 +35,8 @@ export const BrainAnalyticsDashboard: React.FC = () => {
       setIsLoading(true);
       
       // 全カードデータ取得
-      const allCards = await cardsDB.getAll();
+      const cardRepo = new DrizzleCardRepository();
+      const allCards = await cardRepo.findAll();
       setTotalCards(allCards.length);
 
       // ヒートマップデータ生成（過去90日間）

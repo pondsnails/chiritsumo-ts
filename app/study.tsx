@@ -21,7 +21,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useCardStore } from '@core/store/cardStore';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
-import { cardsDB } from '@core/database/db';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import i18n from '@core/i18n';
 import type { Card, Book } from '@core/types';
 
@@ -32,6 +32,9 @@ export default function StudyScreen() {
   const params = useLocalSearchParams();
   const { fetchDueCards, updateCardReview } = useCardStore();
   const { books } = useBookStore();
+  
+  const cardRepo = new DrizzleCardRepository();
+  
   const [cards, setCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,7 +144,7 @@ export default function StudyScreen() {
         
         // Web版の場合はそのまま保存
         if (Platform.OS === 'web') {
-          await cardsDB.upsert({ ...card, photoPath: photo.uri });
+          await cardRepo.update(card.id, { photoPath: photo.uri });
           setShowCamera(false);
           Alert.alert('保存完了', '写真メモを保存しました');
           return;
@@ -158,7 +161,7 @@ export default function StudyScreen() {
         await permanentFile.write(new Uint8Array(buffer));
         
         // 永続パスを保存
-        await cardsDB.upsert({ ...card, photoPath: permanentFile.uri });
+        await cardRepo.update(card.id, { photoPath: permanentFile.uri });
         setShowCamera(false);
         Alert.alert(i18n.t('study.saveCompleted'), i18n.t('study.photoSaved'));
       } catch (error) {

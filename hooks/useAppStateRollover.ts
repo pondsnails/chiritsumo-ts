@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
-import { cardsDB } from '@core/database/db';
+import { DrizzleCardRepository } from '@core/repository/CardRepository';
 import { useBookStore } from '@core/store/bookStore';
 
 /**
@@ -23,7 +23,8 @@ export function useAppStateRollover(onRolloverPerformed?: () => void) {
         
         try {
           // 現在のカードを取得
-          const cards = await cardsDB.getAll();
+          const cardRepo = new DrizzleCardRepository();
+          const cards = await cardRepo.findAll();
           
           // 最新の残高を取得（実際にはLedgerから取得すべき）
           // ここでは簡易的に0を渡す（Rollover内部で計算される）

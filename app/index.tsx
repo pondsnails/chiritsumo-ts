@@ -6,7 +6,7 @@ import { useBookStore } from '@core/store/bookStore';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { RolloverNotification } from '@core/components/RolloverNotification';
-import { ledgerDB } from '@core/database/db';
+import { DrizzleLedgerRepository } from '@core/repository/LedgerRepository';
 
 export default function Index() {
   const [showRollover, setShowRollover] = useState(false);
@@ -41,8 +41,9 @@ export default function Index() {
     try {
       await Promise.all([fetchCards(), fetchBooks()]);
 
-      const summary = await ledgerDB.getSummary();
-      const currentBalance = summary.balance;
+      const ledgerRepo = new DrizzleLedgerRepository();
+      const summaryEntries = await ledgerRepo.findRecent(1);
+      const currentBalance = summaryEntries.length > 0 ? summaryEntries[0].balance : 0;
 
       const result = await checkAndPerformRollover(cards, books, currentBalance);
 

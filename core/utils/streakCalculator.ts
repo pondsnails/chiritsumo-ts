@@ -1,4 +1,4 @@
-import { ledgerDB } from '../database/db';
+import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 
 /**
  * 連続学習日数（ストリーク）を計算
@@ -9,7 +9,8 @@ import { ledgerDB } from '../database/db';
  */
 export async function calculateCurrentStreak(): Promise<number> {
   try {
-    const allEntries = await ledgerDB.getAll();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    const allEntries = await ledgerRepo.findAll();
     
     // earned_lex > 0 のエントリのみフィルタ（実績がある日のみ）
     const activeDays = allEntries
@@ -59,7 +60,8 @@ export async function calculateCurrentStreak(): Promise<number> {
  */
 export async function calculateMaxStreak(): Promise<number> {
   try {
-    const allEntries = await ledgerDB.getAll();
+    const ledgerRepo = new DrizzleLedgerRepository();
+    const allEntries = await ledgerRepo.findAll();
     
     const activeDays = allEntries
       .filter(entry => entry.earnedLex > 0)

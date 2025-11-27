@@ -1,5 +1,7 @@
-import { cardsDB } from '../database/db';
+import { DrizzleCardRepository } from '../repository/CardRepository';
 import type { Book, Card } from '../types';
+
+const cardRepo = new DrizzleCardRepository();
 
 const DEFAULT_DIFFICULTY = 5;
 
@@ -32,7 +34,7 @@ export async function assignNewCardsToday(
     for (const book of targetBooks) {
       if (createdCount >= totalNew) break;
 
-      const existing = await cardsDB.getByBookId(book.id);
+      const existing = await cardRepo.findByBook(book.id);
       const existingUnits = new Set(existing.map(c => c.unitIndex));
 
       const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
@@ -60,11 +62,14 @@ export async function assignNewCardsToday(
         photoPath: null,
       };
 
-      await cardsDB.upsert(card);
       created.push(card);
       createdCount++;
     }
     round++;
+  }
+  
+  if (created.length > 0) {
+    await cardRepo.bulkUpsert(created);
   }
 
   return created.length;
@@ -77,12 +82,13 @@ export async function assignNewCardsByAllocation(
   const dueToday = todayAtMidnight();
   const bookMap = new Map(books.map(b => [b.id, b]));
   let createdCount = 0;
+  const allCreated: Card[] = [];
 
   for (const [bookId, count] of Object.entries(allocation)) {
     const book = bookMap.get(bookId);
     if (!book || count <= 0) continue;
 
-    const existing = await cardsDB.getByBookId(book.id);
+    const existing = await cardRepo.findByBook(book.id);
     const existingUnits = new Set(existing.map(c => c.unitIndex));
     const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
     const totalChunks = Math.ceil(book.totalUnit / chunkSize);
@@ -105,12 +111,16 @@ export async function assignNewCardsByAllocation(
         reps: 0,
         photoPath: null,
       };
-      await cardsDB.upsert(card);
+      allCreated.push(card);
       existingUnits.add(nextIdx);
       createdForBook++;
       createdCount++;
       nextIdx++;
     }
+  }
+  
+  if (allCreated.length > 0) {
+    await cardRepo.bulkUpsert(allCreated);
   }
 
   return createdCount;
@@ -127,7 +137,7 @@ export async function registerStudiedRange(
   const start = Math.max(1, Math.min(startUnitIndex, totalChunks));
   const end = Math.max(start, Math.min(endUnitIndex, totalChunks));
 
-  const existing = await cardsDB.getByBookId(book.id);
+  const existing = await cardRepo.findByBook(book.id);
   const byUnit = new Map(existing.map(c => [c.unitIndex, c]));
 
   const when = new Date();
@@ -161,7 +171,7 @@ export async function registerStudiedRange(
   }
 
   if (upserts.length > 0) {
-    await cardsDB.bulkUpsert(upserts);
+    await cardRepo.bulkUpsert(upserts);
   }
 
   return upserts.length;

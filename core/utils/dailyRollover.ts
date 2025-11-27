@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ledgerDB, cardsDB } from '../database/db';
+import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { getDueCardsCount } from '../fsrs/scheduler';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import type { Card, Book } from '../types';
@@ -59,7 +59,8 @@ export async function performDailyRollover(
 
     const newBalance = currentBalance - targetLex;
 
-    await ledgerDB.upsert({
+    const ledgerRepo = new DrizzleLedgerRepository();
+    await ledgerRepo.upsert({
       date: today,
       earnedLex: 0,
       targetLex,

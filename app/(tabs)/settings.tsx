@@ -21,7 +21,8 @@ import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { useOnboardingStore } from '@core/store/onboardingStore';
-import { booksDB, cardsDB, ledgerDB, inventoryPresetsDB } from '@core/database/db';
+import { DrizzleBookRepository } from '@core/repository/BookRepository';
+import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
 import { 
   getUserLexSettings,
   saveUserLexSettings,
@@ -39,6 +40,10 @@ export default function SettingsScreen() {
   const { fetchCards } = useCardStore();
   const { isProUser, devToggleProStatus } = useSubscriptionStore();
   const { resetOnboarding } = useOnboardingStore();
+  
+  // Repository instances
+  const bookRepo = new DrizzleBookRepository();
+  const presetRepo = new DrizzleInventoryPresetRepository();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');
@@ -152,14 +157,14 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               // 全テーブルのデータを削除
-              const allBooks = await booksDB.getAll();
+              const allBooks = await bookRepo.findAll();
               for (const book of allBooks) {
-                await booksDB.delete(book.id);
+                await bookRepo.delete(book.id);
               }
               
-              const allPresets = await inventoryPresetsDB.getAll();
+              const allPresets = await presetRepo.findAll();
               for (const preset of allPresets) {
-                await inventoryPresetsDB.delete(preset.id);
+                await presetRepo.delete(preset.id);
               }
 
               // 取得できない場合に備えてIndexedDB/SQLiteを直接クリア
