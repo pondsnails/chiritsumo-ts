@@ -52,7 +52,7 @@ export const exportBackup = async (): Promise<void> => {
 
     const fileUri = `${FileSystem.cacheDirectory}chiritsumo_backup_${new Date().getTime()}.json`;
     // ファイルに書き込み（文字列を直接書き込み）
-    await FileSystem.writeAsStringAsync(fileUri, jsonString, { encoding: FileSystem.EncodingType.UTF8 });
+    await FileSystem.writeAsStringAsync(fileUri, jsonString, { encoding: 'utf8' as const });
 
     // シェア機能で保存
     await Sharing.shareAsync(fileUri, {
@@ -89,7 +89,7 @@ export const importBackup = async (): Promise<void> => {
     } else {
       // ネイティブ環境ではURIから読み込み
       const fileUri = result.assets[0].uri;
-      jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+      jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
     }
 
     const backup: BackupData = JSON.parse(jsonString);
