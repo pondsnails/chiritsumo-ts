@@ -14,6 +14,25 @@ function ensureSchema(sqlite: SQLite.SQLiteDatabase): void {
   if (_initialized) return;
   
   try {
+    // まず既存のテーブル構造を確認して、不足しているカラムを追加
+    const columnsToAdd = [
+      'elapsed_days INTEGER NOT NULL DEFAULT 0',
+      'scheduled_days INTEGER NOT NULL DEFAULT 0',
+      'reps INTEGER NOT NULL DEFAULT 0',
+      'lapses INTEGER NOT NULL DEFAULT 0',
+      'last_review TEXT',
+      'photo_path TEXT'
+    ];
+    
+    for (const column of columnsToAdd) {
+      try {
+        sqlite.execSync(`ALTER TABLE cards ADD COLUMN ${column};`);
+        console.log(`[Migration] Added ${column.split(' ')[0]} column`);
+      } catch (e) {
+        // カラムが既に存在する場合はエラーになるが無視
+      }
+    }
+    
     sqlite.execSync(`
       CREATE TABLE IF NOT EXISTS books (
         id TEXT PRIMARY KEY,

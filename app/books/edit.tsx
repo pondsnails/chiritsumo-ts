@@ -7,11 +7,12 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Save, Calendar, Target, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, Save, Calendar, Target, TrendingUp, Share2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
@@ -20,6 +21,13 @@ import { useCardStore } from '@core/store/cardStore';
 import { calculateLexPerCard } from '@core/logic/lexCalculator';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
+import { 
+  calculateRouteDeadlines, 
+  findRouteFinalBooks,
+  RETENTION_PRESETS,
+  RECOMMENDED_RETENTION,
+  type RetentionTarget,
+} from '@core/services/routeDeadlineService';
 
 export default function EditBookScreen() {
   const router = useRouter();
@@ -35,6 +43,8 @@ export default function EditBookScreen() {
   const [targetCompletionDate, setTargetCompletionDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRouteEndpoint, setIsRouteEndpoint] = useState(false);
+  const [retentionTarget, setRetentionTarget] = useState<RetentionTarget>('recommended');
 
   useEffect(() => {
     const book = books.find((b) => b.id === id);
@@ -48,6 +58,10 @@ export default function EditBookScreen() {
       if (book.targetCompletionDate) {
         setTargetCompletionDate(new Date(book.targetCompletionDate));
       }
+      
+      // この書籍がルートの終点かチェック
+      const finalBooks = findRouteFinalBooks(books);
+      setIsRouteEndpoint(finalBooks.some(b => b.id === id));
     }
   }, [id, books]);
 
@@ -96,6 +110,62 @@ export default function EditBookScreen() {
       console.error('Failed to update book:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSetRouteDeadline = () => {
+    if (!targetCompletionDate) {
+      Alert.alert('エラー', 'まず目標完了日を設定してください');
+      return;
+    }
+
+    try {
+      const result = calculateRouteDeadlines(
+        { 
+          finalBookId: id, 
+          targetDate: targetCompletionDate,
+          retentionConfig: { target: retentionTarget },
+        },
+        books,
+        cards
+      );
+
+      const routeLength = result.routeChain.length;
+      const retentionLabel = retentionTarget === 'recommended' ? '推奨(85%)' :
+                             retentionTarget === 'relaxed' ? 'ゆるめ(75%)' :
+                             retentionTarget === 'strict' ? '厳しめ(95%)' : 'カスタム';
+      const bookTitles = result.routeChain
+        .map(bookId => books.find(b => b.id === bookId)?.title)
+        .filter(Boolean)
+        .join('\n  • ');
+
+      Alert.alert(
+        'ルート全体の完了日を設定',
+        `このルート（${routeLength}冊）の各書籍に完了日を自動配分します。\n\n記憶定着率: ${retentionLabel}\n\n対象書籍:\n  • ${bookTitles}\n\nよろしいですか？`,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: '設定する',
+            onPress: async () => {
+              try {
+                // 各書籍の完了日を一括更新
+                for (const [bookId, deadline] of result.bookDeadlines) {
+                  await updateBook(bookId, {
+                    targetCompletionDate: deadline.toISOString(),
+                  });
+                }
+                Alert.alert('完了', `${routeLength}冊の完了日を設定しました`);
+                router.back();
+              } catch (error) {
+                console.error('Route deadline update failed:', error);
+                Alert.alert('エラー', '完了日の設定に失敗しました');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('エラー', error instanceof Error ? error.message : '計算に失敗しました');
     }
   };
 
@@ -260,6 +330,62 @@ export default function EditBookScreen() {
               <Text style={styles.deadlineDescription}>
                 試験日や締切を設定すると、毎日のノルマを自動計算します
               </Text>
+
+              {/* 記憶定着率設定 */}
+              {isRouteEndpoint && (
+                <View style={styles.retentionSection}>
+                  <Text style={styles.retentionLabel}>記憶定着率の目標</Text>
+                  <View style={styles.retentionButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.retentionButton,
+                        retentionTarget === 'recommended' && styles.retentionButtonActive,
+                      ]}
+                      onPress={() => setRetentionTarget('recommended')}
+                    >
+                      <Text style={[
+                        styles.retentionButtonText,
+                        retentionTarget === 'recommended' && styles.retentionButtonTextActive,
+                      ]}>
+                        推奨(85%)
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.retentionButton,
+                        retentionTarget === 'relaxed' && styles.retentionButtonActive,
+                      ]}
+                      onPress={() => setRetentionTarget('relaxed')}
+                    >
+                      <Text style={[
+                        styles.retentionButtonText,
+                        retentionTarget === 'relaxed' && styles.retentionButtonTextActive,
+                      ]}>
+                        ゆるめ(75%)
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.retentionButton,
+                        retentionTarget === 'strict' && styles.retentionButtonActive,
+                      ]}
+                      onPress={() => setRetentionTarget('strict')}
+                    >
+                      <Text style={[
+                        styles.retentionButtonText,
+                        retentionTarget === 'strict' && styles.retentionButtonTextActive,
+                      ]}>
+                        厳しめ(95%)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.retentionHint}>
+                    ※ ルート全体のすべての書籍が、この定着率以上になる日を目標とします
+                  </Text>
+                </View>
+              )}
               
               <TouchableOpacity
                 style={[styles.datePickerButton, targetCompletionDate && styles.datePickerButtonActive]}
@@ -280,6 +406,16 @@ export default function EditBookScreen() {
                   onPress={() => setTargetCompletionDate(null)}
                 >
                   <Text style={styles.clearDateText}>クリア</Text>
+                </TouchableOpacity>
+              )}
+
+              {isRouteEndpoint && targetCompletionDate && (
+                <TouchableOpacity
+                  style={styles.routeDeadlineButton}
+                  onPress={handleSetRouteDeadline}
+                >
+                  <Share2 color={colors.primary} size={20} strokeWidth={2} />
+                  <Text style={styles.routeDeadlineText}>ルート全体に適用</Text>
                 </TouchableOpacity>
               )}
 
@@ -497,6 +633,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.error,
     fontWeight: '600',
+  },
+  routeDeadlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.primary + '10',
+    borderWidth: 1.5,
+    borderColor: colors.primary + '40',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  routeDeadlineText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  retentionSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  retentionLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 10,
+    fontWeight: '600',
+  },
+  retentionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  retentionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  retentionButtonActive: {
+    backgroundColor: colors.warning + '15',
+    borderColor: colors.warning,
+  },
+  retentionButtonText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  retentionButtonTextActive: {
+    color: colors.warning,
+  },
+  retentionHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginTop: 8,
+    lineHeight: 16,
   },
   quotaCard: {
     flexDirection: 'row',

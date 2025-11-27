@@ -73,7 +73,7 @@ export default function PrivacyPolicyScreen() {
           <Text style={styles.sectionTitle}>5. データのバックアップ</Text>
           <Text style={styles.paragraph}>
             本アプリでは、ユーザーが手動でJSON形式のバックアップをエクスポート/インポートできます。自動・クラウド連携によるバックアップ機能は提供していません。
-            エクスポートされたファイルは、ユーザーがGoogle DriveやiCloud等の任意のストレージサービスに<strong>手動で</strong>保存することができますが、
+            エクスポートされたファイルは、ユーザーがGoogle DriveやiCloud等の任意のストレージサービスに<Text style={styles.bold}>手動で</Text>保存することができますが、
             開発者がそれらのファイルへアクセスすることはありません（外部依存なし、維持費ゼロの方針）。
           </Text>
 

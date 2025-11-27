@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useBookStore } from '@core/store/bookStore';
 import { useCardStore } from '@core/store/cardStore';
 import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
@@ -42,40 +42,30 @@ export function useQuestData(): QuestData {
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [dailyTargetLex, setDailyTargetLex] = useState<number>(600);
   const [initialDueCount, setInitialDueCount] = useState<number>(0);
+  
+  const isInitialized = useRef(false);
+  const presetRepo = useMemo(() => new DrizzleInventoryPresetRepository(), []);
+  const cardRepo = useMemo(() => new DrizzleCardRepository(), []);
 
-  const presetRepo = new DrizzleInventoryPresetRepository();
-  const cardRepo = new DrizzleCardRepository();
-
-  const loadPresets = useCallback(async () => {
-    const loaded = await presetRepo.findAll();
-    setPresets(loaded);
-    const def = loaded.find(p => p.isDefault);
-    if (def) setActivePresetId(def.id);
-  }, []);
-
-  const loadDailyTarget = useCallback(async () => {
+  const refreshAll = useCallback(async () => {
+    setIsLoading(true);
     try {
-      const val = await getDailyLexTarget();
-      setDailyTargetLex(val);
-    } catch {
-      setDailyTargetLex(600);
+      await fetchBooks();
+      const loaded = await presetRepo.findAll();
+      setPresets(loaded);
+      const def = loaded.find(p => p.isDefault);
+      if (def && !activePresetId) setActivePresetId(def.id);
+      
+      try {
+        const val = await getDailyLexTarget();
+        setDailyTargetLex(val);
+      } catch {
+        setDailyTargetLex(600);
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
-
-  const resolveBookIds = useCallback((): string[] => {
-    let ids: string[];
-    if (activePresetId) {
-      const preset = presets.find(p => p.id === activePresetId);
-      ids = preset?.bookIds || [];
-    } else {
-      ids = books.filter(b => b.status === 0).map(b => b.id);
-    }
-    if (ids.length === 0 && books.length > 0) {
-      ids = books.filter(b => b.status === 0).map(b => b.id);
-      if (ids.length === 0) ids = books.map(b => b.id); // fallback after restore
-    }
-    return ids;
-  }, [activePresetId, presets, books]);
+  }, [fetchBooks, presetRepo, activePresetId]);
 
   const refreshDue = useCallback(async () => {
     const ids = resolveBookIds();
@@ -83,7 +73,7 @@ export function useQuestData(): QuestData {
     const cards = await fetchDueCards(ids);
     setDueCards(cards);
     setInitialDueCount(prev => prev === 0 ? cards.length : prev);
-  }, [fetchDueCards, resolveBookIds]);
+  }, [fetchDueCards, books, activePresetId, presets]);
 
   const refreshNew = useCallback(async () => {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -95,28 +85,44 @@ export function useQuestData(): QuestData {
       return d.getTime() === today.getTime() && ids.includes(card.bookId);
     });
     setNewCards(todayNew);
-  }, [resolveBookIds]);
+  }, [cardRepo, books, activePresetId, presets]);
+  
+  const resolveBookIds = useCallback((): string[] => {
+    let ids: string[];
+    if (activePresetId) {
+      const preset = presets.find(p => p.id === activePresetId);
+      ids = preset?.bookIds || [];
+    } else {
+      ids = books.filter(b => b.status === 0).map(b => b.id);
+    }
+    if (ids.length === 0 && books.length > 0) {
+      ids = books.filter(b => b.status === 0).map(b => b.id);
+      if (ids.length === 0) ids = books.map(b => b.id);
+    }
+    return ids;
+  }, [activePresetId, presets, books]);
 
-  const refreshAll = useCallback(async () => {
-    setIsLoading(true);
-    await fetchBooks();
-    await loadPresets();
-    await loadDailyTarget();
-    await refreshDue();
-    await refreshNew();
-    setIsLoading(false);
-  }, [fetchBooks, loadPresets, loadDailyTarget, refreshDue, refreshNew]);
+  useEffect(() => {
+    if (!isInitialized.current) {
+      isInitialized.current = true;
+      refreshAll();
+    }
+  }, [refreshAll]);
+  
+  useEffect(() => { 
+    if (isInitialized.current && books.length > 0) { 
+      refreshDue(); 
+      refreshNew(); 
+    }
+  }, [books.length, activePresetId]);
 
-  useEffect(() => { refreshAll(); }, []);
-  useEffect(() => { if (books.length) { refreshDue(); refreshNew(); } }, [books, activePresetId]);
-
-  const calculateTotalLex = useCallback((cards: Card[]) => {
-    const modeMap = new Map(books.map(b => [b.id, b.mode]));
+  const calculateTotalLex = useCallback((cards: Card[], booksArray: typeof books) => {
+    const modeMap = new Map(booksArray.map(b => [b.id, b.mode]));
     return cards.reduce((sum, c) => sum + calculateLexPerCard(modeMap.get(c.bookId) || 0), 0);
-  }, [books]);
+  }, []);
 
-  const groupCardsByBook = useCallback((cards: Card[]) => {
-    const bookMap = new Map(books.map(b => [b.id, b]));
+  const groupCardsByBook = useCallback((cards: Card[], booksArray: typeof books) => {
+    const bookMap = new Map(booksArray.map(b => [b.id, b]));
     const grouped = new Map<string, { book: typeof books[0]; cards: Card[] }>();
     cards.forEach(card => {
       const book = bookMap.get(card.bookId);
@@ -125,12 +131,12 @@ export function useQuestData(): QuestData {
       grouped.get(card.bookId)!.cards.push(card);
     });
     return Array.from(grouped.values());
-  }, [books]);
+  }, []);
 
-  const groupedReviewCards = useMemo(() => groupCardsByBook(dueCards), [dueCards, groupCardsByBook]);
-  const groupedNewCards = useMemo(() => groupCardsByBook(newCards), [newCards, groupCardsByBook]);
-  const reviewLex = useMemo(() => calculateTotalLex(dueCards), [dueCards, calculateTotalLex]);
-  const newLexCurrent = useMemo(() => calculateTotalLex(newCards), [newCards, calculateTotalLex]);
+  const groupedReviewCards = useMemo(() => groupCardsByBook(dueCards, books), [dueCards, books, groupCardsByBook]);
+  const groupedNewCards = useMemo(() => groupCardsByBook(newCards, books), [newCards, books, groupCardsByBook]);
+  const reviewLex = useMemo(() => calculateTotalLex(dueCards, books), [dueCards, books, calculateTotalLex]);
+  const newLexCurrent = useMemo(() => calculateTotalLex(newCards, books), [newCards, books, calculateTotalLex]);
   const targetLex = dailyTargetLex;
   const combinedLex = reviewLex + newLexCurrent;
 

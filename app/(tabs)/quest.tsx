@@ -21,6 +21,7 @@ import type { InventoryPreset } from '@core/types';
 
 
 export default function QuestScreen() {
+  console.log('[QuestScreen] Rendering...');
   const router = useRouter();
   
   // useQuestDataフックからすべてのデータとロジックを取得

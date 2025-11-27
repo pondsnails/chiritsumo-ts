@@ -1,11 +1,11 @@
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
-import { getDueCardsCount } from '../fsrs/scheduler';
+import { DrizzleCardRepository } from '../repository/CardRepository';
 import { calculateLexPerCard } from '../logic/lexCalculator';
-import type { Card, Book } from '../types';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
 const settingsRepo = new DrizzleSystemSettingsRepository();
+const cardRepo = new DrizzleCardRepository();
 
 export async function getLastRolloverDate(): Promise<string | null> {
   try {
@@ -38,20 +38,19 @@ export function shouldPerformRollover(lastRolloverDate: string | null): boolean 
 }
 
 export async function performDailyRollover(
-  cards: Card[],
-  books: Book[],
   currentBalance: number
 ): Promise<{ success: boolean; newBalance: number; targetLex: number }> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const dueCount = getDueCardsCount(cards);
-    // 書籍が複数モードなら平均 (単純化): モード別平均Lexを weighted by dueCount per bookは後で改善
+    // DBから直接モード別のカード数を取得（全件ロード回避）
+    const modeCountsList = await cardRepo.getCardCountsByBookMode();
     const modeCounts: Record<0|1|2, number> = { 0: 0, 1: 0, 2: 0 };
-    for (const c of cards) {
-      const b = books.find(bk => bk.id === c.bookId);
-      if (b) modeCounts[b.mode] = (modeCounts[b.mode] || 0) + 1;
+    
+    for (const item of modeCountsList) {
+      modeCounts[item.mode] = item.count;
     }
+
     let targetLex = 0;
     (Object.keys(modeCounts) as string[]).forEach(k => {
       const m = parseInt(k, 10) as 0 | 1 | 2;
@@ -86,8 +85,6 @@ export async function performDailyRollover(
 }
 
 export async function checkAndPerformRollover(
-  cards: Card[],
-  books: Book[],
   currentBalance: number
 ): Promise<{ performed: boolean; newBalance: number; targetLex: number }> {
   const lastRollover = await getLastRolloverDate();
@@ -100,8 +97,7 @@ export async function checkAndPerformRollover(
     };
   }
 
-  const result = await performDailyRollover(cards, books, currentBalance);
-
+  const result = await performDailyRollover(currentBalance);
   return {
     performed: result.success,
     newBalance: result.newBalance,

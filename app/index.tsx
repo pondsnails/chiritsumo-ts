@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCardStore } from '@core/store/cardStore';
-import { useBookStore } from '@core/store/bookStore';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { useRouter, Redirect } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
 import { RolloverNotification } from '@core/components/RolloverNotification';
@@ -11,9 +10,9 @@ import { DrizzleLedgerRepository } from '@core/repository/LedgerRepository';
 export default function Index() {
   const [showRollover, setShowRollover] = useState(false);
   const [rolloverData, setRolloverData] = useState({ targetLex: 0, newBalance: 0 });
+  const [ready, setReady] = useState(false);
+  const [destination, setDestination] = useState<Href | null>(null);
   const router = useRouter();
-  const { cards, fetchCards } = useCardStore();
-  const { books, fetchBooks } = useBookStore();
   const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function Index() {
         await checkOnboardingStatus();
       } catch (error) {
         console.error('[Index] Onboarding check failed:', error);
-        if (mounted) router.replace('/onboarding');
+        if (mounted) setDestination('/onboarding');
         return;
       }
       
@@ -41,12 +40,14 @@ export default function Index() {
         } catch (error) {
           console.error('[Index] Rollover failed:', error);
         }
-        console.log('[Index] Navigating to /(tabs)/quest');
-        if (mounted) router.replace('/(tabs)/quest');
+        console.log('[Index] Setting destination to /(tabs)/quest');
+        if (mounted) setDestination('/(tabs)/quest' as Href);
       } else {
-        console.log('[Index] Navigating to /onboarding');
-        if (mounted) router.replace('/onboarding');
+        console.log('[Index] Setting destination to /onboarding');
+        if (mounted) setDestination('/onboarding' as Href);
       }
+      
+      if (mounted) setReady(true);
     };
     
     initialize();
@@ -59,10 +60,6 @@ export default function Index() {
   const checkRollover = async () => {
     console.log('[Index] checkRollover started');
     try {
-      console.log('[Index] Fetching cards and books...');
-      await Promise.all([fetchCards(), fetchBooks()]);
-      console.log('[Index] Cards and books fetched');
-
       console.log('[Index] Fetching ledger...');
       const ledgerRepo = new DrizzleLedgerRepository();
       const summaryEntries = await ledgerRepo.findRecent(1);
@@ -70,7 +67,7 @@ export default function Index() {
       console.log('[Index] Ledger fetched, balance:', currentBalance);
 
       console.log('[Index] Checking rollover...');
-      const result = await checkAndPerformRollover(cards, books, currentBalance);
+      const result = await checkAndPerformRollover(currentBalance);
       console.log('[Index] Rollover check complete, performed:', result.performed);
 
       if (result.performed) {
@@ -84,8 +81,20 @@ export default function Index() {
       console.error('[Index] Rollover error:', error);
       // エラーでも続行
     }
-    console.log('[Index] checkRollover finished');
+  console.log('[Index] checkRollover finished');
   };
+
+  useEffect(() => {
+    if (ready && destination && !showRollover) {
+      console.log('[Index] Navigation ready. Destination:', destination);
+      // 少し遅延を入れてナビゲーションを実行（レイアウトのマウント待ち）
+      const timer = setTimeout(() => {
+        console.log('[Index] Executing router.replace to:', destination);
+        router.replace(destination);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [ready, destination, showRollover]);
 
   return (
     <View style={styles.container}>

@@ -1,7 +1,7 @@
-import { cards } from '../database/schema';
+import { cards, books } from '../database/schema';
 import type { Card as RawCard } from '../database/schema';
 import type { Card } from '../types';
-import { and, asc, eq, inArray, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 import { getDrizzleDb } from '../database/drizzleClient';
 
 export interface ICardRepository {
@@ -15,6 +15,7 @@ export interface ICardRepository {
   update(id: string, updates: Partial<Card>): Promise<void>;
   deleteByBook(bookId: string): Promise<void>;
   deleteAll(): Promise<void>;
+  getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]>;
 }
 
 function mapRow(row: RawCard): Card {
@@ -172,5 +173,21 @@ export class DrizzleCardRepository implements ICardRepository {
 
   async deleteAll(): Promise<void> {
     await this.db.delete(cards).run();
+  }
+
+  async getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]> {
+    const result = await this.db
+      .select({
+        mode: books.mode,
+        count: sql<number>`count(${cards.id})`,
+      })
+      .from(cards)
+      .innerJoin(books, eq(cards.book_id, books.id))
+      .groupBy(books.mode);
+    
+    return result.map(r => ({
+      mode: r.mode as 0 | 1 | 2,
+      count: Number(r.count),
+    }));
   }
 }
