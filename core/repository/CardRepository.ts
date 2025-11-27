@@ -40,8 +40,9 @@ function mapRow(row: RawCard): Card {
     scheduledDays: row.scheduled_days,
     reps: row.reps,
     lapses: row.lapses,
-    due: new Date(row.due),
-    lastReview: row.last_review ? new Date(row.last_review) : null,
+    due: Number(row.due),
+    lastReview: row.last_review ? Number(row.last_review) : null,
+    createdAt: Number((row as any).created_at ?? 0),
     photoPath: row.photo_path ?? null,
   };
 }
@@ -116,12 +117,12 @@ export class DrizzleCardRepository implements ICardRepository {
 
   async findDue(bookIds: string[], now: Date): Promise<Card[]> {
     if (bookIds.length === 0) return [];
-    const nowIso = now.toISOString();
+    const nowUnix = Math.floor(now.getTime() / 1000);
     const db = await this.db();
     const rows = await db
       .select()
       .from(cards)
-      .where(and(inArray(cards.book_id, bookIds), lte(cards.due, nowIso)))
+      .where(and(inArray(cards.book_id, bookIds), lte(cards.due, nowUnix)))
       .orderBy(asc(cards.due))
       .all();
     return rows.map(r => mapRow(r as RawCard));
@@ -151,8 +152,9 @@ export class DrizzleCardRepository implements ICardRepository {
       scheduled_days: card.scheduledDays,
       reps: card.reps,
       lapses: card.lapses,
-      due: card.due.toISOString(),
-      last_review: card.lastReview ? card.lastReview.toISOString() : null,
+      due: card.due,
+      last_review: card.lastReview ?? null,
+      created_at: card.createdAt,
       photo_path: card.photoPath ?? null,
     }).run();
   }
@@ -171,8 +173,9 @@ export class DrizzleCardRepository implements ICardRepository {
       scheduled_days: c.scheduledDays,
       reps: c.reps,
       lapses: c.lapses,
-      due: c.due.toISOString(),
-      last_review: c.lastReview ? c.lastReview.toISOString() : null,
+      due: c.due,
+      last_review: c.lastReview ?? null,
+      created_at: c.createdAt,
       photo_path: c.photoPath ?? null,
     }))).run();
   }
@@ -186,8 +189,9 @@ export class DrizzleCardRepository implements ICardRepository {
     if (updates.scheduledDays !== undefined) patch.scheduled_days = updates.scheduledDays;
     if (updates.reps !== undefined) patch.reps = updates.reps;
     if (updates.lapses !== undefined) patch.lapses = updates.lapses;
-    if (updates.due !== undefined) patch.due = updates.due.toISOString();
-    if (updates.lastReview !== undefined) patch.last_review = updates.lastReview ? updates.lastReview.toISOString() : null;
+    if (updates.due !== undefined) (patch as any).due = updates.due;
+    if (updates.lastReview !== undefined) (patch as any).last_review = updates.lastReview ?? null;
+    if ((updates as any).createdAt !== undefined) (patch as any).created_at = (updates as any).createdAt;
     if (updates.photoPath !== undefined) patch.photo_path = updates.photoPath;
     if (Object.keys(patch).length === 0) return;
     const db = await this.db();

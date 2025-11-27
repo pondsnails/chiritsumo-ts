@@ -37,8 +37,8 @@ function mapRow(row: RawBook): Book {
     priority: (row.priority ?? 1) as 0 | 1,
     coverPath: row.cover_path ?? null,
     targetCompletionDate: row.target_completion_date ?? null,
-    createdAt: row.created_at ?? new Date().toISOString(),
-    updatedAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
+    createdAt: Number(row.created_at ?? Math.floor(Date.now()/1000)),
+    updatedAt: Number(row.updated_at ?? row.created_at ?? Math.floor(Date.now()/1000)),
   };
 }
 
@@ -92,8 +92,8 @@ export class DrizzleBookRepository implements IBookRepository {
       priority: book.priority ?? 1,
       cover_path: book.coverPath ?? null,
       target_completion_date: book.targetCompletionDate ?? null,
-      created_at: book.createdAt ?? new Date().toISOString(),
-      updated_at: book.updatedAt ?? new Date().toISOString(),
+      created_at: book.createdAt ?? Math.floor(Date.now()/1000),
+      updated_at: book.updatedAt ?? Math.floor(Date.now()/1000),
     }).run();
   }
 
@@ -116,9 +116,9 @@ export class DrizzleBookRepository implements IBookRepository {
         previous_book_id: book.previousBookId ?? null,
         priority: book.priority ?? 1,
         cover_path: book.coverPath ?? null,
-        target_completion_date: book.targetCompletionDate ?? null,
-        created_at: book.createdAt ?? new Date().toISOString(),
-        updated_at: book.updatedAt ?? new Date().toISOString(),
+          target_completion_date: book.targetCompletionDate ?? null,
+          created_at: book.createdAt ?? Math.floor(Date.now()/1000),
+          updated_at: book.updatedAt ?? Math.floor(Date.now()/1000),
       }).run();
 
       // 2. Card生成（chunkSizeに基づいて分割）
@@ -164,7 +164,7 @@ export class DrizzleBookRepository implements IBookRepository {
     if (updates.priority !== undefined) patch.priority = updates.priority;
     if (updates.coverPath !== undefined) patch.cover_path = updates.coverPath ?? null;
     if (updates.targetCompletionDate !== undefined) patch.target_completion_date = updates.targetCompletionDate ?? null;
-    patch.updated_at = new Date().toISOString();
+      patch.updated_at = Math.floor(Date.now()/1000) as any;
 
     if (Object.keys(patch).length === 0) return; // nothing to update
     const db = await this.db();
@@ -196,9 +196,9 @@ export class DrizzleBookRepository implements IBookRepository {
           previous_book_id: book.previousBookId ?? null,
           priority: book.priority ?? 1,
           cover_path: book.coverPath ?? null,
-          target_completion_date: book.targetCompletionDate ?? null,
-          created_at: book.createdAt ?? new Date().toISOString(),
-          updated_at: book.updatedAt ?? new Date().toISOString(),
+            target_completion_date: book.targetCompletionDate ?? null,
+            created_at: book.createdAt ?? Math.floor(Date.now()/1000),
+            updated_at: book.updatedAt ?? Math.floor(Date.now()/1000),
         }).onConflictDoUpdate({
           target: books.id,
           set: {
@@ -215,7 +215,7 @@ export class DrizzleBookRepository implements IBookRepository {
             priority: book.priority ?? 1,
             cover_path: book.coverPath ?? null,
             target_completion_date: book.targetCompletionDate ?? null,
-            updated_at: new Date().toISOString(),
+              updated_at: Math.floor(Date.now()/1000),
           }
         }).run();
       }

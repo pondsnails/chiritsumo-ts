@@ -18,9 +18,9 @@ export const books = sqliteTable('books', {
   previous_book_id: text('previous_book_id'), // 親Book ID
   priority: integer('priority').notNull().default(1), // 0=Branch, 1=MainLine
   cover_path: text('cover_path'),
-  target_completion_date: text('target_completion_date'),
-  created_at: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-  updated_at: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  target_completion_date: integer('target_completion_date'),
+  created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),
+  updated_at: integer('updated_at').notNull().default(sql`strftime('%s','now')`),
 });
 
 // ---------------------------------------------------------
@@ -40,8 +40,9 @@ export const cards = sqliteTable('cards', {
   reps: integer('reps').notNull().default(0),
   lapses: integer('lapses').notNull().default(0),
   
-  due: text('due').notNull().default(sql`CURRENT_TIMESTAMP`), // 次回復習日時 (ISO8601)
-  last_review: text('last_review'), // 前回の復習日時
+  due: integer('due').notNull().default(sql`strftime('%s','now')`), // 次回復習時刻 (UNIX秒)
+  last_review: integer('last_review'), // 前回の復習時刻 (UNIX秒)
+  created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),
   
   photo_path: text('photo_path'), // 失敗時の写真メモ (Local File URI)
 });
@@ -51,7 +52,7 @@ export const cards = sqliteTable('cards', {
 // ---------------------------------------------------------
 export const ledger = sqliteTable('ledger', {
   id: integer('id').primaryKey(),
-  date: text('date').notNull(), // YYYY-MM-DD (UNIQUE)
+  date: integer('date').notNull(), // その日のUNIX秒（0時を推奨）
   earned_lex: integer('earned_lex').notNull().default(0),
   target_lex: integer('target_lex').notNull().default(0),
   balance: integer('balance').notNull().default(0),
@@ -93,10 +94,10 @@ export const systemSettings = sqliteTable('system_settings', {
 // 3.6 velocity_measurements (学習速度計測データ)
 // ---------------------------------------------------------
 export const velocityMeasurements = sqliteTable('velocity_measurements', {
-  date: text('date').primaryKey(), // YYYY-MM-DD
+  date: text('date').primaryKey(), // YYYY-MM-DD (保持) ※将来整数化検討
   earned_lex: integer('earned_lex').notNull().default(0),
   minutes_spent: integer('minutes_spent').notNull().default(0), // 学習時間（分）
-  created_at: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  created_at: integer('created_at').notNull().default(sql`strftime('%s','now')`),
 });
 
 // Types Export

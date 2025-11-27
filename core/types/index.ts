@@ -16,9 +16,9 @@ export interface Book {
   previousBookId: string | null;
   priority?: 0 | 1;
   coverPath?: string | null;
-  targetCompletionDate?: string | null; // Deadline Mode用
-  createdAt: string;
-  updatedAt: string;
+  targetCompletionDate?: number | null; // Unix秒
+  createdAt: number; // Unix秒
+  updatedAt: number; // Unix秒
 }
 
 export interface Card {
@@ -32,14 +32,15 @@ export interface Card {
   scheduledDays: number;
   reps: number;
   lapses: number;
-  due: Date;
-  lastReview: Date | null;
+  due: number; // Unix秒
+  lastReview: number | null; // Unix秒
+  createdAt: number; // Unix秒
   photoPath: string | null;
 }
 
 export interface LedgerEntry {
   id: number;
-  date: string;
+  date: number; // Unix秒（その日を代表する時刻）
   earnedLex: number;
   targetLex: number;
   balance: number;
