@@ -71,7 +71,14 @@ export const exportBackup = async (): Promise<void> => {
 /**
  * JSONファイルを読み込み、データベースを復元
  */
-export const importBackup = async (): Promise<void> => {
+export interface ImportResult {
+  booksAdded: number;
+  booksUpdated: number;
+  cardsUpserted: number;
+  ledgerAdded: number;
+}
+
+export const importBackup = async (): Promise<ImportResult> => {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/json',
@@ -79,7 +86,7 @@ export const importBackup = async (): Promise<void> => {
     });
 
     if (result.canceled) {
-      return;
+      return { booksAdded: 0, booksUpdated: 0, cardsUpserted: 0, ledgerAdded: 0 };
     }
 
     let jsonString: string;
@@ -106,6 +113,10 @@ export const importBackup = async (): Promise<void> => {
     const existingBooksMap = new Map(existingBooks.map(b => [b.id, b]));
 
     try {
+      let booksAdded = 0;
+      let booksUpdated = 0;
+      let cardsUpserted = 0;
+      let ledgerAdded = 0;
       // 型正規化: Card の日付文字列を Date に変換
       const normalizedCards = backup.cards.map((c: any) => ({
         ...c,
@@ -144,12 +155,14 @@ export const importBackup = async (): Promise<void> => {
         if (!existing) {
           // 新規書籍は追加
           await booksDB.add(book);
+          booksAdded += 1;
         } else {
           // 既存書籍はタイムスタンプ比較
           const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
           const importTime = new Date(book.updatedAt || book.createdAt).getTime();
           if (importTime > existingTime) {
             await booksDB.update(book.id, book);
+            booksUpdated += 1;
           }
         }
       }
@@ -157,6 +170,7 @@ export const importBackup = async (): Promise<void> => {
       // カードはupsert（既にマージ対応）
       for (const card of normalizedCards) {
         await cardsDB.upsert(card);
+        cardsUpserted += 1;
       }
 
       // 台帳は日付単位でユニーク、既存チェックして追加
@@ -171,10 +185,12 @@ export const importBackup = async (): Promise<void> => {
         };
         if (!existingDates.has(entry.date)) {
           await ledgerDB.add(entry);
+          ledgerAdded += 1;
         }
       }
 
       console.log('Backup merged successfully (Native)');
+      return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded };
     } catch (error) {
       console.error('Failed to merge backup:', error);
       throw error;

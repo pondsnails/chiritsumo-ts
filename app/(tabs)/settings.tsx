@@ -95,9 +95,10 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               setIsImporting(true);
-              await importBackup();
+              const result = await importBackup();
               await Promise.all([fetchBooks(), fetchCards()]);
-              Alert.alert(i18n.t('common.success'), i18n.t('settings.importSuccess'));
+              const msg = `書籍: +${result.booksAdded} / 更新 ${result.booksUpdated}\nカード: ${result.cardsUpserted}\n台帳: +${result.ledgerAdded}`;
+              Alert.alert(i18n.t('common.success'), `${i18n.t('settings.importSuccess')}\n\n${msg}`);
             } catch (error) {
               console.error('Import failed:', error);
               Alert.alert(i18n.t('common.error'), i18n.t('settings.importError'));
