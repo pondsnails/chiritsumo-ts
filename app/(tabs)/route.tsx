@@ -40,12 +40,14 @@ export default function RouteScreen() {
   const [selectedRoute, setSelectedRoute] = useState<PresetRoute | null>(null);
   const [nodes, setNodes] = useState<NodePosition[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
+  const [circularRefs, setCircularRefs] = useState<string[]>([]); // 循環参照の警告メッセージ
 
-  // 依存関係に基づいて書籍をソート（トポロジカルソート）
+  // 依存関係に基づいて書籍をソート（トポロジカルソート + 循環検出）
   const sortBooksByDependency = useCallback((books: Book[]) => {
     const bookMap = new Map(books.map(b => [b.id, b]));
     const routes: Book[][] = [];
-    const visited = new Set<string>();
+    const globalVisited = new Set<string>(); // 全体で訪問済みのノード
+    const detectedCircularRefs: string[] = []; // 検出された循環参照
     
     // ルートノード（previousBookIdがnullまたは存在しない書籍）を探す
     const getRootBooks = () => {
@@ -54,13 +56,26 @@ export default function RouteScreen() {
       );
     };
     
-    // 各ルートから依存チェーンを辿る（深さ優先探索で全分岐を網羅）
-    const buildChainsFromBook = (startBook: Book): Book[][] => {
-      if (visited.has(startBook.id)) {
-        return [];
+    // 循環参照検出と深さ優先探索
+    const buildChainsFromBook = (
+      startBook: Book,
+      currentPath: Set<string> = new Set() // 現在のパスで訪問中のノード（循環検出用）
+    ): Book[][] => {
+      // 循環検出：現在のパスに既に含まれている
+      if (currentPath.has(startBook.id)) {
+        const pathArray = Array.from(currentPath);
+        const cycleStart = pathArray.indexOf(startBook.id);
+        const cycle = [...pathArray.slice(cycleStart), startBook.id]
+          .map(id => bookMap.get(id)?.title || id)
+          .join(' → ');
+        detectedCircularRefs.push(cycle);
+        console.warn(`循環参照を検出: ${cycle}`);
+        return []; // 循環を打ち切る
       }
       
-      visited.add(startBook.id);
+      // このパスに追加
+      const newPath = new Set(currentPath);
+      newPath.add(startBook.id);
       
       // このstartBookを前提としている書籍を全て探す
       const children = books.filter(b => b.previousBookId === startBook.id);
@@ -73,24 +88,55 @@ export default function RouteScreen() {
       // 各子ブックから再帰的にチェーンを構築
       const allChains: Book[][] = [];
       children.forEach(child => {
-        const childChains = buildChainsFromBook(child);
+        const childChains = buildChainsFromBook(child, newPath);
         childChains.forEach(childChain => {
           // startBookを先頭に追加
           allChains.push([startBook, ...childChain]);
         });
       });
       
+      // 子が全て循環で打ち切られた場合、このノード単体を返す
+      if (allChains.length === 0) {
+        return [[startBook]];
+      }
+      
       return allChains;
     };
     
     // 各ルートからチェーンを構築
     const rootBooks = getRootBooks();
+    
+    // ルートが多すぎる場合の警告（パフォーマンス対策）
+    if (rootBooks.length > 10) {
+      console.warn(`ルート数が多い (${rootBooks.length}個): 表示が遅くなる可能性があります`);
+    }
+    
     rootBooks.forEach(root => {
-      if (!visited.has(root.id)) {
+      if (!globalVisited.has(root.id)) {
         const chains = buildChainsFromBook(root);
-        routes.push(...chains);
+        
+        // チェーンが多すぎる場合の制限（最大20ルート）
+        const limitedChains = chains.slice(0, 20);
+        if (chains.length > 20) {
+          console.warn(`${root.title}から${chains.length}個のルートが生成されました。最初の20個のみ表示します`);
+        }
+        
+        routes.push(...limitedChains);
+        
+        // このルートツリー全体を訪問済みにマーク
+        chains.forEach(chain => {
+          chain.forEach(book => globalVisited.add(book.id));
+        });
       }
     });
+    
+    // 総ルート数の警告
+    if (routes.length > 50) {
+      console.warn(`総ルート数: ${routes.length}個 - パフォーマンスに影響する可能性があります`);
+    }
+    
+    // 循環参照があればUIに反映
+    setCircularRefs(detectedCircularRefs);
     
     return routes;
   }, []);
@@ -249,6 +295,31 @@ export default function RouteScreen() {
             </View>
           ) : (
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              {/* 循環参照警告 */}
+              {circularRefs.length > 0 && (
+                <View style={[glassEffect.card, styles.warningCard]}>
+                  <View style={styles.warningHeader}>
+                    <Text style={styles.warningIcon}>⚠️</Text>
+                    <Text style={styles.warningTitle}>循環参照が検出されました</Text>
+                  </View>
+                  <Text style={styles.warningDescription}>
+                    以下の書籍で循環依存が発生しています。依存関係を見直してください。
+                  </Text>
+                  {circularRefs.map((ref, idx) => (
+                    <Text key={idx} style={styles.warningItem}>• {ref}</Text>
+                  ))}
+                </View>
+              )}
+              
+              {/* パフォーマンス警告 */}
+              {bookRoutes.length > 50 && (
+                <View style={[glassEffect.card, styles.infoCard]}>
+                  <Text style={styles.infoText}>
+                    📊 {bookRoutes.length}個のルートが表示されています。パフォーマンス向上のため、依存関係を整理することをお勧めします。
+                  </Text>
+                </View>
+              )}
+              
               <View style={styles.booksTimeline}>
                 {bookRoutes.map((route, routeIndex) => (
                   <View key={`route-${routeIndex}`} style={styles.routeGroup}>
@@ -762,5 +833,57 @@ const styles = StyleSheet.create({
   routeGroupSubtitle: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  // 警告カード
+  warningCard: {
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: colors.error + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  warningIcon: {
+    fontSize: 20,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  warningDescription: {
+    fontSize: 13,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  warningItem: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 8,
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  // 情報カード
+  infoCard: {
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: colors.primary + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  infoText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
   },
 });
