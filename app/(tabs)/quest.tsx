@@ -39,6 +39,7 @@ export default function QuestScreen() {
   const [activePresetId, setActivePresetId] = useState<number | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registerDefaultBook, setRegisterDefaultBook] = useState<string | undefined>(undefined);
   const [showActionsModal, setShowActionsModal] = useState(false);
   const [dailyTargetLex, setDailyTargetLex] = useState<number>(600); // 設定画面の値
 
@@ -396,13 +397,39 @@ export default function QuestScreen() {
                             <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          style={styles.startButton}
-                          onPress={() => startStudy(book.id)}
-                        >
-                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
-                        </TouchableOpacity>
+                        <View style={styles.inlineActions}>
+                          <TouchableOpacity
+                            style={[styles.smallBtn, styles.primaryBtn]}
+                            onPress={() => startStudy(book.id)}
+                          >
+                            <Text style={styles.smallBtnText}>復習開始</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.smallBtn]}
+                            onPress={async () => {
+                              try {
+                                const created = await assignNewCardsToday(books, [book.id], 5);
+                                if (created > 0) {
+                                  await loadDueCards();
+                                  await loadNewCards();
+                                }
+                              } catch (e) {
+                                console.error('quick new assign per book failed', e);
+                              }
+                            }}
+                          >
+                            <Text style={styles.smallBtnText}>+新規5</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.smallBtn]}
+                            onPress={() => {
+                              setShowRegisterModal(true);
+                              setRegisterDefaultBook(book.id);
+                            }}
+                          >
+                            <Text style={styles.smallBtnText}>既習登録</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -434,14 +461,45 @@ export default function QuestScreen() {
                             <Text style={styles.taskLex}>+{calculateLexPerCard(book.mode) * cards.length} Lex</Text>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          disabled={hasReviewPending}
-                          style={[styles.startButton, hasReviewPending && { opacity: 0.4 }]}
-                          onPress={() => { if (!hasReviewPending) startStudy(book.id); }}
-                        >
-                          <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-                          <Text style={styles.startButtonText}>{i18n.t('quest.start')}</Text>
-                        </TouchableOpacity>
+                        <View style={styles.inlineActions}>
+                          <TouchableOpacity
+                            disabled={hasReviewPending}
+                            style={[styles.smallBtn, styles.primaryBtn, hasReviewPending && { opacity: 0.3 }]}
+                            onPress={() => { if (!hasReviewPending) startStudy(book.id); }}
+                          >
+                            <Text style={styles.smallBtnText}>新規開始</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            disabled={hasReviewPending}
+                            style={[styles.smallBtn, hasReviewPending && { opacity: 0.3 }]}
+                            onPress={async () => {
+                              if (hasReviewPending) return;
+                              try {
+                                const count = recommended.perBook[book.id] || 5;
+                                const created = await assignNewCardsToday(books, [book.id], count);
+                                if (created > 0) {
+                                  await loadDueCards();
+                                  await loadNewCards();
+                                }
+                              } catch (e) {
+                                console.error('recommended per-book assign failed', e);
+                              }
+                            }}
+                          >
+                            <Text style={styles.smallBtnText}>推奨追加</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            disabled={hasReviewPending}
+                            style={[styles.smallBtn, hasReviewPending && { opacity: 0.3 }]}
+                            onPress={() => {
+                              if (hasReviewPending) return;
+                              setShowRegisterModal(true);
+                              setRegisterDefaultBook(book.id);
+                            }}
+                          >
+                            <Text style={styles.smallBtnText}>既習登録</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -547,6 +605,7 @@ export default function QuestScreen() {
         visible={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
         books={books}
+        defaultBookId={registerDefaultBook}
         onSubmit={async (book, s, e) => {
           try {
             const created = await (await import('@core/services/cardPlanService')).registerStudiedRange(book, s, e, true);
@@ -557,6 +616,7 @@ export default function QuestScreen() {
           } catch (err) {
             console.error('failed to register studied range', err);
           }
+          setRegisterDefaultBook(undefined);
         }}
       />
     </LinearGradient>
@@ -729,6 +789,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 8,
+  },
+  inlineActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  smallBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    alignItems: 'center',
+  },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  smallBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
   },
   startButtonText: {
     fontSize: 16,

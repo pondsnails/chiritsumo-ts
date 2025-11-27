@@ -8,10 +8,11 @@ type Props = {
   onClose: () => void;
   books: Book[];
   onSubmit: (book: Book, start: number, end: number) => Promise<void>;
+  defaultBookId?: string; // 指定された場合、書籍選択を省略してその書籍に固定
 };
 
-export const RegisterStudiedModal: React.FC<Props> = ({ visible, onClose, books, onSubmit }) => {
-  const [selectedId, setSelectedId] = useState<string | null>(books[0]?.id ?? null);
+export const RegisterStudiedModal: React.FC<Props> = ({ visible, onClose, books, onSubmit, defaultBookId }) => {
+  const [selectedId, setSelectedId] = useState<string | null>(defaultBookId ?? books[0]?.id ?? null);
   const [start, setStart] = useState<string>('1');
   const [end, setEnd] = useState<string>('1');
 
@@ -32,20 +33,27 @@ export const RegisterStudiedModal: React.FC<Props> = ({ visible, onClose, books,
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>既習範囲を復習として登録</Text>
-          <Text style={styles.label}>書籍を選択</Text>
-          <ScrollView style={{ maxHeight: 160 }}>
-            {books.map(b => (
-              <TouchableOpacity
-                key={b.id}
-                style={[styles.bookItem, selectedId === b.id && styles.bookItemActive]}
-                onPress={() => setSelectedId(b.id)}
-              >
-                <Text style={[styles.bookText, selectedId === b.id && styles.bookTextActive]} numberOfLines={1}>
-                  {b.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {!defaultBookId && (
+            <>
+              <Text style={styles.label}>書籍を選択</Text>
+              <ScrollView style={{ maxHeight: 160 }}>
+                {books.map(b => (
+                  <TouchableOpacity
+                    key={b.id}
+                    style={[styles.bookItem, selectedId === b.id && styles.bookItemActive]}
+                    onPress={() => setSelectedId(b.id)}
+                  >
+                    <Text style={[styles.bookText, selectedId === b.id && styles.bookTextActive]} numberOfLines={1}>
+                      {b.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+          {defaultBookId && selectedBook && (
+            <Text style={styles.fixedBookLabel}>対象書籍: {selectedBook.title}</Text>
+          )}
 
           {selectedBook && (
             <>
@@ -106,6 +114,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 12 },
   label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6 },
   helper: { fontSize: 12, color: colors.textTertiary, marginBottom: 8 },
+  fixedBookLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 12 },
   bookItem: {
     paddingVertical: 10,
     paddingHorizontal: 12,
