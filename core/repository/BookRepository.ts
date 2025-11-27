@@ -1,5 +1,7 @@
 import { books } from '../database/schema';
 import type { Book as RawBook } from '../database/schema';
+import { eq } from 'drizzle-orm';
+import { drizzleDb } from '../database/drizzleClient';
 import type { Book } from '../types';
 // Drizzle client placeholder (to be implemented)
 // TODO(Drizzle-Migration): Provide unified drizzle client (native/web) via factory.
@@ -35,22 +37,43 @@ function mapRow(row: RawBook): Book {
 }
 
 export class DrizzleBookRepository implements IBookRepository {
-  // private db = drizzleClient; // TODO inject
+  private db = drizzleDb;
   async findAll(): Promise<Book[]> {
-    // TODO(Drizzle-Migration): replace with drizzle select
-    // const rows = await this.db.select().from(books).all();
-    return []; // placeholder
+    const rows = await this.db.select().from(books).all();
+    return rows.map(mapRow);
   }
   async findById(id: string): Promise<Book | null> {
-    return null; // placeholder
+    const rows = await this.db.select().from(books).where(eq(books.id, id)).all();
+    const row = rows[0];
+    return row ? mapRow(row as RawBook) : null;
   }
   async create(book: Book): Promise<void> {
-    // TODO(Drizzle-Migration): insert via drizzle
+    await this.db.insert(books).values({
+      id: book.id,
+      title: book.title,
+      mode: book.mode,
+      total_unit: book.totalUnit,
+      chunk_size: book.chunkSize ?? 1,
+      status: book.status,
+      previous_book_id: book.previousBookId ?? null,
+      priority: book.priority ?? 1,
+      // created_at: book.createdAt, // Let default CURRENT_TIMESTAMP apply
+    }).run();
   }
   async update(id: string, updates: Partial<Book>): Promise<void> {
-    // TODO(Drizzle-Migration): update via drizzle
+    const patch: Partial<RawBook> = {};
+    if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.mode !== undefined) patch.mode = updates.mode;
+    if (updates.totalUnit !== undefined) patch.total_unit = updates.totalUnit;
+    if (updates.chunkSize !== undefined) patch.chunk_size = updates.chunkSize;
+    if (updates.status !== undefined) patch.status = updates.status;
+    if (updates.previousBookId !== undefined) patch.previous_book_id = updates.previousBookId ?? null;
+    if (updates.priority !== undefined) patch.priority = updates.priority;
+
+    if (Object.keys(patch).length === 0) return; // nothing to update
+    await this.db.update(books).set(patch).where(eq(books.id, id)).run();
   }
   async delete(id: string): Promise<void> {
-    // TODO(Drizzle-Migration): delete via drizzle
+    await this.db.delete(books).where(eq(books.id, id)).run();
   }
 }
