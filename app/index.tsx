@@ -17,27 +17,39 @@ export default function Index() {
   const { hasCompletedOnboarding, isLoading, checkOnboardingStatus } = useOnboardingStore();
 
   useEffect(() => {
+    const initialize = async () => {
+      try {
+        await checkOnboardingStatus();
+      } catch (error) {
+        console.error('Failed to initialize:', error);
+        // エラーでもオンボーディングへ遷移
+        router.replace('/onboarding');
+      }
+    };
     initialize();
   }, []);
 
   useEffect(() => {
     if (isLoading) return;
-    const go = async () => {
-      if (hasCompletedOnboarding) {
-        // 2回目以降は日次ロールオーバー実行後にquestへ
-        await checkRollover();
-        router.replace('/(tabs)/quest');
-      } else {
-        // 初回はオンボーディングへ（ロールオーバーは実行しない）
+    
+    const navigate = async () => {
+      try {
+        if (hasCompletedOnboarding) {
+          // 2回目以降は日次ロールオーバー実行後にquestへ
+          await checkRollover();
+          router.replace('/(tabs)/quest');
+        } else {
+          // 初回はオンボーディングへ（ロールオーバーは実行しない）
+          router.replace('/onboarding');
+        }
+      } catch (error) {
+        console.error('Navigation failed:', error);
+        // フォールバック: エラー時もオンボーディングへ
         router.replace('/onboarding');
       }
     };
-    void go();
+    navigate();
   }, [isLoading, hasCompletedOnboarding]);
-
-  const initialize = async () => {
-    await checkOnboardingStatus();
-  };
 
   const checkRollover = async () => {
     try {
