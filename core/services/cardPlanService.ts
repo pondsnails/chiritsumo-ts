@@ -5,10 +5,14 @@ const cardRepo = new DrizzleCardRepository();
 
 const DEFAULT_DIFFICULTY = 5;
 
-function todayAtMidnight(): Date {
+function todayAtMidnight(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  return d;
+  return Math.floor(d.getTime() / 1000);
+}
+
+function nowUnix(): number {
+  return Math.floor(Date.now() / 1000);
 }
 
 function makeCardId(bookId: string, unitIndex: number): string {
@@ -62,6 +66,7 @@ export async function assignNewCardsToday(
         lapses: 0,
         due: dueToday,
         lastReview: null,
+        createdAt: nowUnix(),
         photoPath: null,
       };
 
@@ -115,6 +120,7 @@ export async function assignNewCardsByAllocation(
         lapses: 0,
         due: dueToday,
         lastReview: null,
+        createdAt: nowUnix(),
         photoPath: null,
       };
       allCreated.push(card);

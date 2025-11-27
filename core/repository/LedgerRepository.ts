@@ -15,11 +15,11 @@ export interface ILedgerRepository {
 
 function mapRow(row: RawLedger): LedgerEntry {
   return {
-    id: Number(row.id), // TODO: schema id型再検討
-    date: row.date,
-    earnedLex: row.earned_lex,
-    targetLex: row.target_lex,
-    balance: row.balance,
+    id: Number(row.id),
+    date: Number(row.date), // Unix timestamp
+    earnedLex: Number(row.earned_lex),
+    targetLex: Number(row.target_lex),
+    balance: Number(row.balance),
   };
 }
 

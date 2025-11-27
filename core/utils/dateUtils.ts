@@ -27,6 +27,15 @@ export function getTodayDateString(): string {
 }
 
 /**
+ * 今日の0時（ローカルタイムゾーン）のUnix秒を取得
+ */
+export function getTodayUnixMidnight(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+
+/**
  * ユーザーのローカルタイムゾーンで昨日の日付を取得
  */
 export function getYesterdayDateString(): string {

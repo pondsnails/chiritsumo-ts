@@ -23,6 +23,7 @@ export class FSRSScheduler {
 
   createNewCard(bookId: string, unitIndex: number): Card {
     const id = `${bookId}_${unitIndex}`;
+    const nowUnix = Math.floor(Date.now() / 1000);
     return {
       id,
       bookId,
@@ -34,15 +35,16 @@ export class FSRSScheduler {
       scheduledDays: 0,
       reps: 0,
       lapses: 0,
-      due: new Date(),
+      due: nowUnix,
       lastReview: null,
+      createdAt: nowUnix,
       photoPath: null,
     };
   }
 
   private toFSRSCard(card: Card): FSRSCard {
     return {
-      due: card.due,
+      due: new Date(card.due * 1000),
       stability: card.stability,
       difficulty: card.difficulty,
       elapsed_days: card.elapsedDays,
@@ -50,7 +52,7 @@ export class FSRSScheduler {
       reps: card.reps,
       lapses: card.lapses,
       state: card.state as State,
-      last_review: card.lastReview || undefined,
+      last_review: card.lastReview ? new Date(card.lastReview * 1000) : undefined,
     } as FSRSCard;
   }
 
@@ -69,8 +71,8 @@ export class FSRSScheduler {
       scheduledDays: recordLog.card.scheduled_days,
       reps: recordLog.card.reps,
       lapses: recordLog.card.lapses,
-      due: recordLog.card.due,
-      lastReview: now,
+      due: Math.floor(recordLog.card.due.getTime() / 1000),
+      lastReview: Math.floor(now.getTime() / 1000),
     };
   }
 
@@ -104,6 +106,6 @@ export function createScheduler(mode: 0 | 1 | 2): FSRSScheduler {
 }
 
 export function getDueCardsCount(cards: Card[]): number {
-  const now = new Date();
-  return cards.filter(card => card.due <= now).length;
+  const nowUnix = Math.floor(Date.now() / 1000);
+  return cards.filter(card => card.due <= nowUnix).length;
 }

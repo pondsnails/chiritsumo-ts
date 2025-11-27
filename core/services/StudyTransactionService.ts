@@ -16,7 +16,7 @@ import { eq, sql } from 'drizzle-orm';
 import { createScheduler } from '../fsrs/scheduler';
 import { calculateLexForCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
-import { getTodayDateString } from '../utils/dateUtils';
+import { getTodayDateString, getTodayUnixMidnight } from '../utils/dateUtils';
 
 /**
  * 単一カードの復習をトランザクション内で処理
@@ -44,8 +44,8 @@ export async function processCardReview(
         scheduled_days: updatedCard.scheduledDays,
         reps: updatedCard.reps,
         lapses: updatedCard.lapses,
-        due: updatedCard.due.toISOString(),
-        last_review: updatedCard.lastReview?.toISOString() || null,
+        due: updatedCard.due,
+        last_review: updatedCard.lastReview ?? null,
       })
       .where(eq(cards.id, card.id))
       .run();
@@ -53,13 +53,13 @@ export async function processCardReview(
     // 3. 成功(rating 3 or 4)の場合のみLedger更新
     if (rating === 3 || rating === 4) {
       const lexEarned = calculateLexForCard(mode, updatedCard);
-      const today = getTodayDateString();
+      const todayUnix = getTodayUnixMidnight();
 
       // 今日の台帳レコードを取得または作成
       const existingLedger = await tx
         .select()
         .from(ledger)
-        .where(eq(ledger.date, today))
+        .where(eq(ledger.date, todayUnix))
         .limit(1);
 
       if (existingLedger.length > 0) {
@@ -71,14 +71,14 @@ export async function processCardReview(
             earned_lex: current.earned_lex + lexEarned,
             balance: current.balance + lexEarned,
           })
-          .where(eq(ledger.date, today))
+          .where(eq(ledger.date, todayUnix))
           .run();
       } else {
         // 新規レコードを作成
         await tx
           .insert(ledger)
           .values({
-            date: today,
+            date: todayUnix,
             earned_lex: lexEarned,
             target_lex: 600, // デフォルト目標(別途取得可能だが、トランザクション内で軽量化)
             balance: lexEarned,
@@ -126,8 +126,8 @@ export async function processBulkCardReviews(
           scheduled_days: updated.scheduledDays,
           reps: updated.reps,
           lapses: updated.lapses,
-          due: updated.due.toISOString(),
-          last_review: updated.lastReview?.toISOString() || null,
+          due: updated.due,
+          last_review: updated.lastReview ?? null,
         })
         .where(eq(cards.id, card.id))
         .run();
@@ -142,12 +142,12 @@ export async function processBulkCardReviews(
 
     // 2. 合算Lexを台帳に追加
     if (totalLexEarned > 0) {
-      const today = getTodayDateString();
+      const todayUnix = getTodayUnixMidnight();
 
       const existingLedger = await tx
         .select()
         .from(ledger)
-        .where(eq(ledger.date, today))
+        .where(eq(ledger.date, todayUnix))
         .limit(1);
 
       if (existingLedger.length > 0) {
@@ -158,13 +158,13 @@ export async function processBulkCardReviews(
             earned_lex: current.earned_lex + totalLexEarned,
             balance: current.balance + totalLexEarned,
           })
-          .where(eq(ledger.date, today))
+          .where(eq(ledger.date, todayUnix))
           .run();
       } else {
         await tx
           .insert(ledger)
           .values({
-            date: today,
+            date: todayUnix,
             earned_lex: totalLexEarned,
             target_lex: 600,
             balance: totalLexEarned,

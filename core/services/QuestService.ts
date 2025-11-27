@@ -136,12 +136,17 @@ export class QuestService {
    * 今日作成された新規カードをフィルタ（ロールオーバー対策）
    */
   filterTodayNewCards(cards: Card[]): Card[] {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartUnix = Math.floor(todayStart.getTime() / 1000);
+    
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const tomorrowStartUnix = Math.floor(tomorrowStart.getTime() / 1000);
+    
     return cards.filter(c => {
-      // createdAtがない場合はスキップ（型安全性）
-      if (!('createdAt' in c)) return false;
-      const createdDate = new Date((c as any).createdAt).toISOString().slice(0, 10);
-      return createdDate === today;
+      if (!c.createdAt) return false;
+      return c.createdAt >= todayStartUnix && c.createdAt < tomorrowStartUnix;
     });
   }
 
