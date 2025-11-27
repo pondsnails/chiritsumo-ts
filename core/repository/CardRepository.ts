@@ -15,6 +15,7 @@ export interface ICardRepository {
   update(id: string, updates: Partial<Card>): Promise<void>;
   deleteByBook(bookId: string): Promise<void>;
   deleteAll(): Promise<void>;
+  resetAll(): Promise<void>; // Reset all cards to New state
   getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]>;
 }
 
@@ -173,6 +174,21 @@ export class DrizzleCardRepository implements ICardRepository {
 
   async deleteAll(): Promise<void> {
     await this.db.delete(cards).run();
+  }
+
+  async resetAll(): Promise<void> {
+    // すべてのカードを新規状態にリセット
+    await this.db.update(cards).set({
+      state: 0,
+      stability: 0,
+      difficulty: 0,
+      elapsed_days: 0,
+      scheduled_days: 0,
+      reps: 0,
+      lapses: 0,
+      due: new Date().toISOString(),
+      last_review: null,
+    }).run();
   }
 
   async getCardCountsByBookMode(): Promise<{ mode: 0 | 1 | 2; count: number }[]> {

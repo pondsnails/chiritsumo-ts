@@ -16,6 +16,7 @@
  */
 
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
+import { getTodayDateString } from '../utils/dateUtils';
 
 const VELOCITY_DATA_KEY = 'velocity_measurement_data';
 const VELOCITY_SETTINGS_KEY = 'velocity_settings';

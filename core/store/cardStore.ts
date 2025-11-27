@@ -11,6 +11,7 @@ interface CardState {
   fetchDueCards: (bookIds: string[]) => Promise<Card[]>;
   updateCardReview: (cardId: string, bookId: string, rating: 1 | 2 | 3 | 4, mode: 0 | 1 | 2) => Promise<void>;
   bulkUpdateCardReviews: (cards: Card[], ratings: (1 | 2 | 3 | 4)[], mode: 0 | 1 | 2) => Promise<void>;
+  resetAllCards: () => Promise<void>;
 }
 
 const cardRepo = new DrizzleCardRepository();
@@ -63,6 +64,19 @@ export const useCardStore = create<CardState>((set) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to bulk update cards';
       set({ error: message });
+      throw error;
+    }
+  },
+
+  resetAllCards: async () => {
+    try {
+      set({ isLoading: true });
+      await cardRepo.resetAll();
+      const allCards = await cardRepo.findAll();
+      set({ cards: allCards, isLoading: false });
+    } catch (error) {
+      console.error('Failed to reset cards:', error);
+      set({ error: 'Failed to reset cards', isLoading: false });
       throw error;
     }
   },

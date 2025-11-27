@@ -23,10 +23,26 @@ export interface RecommendationResult {
 export function computeRecommendedNewAllocation(input: RecommendationInput): RecommendationResult {
   const { books, selectedBookIds, reviewLex, newLexCurrent, targetLex } = input;
   const deficitLex = Math.max(0, targetLex - (reviewLex + newLexCurrent));
-  if (deficitLex <= 0) return { perBook: {}, total: 0 };
+  
+  console.log('[RecommendationService] Input:', {
+    booksCount: books.length,
+    selectedBookIds,
+    reviewLex,
+    newLexCurrent,
+    targetLex,
+    deficitLex,
+  });
 
   const selected = books.filter(b => selectedBookIds.includes(b.id));
-  if (selected.length === 0) return { perBook: {}, total: 0 };
+  console.log('[RecommendationService] Selected books:', selected.length);
+  
+  if (selected.length === 0) {
+    console.log('[RecommendationService] No selected books, returning empty');
+    return { perBook: {}, total: 0 };
+  }
+
+  // 目標達成後も最低10枚は割り当てる（無限に追加可能）
+  const effectiveDeficit = Math.max(deficitLex, 100); // 最低100 Lex分（約10枚）
 
   // 重み: priority(1.3 or 1.0) × lexPerCard（高Lexほど割当が進む）
   const shares = selected.map(b => {
@@ -41,7 +57,7 @@ export function computeRecommendedNewAllocation(input: RecommendationInput): Rec
 
   // まずは各書籍に割り当てるLexを決め、枚数に落とし込む
   const initial = shares.map(x => {
-    const lexForBook = (deficitLex * x.share) / totalShare;
+    const lexForBook = (effectiveDeficit * x.share) / totalShare;
     const cards = Math.round(lexForBook / x.lexPer);
     return { id: x.book.id, cards: Math.max(0, cards) };
   });
@@ -61,7 +77,7 @@ export function computeRecommendedNewAllocation(input: RecommendationInput): Rec
 
   // 目標Lexに対する見込みLex
   const estimatedLex = shares.reduce((s, x) => s + (result[x.book.id] || 0) * x.lexPer, 0);
-  let lexGap = deficitLex - estimatedLex;
+  let lexGap = effectiveDeficit - estimatedLex;
 
   // ギャップが大きければ、高lexPerから順に1枚ずつ足す（最大+selected.length枚）
   if (lexGap > 0) {
@@ -73,6 +89,8 @@ export function computeRecommendedNewAllocation(input: RecommendationInput): Rec
       lexGap -= x.lexPer;
     }
   }
+
+  console.log('[RecommendationService] Final result:', { perBook: result, total: totalCards });
 
   return { perBook: result, total: totalCards };
 }

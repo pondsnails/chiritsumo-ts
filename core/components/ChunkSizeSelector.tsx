@@ -31,8 +31,26 @@ export default function ChunkSizeSelector({ value, onChange, totalUnit, disabled
       onRequestPro && onRequestPro();
       return;
     }
-    const n = parseInt(customInput, 10);
-    if (!Number.isFinite(n) || n <= 0) return;
+    
+    // 厳密なバリデーション
+    const trimmed = customInput.trim();
+    if (trimmed === '') return;
+    
+    const n = parseInt(trimmed, 10);
+    
+    // NaN、無限、負の数、小数、0を弾く
+    if (!Number.isFinite(n) || n <= 0 || n !== parseFloat(trimmed)) {
+      // 不正な入力の場合、現在の値に戻す
+      setCustomInput(String(value));
+      return;
+    }
+    
+    // 上限チェック（1000を超える値は非現実的）
+    if (n > 1000) {
+      setCustomInput(String(value));
+      return;
+    }
+    
     onChange(n);
   };
 

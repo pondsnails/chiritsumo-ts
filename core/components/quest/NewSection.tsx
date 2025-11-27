@@ -28,18 +28,36 @@ export function NewSection({
 }: NewSectionProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // デバッグ情報
+  console.log('[NewSection] Debug:', {
+    targetLex,
+    combinedLex,
+    deficit: targetLex - combinedLex,
+    recommendedTotal,
+    recommendedPerBook,
+    hasReviewPending,
+    newDeemphasized,
+  });
+
+  const deficit = Math.max(0, targetLex - combinedLex);
+  const isTargetMet = deficit === 0;
+
   return (
-    <View style={[(newDeemphasized || hasReviewPending) && styles.dimSection]}>
+    <View style={[hasReviewPending && styles.dimSection]}>
       <Text style={styles.title}>🌱 新規{hasReviewPending ? '（復習完了後に推奨）' : ''}</Text>
       <View style={[glassEffect.card, styles.card]}>
-        <Text style={styles.shortage}>不足 {Math.max(0, targetLex - combinedLex)} Lex / 推奨 {recommendedTotal} 枚</Text>
+        {isTargetMet ? (
+          <Text style={styles.shortage}>✅ 目標達成！ さらに {recommendedTotal} 枚追加可能</Text>
+        ) : (
+          <Text style={styles.shortage}>不足 {deficit} Lex / 推奨 {recommendedTotal} 枚</Text>
+        )}
         <TouchableOpacity
           style={[styles.button, (recommendedTotal === 0 || hasReviewPending) && { opacity: 0.5 }]}
           disabled={recommendedTotal === 0 || hasReviewPending}
           onPress={onAssignRecommended}
         >
           <Play color={colors.text} size={20} strokeWidth={2} fill={colors.text} />
-          <Text style={styles.buttonText}>推奨を割り当てる</Text>
+          <Text style={styles.buttonText}>{isTargetMet ? '追加で割り当てる' : '推奨を割り当てる'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.toggle} onPress={() => setShowAdvanced(p => !p)}>
           <Text style={styles.toggleText}>{showAdvanced ? '詳細を閉じる' : '書籍別を見る'}</Text>

@@ -2,6 +2,7 @@ import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { calculateLexPerCard } from '../logic/lexCalculator';
+import { getTodayDateString } from './dateUtils';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
 const settingsRepo = new DrizzleSystemSettingsRepository();
@@ -41,7 +42,7 @@ export async function performDailyRollover(
   currentBalance: number
 ): Promise<{ success: boolean; newBalance: number; targetLex: number }> {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
 
     // DBから直接モード別のカード数を取得（全件ロード回避）
     const modeCountsList = await cardRepo.getCardCountsByBookMode();

@@ -1,4 +1,5 @@
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
+import { getTodayDateString, formatDate } from './dateUtils';
 
 /**
  * 連続学習日数（ストリーク）を計算
@@ -24,7 +25,7 @@ export async function calculateCurrentStreak(): Promise<number> {
     }
 
     // 今日の日付（YYYY-MM-DD形式）
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     
     // 最新の学習日が今日でない場合、ストリークは途切れている
     if (activeDays[0] !== today) {
@@ -37,7 +38,7 @@ export async function calculateCurrentStreak(): Promise<number> {
     // 昨日から遡って連続日数をカウント
     for (let i = 1; i < activeDays.length; i++) {
       expectedDate.setDate(expectedDate.getDate() - 1);
-      const expectedDateStr = expectedDate.toISOString().split('T')[0];
+      const expectedDateStr = formatDate(expectedDate);
 
       if (activeDays[i] === expectedDateStr) {
         streak++;

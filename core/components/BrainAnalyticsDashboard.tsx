@@ -5,6 +5,7 @@ import { Brain, TrendingUp, Clock, Target } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { DrizzleCardRepository } from '@core/repository/CardRepository';
+import { formatDate } from '@core/utils/dateUtils';
 import type { Card } from '@core/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -66,13 +67,13 @@ export const BrainAnalyticsDashboard: React.FC = () => {
     const reviewCountByDate = new Map<string, number>();
     cards.forEach(card => {
       if (!card.lastReview) return;
-      const reviewDate = new Date(card.lastReview).toISOString().split('T')[0];
+      const reviewDate = formatDate(new Date(card.lastReview));
       reviewCountByDate.set(reviewDate, (reviewCountByDate.get(reviewDate) || 0) + 1);
     });
     
     for (let i = 89; i >= 0; i--) {
       const date = new Date(now - i * oneDayMs);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = formatDate(date);
       const count = reviewCountByDate.get(dateString) || 0;
       data.push({ date: dateString, count });
     }

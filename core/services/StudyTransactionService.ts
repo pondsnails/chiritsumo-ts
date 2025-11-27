@@ -16,6 +16,7 @@ import { eq, sql } from 'drizzle-orm';
 import { createScheduler } from '../fsrs/scheduler';
 import { calculateLexForCard } from '../logic/lexCalculator';
 import type { Card } from '../types';
+import { getTodayDateString } from '../utils/dateUtils';
 
 const db = getDrizzleDb();
 
@@ -53,7 +54,7 @@ export async function processCardReview(
     // 3. 成功(rating 3 or 4)の場合のみLedger更新
     if (rating === 3 || rating === 4) {
       const lexEarned = calculateLexForCard(mode, updatedCard);
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateString();
 
       // 今日の台帳レコードを取得または作成
       const existingLedger = await tx
@@ -141,7 +142,7 @@ export async function processBulkCardReviews(
 
     // 2. 合算Lexを台帳に追加
     if (totalLexEarned > 0) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateString();
 
       const existingLedger = await tx
         .select()

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Download, Upload, Trash2, Info, CreditCard } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
@@ -267,6 +267,32 @@ export default function SettingsScreen() {
     );
   };
 
+  // 開発用: カードリセット
+  const handleDevResetCards = () => {
+    Alert.alert(
+      'カードリセット',
+      'すべてのカードを新規状態にリセットします。\n\n• FSRS学習データを削除\n• すべて"New"状態に戻る\n• 書籍データは保持されます',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { 
+          text: 'リセット', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { resetAllCards } = useCardStore.getState();
+              await resetAllCards();
+              await fetchCards();
+              Alert.alert('完了', 'すべてのカードを新規状態にリセットしました。');
+            } catch (error) {
+              console.error('Failed to reset cards:', error);
+              Alert.alert('エラー', 'カードのリセットに失敗しました');
+            }
+          }
+        },
+      ]
+    );
+  };
+
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -455,6 +481,16 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>アプリ情報</Text>
             
+            <TouchableOpacity
+              style={[glassEffect.card, styles.menuItem]}
+              onPress={() => router.push('/cards' as any)}
+            >
+              <View style={styles.menuItemLeft}>
+                <ListChecks color={colors.primary} size={20} strokeWidth={2} />
+                <Text style={styles.menuItemText}>カード一覧（全データ公開）</Text>
+              </View>
+            </TouchableOpacity>
+
             <View style={[glassEffect.card, styles.menuItem]}>
               <View style={styles.menuItemLeft}>
                 <Info color={colors.textSecondary} size={20} strokeWidth={2} />
@@ -539,6 +575,27 @@ export default function SettingsScreen() {
                     </Text>
                     <Text style={styles.devToggleStatus}>
                       初回起動チュートリアルを再表示
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.devToggleHint}>リセット</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[glassEffect.card, styles.devToggleCard]}
+                onPress={handleDevResetCards}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={[
+                    styles.statusIndicator,
+                    { backgroundColor: colors.error }
+                  ]} />
+                  <View>
+                    <Text style={styles.devToggleTitle}>
+                      カードリセット
+                    </Text>
+                    <Text style={styles.devToggleStatus}>
+                      すべてのカードを新規状態に戻す
                     </Text>
                   </View>
                 </View>
