@@ -42,10 +42,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       console.warn('devToggleProStatus is only available in development mode');
       return;
     }
-    set((state) => ({ 
-      isProUser: !state.isProUser 
-    }));
-    console.log(`[DEV] Pro status toggled to: ${!get().isProUser ? 'PRO' : 'FREE'}`);
+    const currentStatus = get().isProUser;
+    set({ 
+      isProUser: !currentStatus 
+    });
+    console.log(`[DEV] Pro status toggled: ${currentStatus ? 'PRO → FREE' : 'FREE → PRO'}`);
   },
 
   initializePurchases: async () => {

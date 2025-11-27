@@ -40,6 +40,7 @@ export default function SettingsScreen() {
   const [selectedProfileId, setSelectedProfileId] = useState('moderate');
   const [customLexTarget, setCustomLexTarget] = useState('200');
   const [dailyLexTarget, setDailyLexTarget] = useState(200);
+  const [forceUpdate, setForceUpdate] = useState(0); // 強制再レンダリング用
 
   // 開発モードチェック
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -47,6 +48,11 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadLexSettings();
   }, []);
+
+  // Pro版ステータス変更時にLex設定を再読み込み
+  useEffect(() => {
+    loadLexSettings();
+  }, [isProUser]);
 
   const loadLexSettings = async () => {
     const settings = await getUserLexSettings();
@@ -196,6 +202,13 @@ export default function SettingsScreen() {
     router.push('/paywall');
   };
 
+  // 開発用: Pro版トグル
+  const handleDevTogglePro = () => {
+    devToggleProStatus();
+    // 状態変更後に強制的に再レンダリング
+    setForceUpdate(prev => prev + 1);
+  };
+
   return (
     <LinearGradient colors={[colors.background, colors.backgroundDark]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -340,29 +353,44 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>課金プラン</Text>
             
-            <View style={[glassEffect.card, styles.planCard]}>
-              <View style={styles.planHeader}>
-                <Text style={styles.planTitle}>Free Plan</Text>
-                <View style={styles.planBadge}>
-                  <Text style={styles.planBadgeText}>現在のプラン</Text>
+            {isProUser ? (
+              <View style={[glassEffect.card, styles.planCard]}>
+                <View style={styles.planHeader}>
+                  <Text style={styles.planTitle}>Pro Plan</Text>
+                  <View style={[styles.planBadge, { backgroundColor: colors.success + '20' }]}>
+                    <Text style={[styles.planBadgeText, { color: colors.success }]}>現在のプラン</Text>
+                  </View>
                 </View>
+                <Text style={styles.planDescription}>参考書登録: 無制限</Text>
+                <Text style={styles.planDescription}>全機能利用可能</Text>
               </View>
-              <Text style={styles.planDescription}>参考書登録: 3冊まで</Text>
-            </View>
+            ) : (
+              <>
+                <View style={[glassEffect.card, styles.planCard]}>
+                  <View style={styles.planHeader}>
+                    <Text style={styles.planTitle}>Free Plan</Text>
+                    <View style={styles.planBadge}>
+                      <Text style={styles.planBadgeText}>現在のプラン</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.planDescription}>参考書登録: 3冊まで</Text>
+                </View>
 
-            <TouchableOpacity
-              style={[glassEffect.card, styles.upgradeCard]}
-              onPress={handleUpgradeToPro}
-            >
-              <View style={styles.menuItemLeft}>
-                <CreditCard color={colors.success} size={20} strokeWidth={2} />
-                <View>
-                  <Text style={styles.upgradeTitle}>Pro Planにアップグレード</Text>
-                  <Text style={styles.upgradePrice}>買い切り: ¥3,600</Text>
-                  <Text style={[styles.upgradePrice, { color: colors.textTertiary, fontSize: 12 }]}>年額: ¥1,500 / 年</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[glassEffect.card, styles.upgradeCard]}
+                  onPress={handleUpgradeToPro}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <CreditCard color={colors.success} size={20} strokeWidth={2} />
+                    <View>
+                      <Text style={styles.upgradeTitle}>Pro Planにアップグレード</Text>
+                      <Text style={styles.upgradePrice}>買い切り: ¥3,600</Text>
+                      <Text style={[styles.upgradePrice, { color: colors.textTertiary, fontSize: 12 }]}>年額: ¥1,500 / 年</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {/* アプリ情報セクション */}
@@ -409,7 +437,7 @@ export default function SettingsScreen() {
 
               <TouchableOpacity
                 style={[glassEffect.card, styles.devToggleCard]}
-                onPress={devToggleProStatus}
+                onPress={handleDevTogglePro}
               >
                 <View style={styles.menuItemLeft}>
                   <View style={[
