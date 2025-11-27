@@ -168,8 +168,6 @@ core/                    # アプリケーションコア（app外に配置）
 │   ├── InventoryFilterModal.tsx
 │   └── ...
 ├── database/
-│   ├── db.ts           # Native(SQLite)統一エクスポート
-│   ├── db.native.ts    # SQLite実装（レガシーrawSQL、移行中）
 │   ├── drizzleClient.ts # Drizzle ORM クライアント
 │   ├── schema.ts       # Drizzle スキーマ定義
 │   └── supabase.ts
@@ -355,11 +353,9 @@ const db = drizzle(sqlite);
 
 ### 移行戦略
 
-レガシーDB（`db.native.ts`）とDrizzle Repositoryを並行運用し、段階的に移行中です：
-
 **Phase 1（完了）**: Repository実装 + Store層統合  
-**Phase 2（次回）**: UI層の残存レガシー参照排除  
-**Phase 3（将来）**: `db.native.ts`削除、完全Drizzle化
+**Phase 2（完了）**: UI層の残存レガシー参照を段階排除  
+**Phase 3（完了）**: `db.native.ts`削除、完全Drizzle化達成（v7.1.0）
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
