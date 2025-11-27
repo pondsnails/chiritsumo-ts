@@ -1,40 +1,25 @@
 /**
  * Velocity(学習速度)ベースの動的目標設定システム
  * 
- * 問題点:
- * - 固定のLexプロファイル(100, 200, 400...)では、ユーザーの実際の学習速度を無視している
- * - 「200 Lex」が何分かかるのか、初見ユーザーには全く分からない
- * 
- * 解決策:
- * - 最初の3日間は計測のみ行い、ユーザーの「Lex/分」を算出
- * - 「1日何分勉強したいか」を聞き、それに基づいて目標を自動算出
- * - 達成率に応じて目標を自動調整(Pro版限定)
+ * アーキテクチャ改善:
+ * - JSON文字列保存 → velocity_measurementsテーブルに正規化
+ * - SQL集計で平均速度を計算（メモリに全データを展開しない）
+ * - バックアップ・復元の信頼性向上
  * 
  * データ永続化:
- * - SQLite (system_settings テーブル) に保存
- * - AsyncStorage依存を排除し、バックアップに含まれるように修正
+ * - velocity_measurements テーブル: 日次の学習データ
+ * - system_settings テーブル: ユーザー設定（希望学習時間など）
  */
 
+import { DrizzleVelocityMeasurementRepository } from '../repository/VelocityMeasurementRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 import { getTodayDateString } from '../utils/dateUtils';
 
-const VELOCITY_DATA_KEY = 'velocity_measurement_data';
 const VELOCITY_SETTINGS_KEY = 'velocity_settings';
 const MEASUREMENT_PERIOD_DAYS = 3;
 
+const velocityRepo = new DrizzleVelocityMeasurementRepository();
 const settingsRepo = new DrizzleSystemSettingsRepository();
-
-export interface VelocityMeasurement {
-  date: string; // ISO date string
-  totalLexEarned: number;
-  totalMinutesSpent: number; // 実際の学習時間（分）
-}
-
-export interface VelocityData {
-  measurements: VelocityMeasurement[];
-  averageVelocity: number | null; // Lex/分（計測完了後に算出）
-  measurementCompleted: boolean;
-}
 
 export interface VelocitySettings {
   desiredDailyMinutes: number | null; // ユーザーが希望する1日の学習時間（分）
@@ -50,61 +35,64 @@ export async function recordDailyVelocity(
   minutesSpent: number
 ): Promise<void> {
   try {
-    const data = await getVelocityData();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
 
-    // 既存の今日のデータがあれば更新、なければ追加
-    const existingIndex = data.measurements.findIndex(m => m.date === today);
-    const newMeasurement: VelocityMeasurement = {
+    await velocityRepo.upsert({
       date: today,
-      totalLexEarned: lexEarned,
-      totalMinutesSpent: minutesSpent,
-    };
+      earned_lex: lexEarned,
+      minutes_spent: minutesSpent,
+    });
 
-    if (existingIndex >= 0) {
-      data.measurements[existingIndex] = newMeasurement;
-    } else {
-      data.measurements.push(newMeasurement);
-    }
-
-    // 最新3日分のみ保持
-    data.measurements = data.measurements.slice(-MEASUREMENT_PERIOD_DAYS);
-
-    // 3日分データが揃ったら平均Velocityを算出
-    if (data.measurements.length >= MEASUREMENT_PERIOD_DAYS) {
-      const totalLex = data.measurements.reduce((sum, m) => sum + m.totalLexEarned, 0);
-      const totalMinutes = data.measurements.reduce((sum, m) => sum + m.totalMinutesSpent, 0);
-      
-      if (totalMinutes > 0) {
-        data.averageVelocity = totalLex / totalMinutes;
-        data.measurementCompleted = true;
-      }
-    }
-
-    await settingsRepo.set(VELOCITY_DATA_KEY, JSON.stringify(data));
+    // 古いデータを削除（最新N日分のみ保持）
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - MEASUREMENT_PERIOD_DAYS);
+    await velocityRepo.deleteOlderThan(getTodayDateString(cutoffDate));
   } catch (error) {
     console.error('Failed to record velocity:', error);
   }
 }
 
 /**
- * Velocity計測データを取得
+ * 平均学習速度を取得（Lex/分）
  */
-export async function getVelocityData(): Promise<VelocityData> {
+export async function getAverageVelocity(): Promise<number | null> {
   try {
-    const json = await settingsRepo.get(VELOCITY_DATA_KEY);
-    if (json) {
-      return JSON.parse(json);
+    const stats = await velocityRepo.getAverageVelocity(MEASUREMENT_PERIOD_DAYS);
+    
+    if (!stats || stats.totalMeasurements < MEASUREMENT_PERIOD_DAYS) {
+      return null; // 計測期間不足
     }
-  } catch (error) {
-    console.error('Failed to get velocity data:', error);
-  }
 
-  return {
-    measurements: [],
-    averageVelocity: null,
-    measurementCompleted: false,
-  };
+    return stats.avgVelocity;
+  } catch (error) {
+    console.error('Failed to get average velocity:', error);
+    return null;
+  }
+}
+
+/**
+ * 計測が完了しているかチェック
+ */
+export async function isMeasurementCompleted(): Promise<boolean> {
+  try {
+    const recentMeasurements = await velocityRepo.findRecent(MEASUREMENT_PERIOD_DAYS);
+    return recentMeasurements.length >= MEASUREMENT_PERIOD_DAYS;
+  } catch (error) {
+    console.error('Failed to check measurement status:', error);
+    return false;
+  }
+}
+
+/**
+ * 最近の計測データを取得
+ */
+export async function getRecentMeasurements(days: number = MEASUREMENT_PERIOD_DAYS) {
+  try {
+    return await velocityRepo.findRecent(days);
+  } catch (error) {
+    console.error('Failed to get recent measurements:', error);
+    return [];
+  }
 }
 
 /**
@@ -132,13 +120,13 @@ export async function getVelocitySettings(): Promise<VelocitySettings> {
  */
 export async function setDesiredDailyMinutes(minutes: number): Promise<number> {
   try {
-    const data = await getVelocityData();
+    const avgVelocity = await getAverageVelocity();
     
-    if (!data.averageVelocity) {
+    if (!avgVelocity) {
       throw new Error('Velocity measurement not completed');
     }
 
-    const calculatedTarget = Math.floor(data.averageVelocity * minutes);
+    const calculatedTarget = Math.floor(avgVelocity * minutes);
     
     const settings: VelocitySettings = {
       desiredDailyMinutes: minutes,
@@ -214,7 +202,11 @@ export async function adjustTargetBasedOnPerformance(
  */
 export async function resetVelocityMeasurement(): Promise<void> {
   try {
-    await settingsRepo.delete(VELOCITY_DATA_KEY);
+    // velocity_measurementsテーブルの全データを削除
+    const farFutureDate = '9999-12-31';
+    await velocityRepo.deleteOlderThan(farFutureDate);
+    
+    // 設定もリセット
     await settingsRepo.delete(VELOCITY_SETTINGS_KEY);
   } catch (error) {
     console.error('Failed to reset velocity measurement:', error);

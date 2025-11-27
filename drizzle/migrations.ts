@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 `;
 
+const sql_0001 = `
+CREATE TABLE IF NOT EXISTS velocity_measurements (
+	date text PRIMARY KEY NOT NULL,
+	earned_lex integer DEFAULT 0 NOT NULL,
+	minutes_spent integer DEFAULT 0 NOT NULL,
+	created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+`;
+
 export default {
   journal: {
     entries: [
@@ -81,10 +90,18 @@ export default {
         when: Date.now(),
         tag: "0000_initial",
         breakpoints: true
+      },
+      {
+        idx: 1,
+        version: "5",
+        when: Date.now(),
+        tag: "0001_velocity_measurements",
+        breakpoints: true
       }
     ]
   },
   migrations: {
-    m0000: sql_0000
+    m0000: sql_0000,
+    m0001: sql_0001
   }
 };

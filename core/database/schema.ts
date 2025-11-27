@@ -89,6 +89,16 @@ export const systemSettings = sqliteTable('system_settings', {
   updated_at: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// ---------------------------------------------------------
+// 3.6 velocity_measurements (学習速度計測データ)
+// ---------------------------------------------------------
+export const velocityMeasurements = sqliteTable('velocity_measurements', {
+  date: text('date').primaryKey(), // YYYY-MM-DD
+  earned_lex: integer('earned_lex').notNull().default(0),
+  minutes_spent: integer('minutes_spent').notNull().default(0), // 学習時間（分）
+  created_at: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Types Export
 export type Book = typeof books.$inferSelect;
 export type NewBook = typeof books.$inferInsert;
@@ -97,3 +107,5 @@ export type Ledger = typeof ledger.$inferSelect;
 export type InventoryPresetRow = typeof inventoryPresets.$inferSelect;
 export type PresetBookRow = typeof presetBooks.$inferSelect;
 export type SystemSetting = typeof systemSettings.$inferSelect;
+export type VelocityMeasurement = typeof velocityMeasurements.$inferSelect;
+export type NewVelocityMeasurement = typeof velocityMeasurements.$inferInsert;
