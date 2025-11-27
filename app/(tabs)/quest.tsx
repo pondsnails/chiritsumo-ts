@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useQuestData } from '../../hooks/useQuestData';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -19,194 +19,59 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
-import { useCardStore } from '@core/store/cardStore';
-import { calculateLexPerCard } from '@core/logic/lexCalculator';
-import { DrizzleCardRepository } from '@core/repository/CardRepository';
-import { DrizzleInventoryPresetRepository } from '@core/repository/InventoryPresetRepository';
-import { getDailyLexTarget } from '@core/services/lexSettingsService';
 import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
-import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
 import { SummaryCards, ReviewSection, NewSection } from '@core/components/quest';
 import i18n from '@core/i18n';
-import type { Card, InventoryPreset } from '@core/types';
+import type { InventoryPreset } from '@core/types';
+
 
 export default function QuestScreen() {
   const router = useRouter();
-  const { books, fetchBooks } = useBookStore();
-  const { fetchDueCards } = useCardStore();
   
-  // Repository instances
-  const cardRepo = new DrizzleCardRepository();
-  const presetRepo = new DrizzleInventoryPresetRepository();
+  // useQuestDataフックからすべてのデータとロジックを取得
+  const questData = useQuestData();
+  const {
+    isLoading,
+    dueCards,
+    newCards,
+    presets,
+    activePresetId,
+    setActivePresetId,
+    refreshAll,
+    refreshDue,
+    dailyTargetLex,
+    initialDueCount,
+    reviewLex,
+    newLexCurrent,
+    targetLex,
+    combinedLex,
+    recommended,
+    groupedReviewCards,
+    groupedNewCards,
+    selectedBookIds,
+    globalNext,
+    globalNextBook,
+  } = questData;
   
-  const [isLoading, setIsLoading] = useState(true);
-  const [dueCards, setDueCards] = useState<Card[]>([]);
-  const [newCards, setNewCards] = useState<Card[]>([]);
-  const [presets, setPresets] = useState<InventoryPreset[]>([]);
-  const [activePresetId, setActivePresetId] = useState<number | null>(null);
+  const { books } = useBookStore();
+  
+  // UI状態のみ管理
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [registerDefaultBook, setRegisterDefaultBook] = useState<string | undefined>(undefined);
   const [showActionsModal, setShowActionsModal] = useState(false);
-  const [dailyTargetLex, setDailyTargetLex] = useState<number>(600); // 設定画面の値
-  const [initialDueCount, setInitialDueCount] = useState<number>(0);
   const [celebrate, setCelebrate] = useState(false);
   const [showCompletionToast, setShowCompletionToast] = useState(false);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [])
+      refreshAll();
+    }, [refreshAll])
   );
-
-  useEffect(() => {
-    if (books.length > 0) {
-      loadDueCards();
-      loadNewCards();
-    }
-  }, [books, activePresetId]);
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      await fetchBooks();
-      await loadPresets();
-      await loadDailyTarget();
-    } catch (error) {
-      console.error('Failed to load quest data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadPresets = async () => {
-    try {
-      const loadedPresets = await presetRepo.findAll();
-      setPresets(loadedPresets);
-      const defaultPreset = loadedPresets.find(p => p.isDefault);
-      if (defaultPreset) {
-        setActivePresetId(defaultPreset.id);
-      }
-    } catch (error) {
-      console.error('Failed to load presets:', error);
-    }
-  };
-
-  const loadDueCards = async () => {
-    try {
-      let bookIdsToQuery: string[];
-
-      if (activePresetId) {
-        const activePreset = presets.find(p => p.id === activePresetId);
-        bookIdsToQuery = activePreset?.bookIds || [];
-      } else {
-        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-      }
-
-      // プリセットが空配列の場合は全アクティブ書籍を対象にフォールバック
-      if (bookIdsToQuery.length === 0 && books.length > 0) {
-        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-        if (bookIdsToQuery.length === 0) {
-          // アクティブ書籍が無い場合は全書籍を対象（復元直後の互換性フォールバック）
-          bookIdsToQuery = books.map(b => b.id);
-        }
-      }
-
-      if (bookIdsToQuery.length > 0) {
-        const cards = await fetchDueCards(bookIdsToQuery);
-        setDueCards(cards);
-        // 初期カウント未設定なら設定（開始時の総復習枚数）
-        setInitialDueCount(prev => prev === 0 ? cards.length : prev);
-      } else {
-        setDueCards([]);
-      }
-    } catch (error) {
-      console.error('Failed to load due cards:', error);
-      setDueCards([]);
-    }
-  };
-
-  const loadNewCards = async () => {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      let bookIdsToQuery: string[];
-
-      if (activePresetId) {
-        const activePreset = presets.find(p => p.id === activePresetId);
-        bookIdsToQuery = activePreset?.bookIds || [];
-      } else {
-        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-      }
-
-      // プリセットが空配列の場合は全アクティブ書籍を対象にフォールバック
-      if (bookIdsToQuery.length === 0 && books.length > 0) {
-        bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-        if (bookIdsToQuery.length === 0) {
-          // アクティブ書籍が無い場合は全書籍を対象（復元直後の互換性フォールバック）
-          bookIdsToQuery = books.map(b => b.id);
-        }
-      }
-
-      if (bookIdsToQuery.length > 0) {
-        // 今日割り当てられた新規カード（state=0, due=today）を取得
-        const allNewCards = await cardRepo.findNew(bookIdsToQuery);
-        const todayNewCards = allNewCards.filter(card => {
-          const cardDue = new Date(card.due);
-          cardDue.setHours(0, 0, 0, 0);
-          return cardDue.getTime() === today.getTime() && bookIdsToQuery.includes(card.bookId);
-        });
-        setNewCards(todayNewCards);
-      } else {
-        setNewCards([]);
-      }
-    } catch (error) {
-      console.error('Failed to load new cards:', error);
-      setNewCards([]);
-    }
-  };
-
-  const loadDailyTarget = async () => {
-    try {
-      const target = await getDailyLexTarget();
-      setDailyTargetLex(target);
-    } catch (error) {
-      // デフォルトは moderate 相当の600
-      setDailyTargetLex(600);
-    }
-  };
-
-  const calculateTotalLex = (cards: Card[]) => {
-    const bookModeMap = new Map(books.map(b => [b.id, b.mode]));
-    return cards.reduce((total, card) => {
-      const mode = bookModeMap.get(card.bookId) || 0;
-      return total + calculateLexPerCard(mode);
-    }, 0);
-  };
-
-  const groupCardsByBook = (cards: Card[]) => {
-    const bookMap = new Map(books.map(b => [b.id, b]));
-    const grouped = new Map<string, { book: typeof books[0]; cards: Card[] }>();
-
-    cards.forEach(card => {
-      const book = bookMap.get(card.bookId);
-      if (book) {
-        if (!grouped.has(card.bookId)) {
-          grouped.set(card.bookId, { book, cards: [] });
-        }
-        grouped.get(card.bookId)!.cards.push(card);
-      }
-    });
-
-    return Array.from(grouped.values());
-  };
 
   const getModeLabel = (mode: 0 | 1 | 2) => {
     switch (mode) {
@@ -236,53 +101,8 @@ export default function QuestScreen() {
     setShowFilterModal(true);
   };
 
-  const handlePresetsChange = async () => {
-    await loadPresets();
-    await loadDueCards();
-  };
-
-  // 旧ロジック: レビュー/新規を別グループ化（書籍ごと1カード/カテゴリ）
-  const groupedReviewCards = useMemo(() => groupCardsByBook(dueCards), [dueCards]);
-  const groupedNewCards = useMemo(() => groupCardsByBook(newCards), [newCards]);
-
-  // 目標と不足の計算
-  const reviewLex = useMemo(() => calculateTotalLex(dueCards), [dueCards, books]);
-  const newLexCurrent = useMemo(() => calculateTotalLex(newCards), [newCards, books]);
-  const targetLex = dailyTargetLex;
-  const combinedLex = reviewLex + newLexCurrent;
-
-  const selectedBookIds = useMemo(() => {
-    if (activePresetId) {
-      const activePreset = presets.find(p => p.id === activePresetId);
-      return activePreset?.bookIds || [];
-    }
-    return books.filter(b => b.status === 0).map(b => b.id);
-  }, [activePresetId, presets, books]);
-
-  const recommended = useMemo(() => {
-    return computeRecommendedNewAllocation({
-      books,
-      selectedBookIds,
-      reviewLex,
-      newLexCurrent,
-      targetLex,
-    });
-  }, [books, selectedBookIds, reviewLex, newLexCurrent, targetLex]);
-
   const newDeemphasized = combinedLex >= targetLex;
   const hasReviewPending = dueCards.length > 0;
-  // 全 dueCards から最も早い due を取得（グローバル次カード）
-  const globalNext = useMemo(() => {
-    if (dueCards.length === 0) return null;
-    const now = new Date();
-    const filtered = dueCards.filter(c => c.due <= now);
-    if (filtered.length === 0) return null;
-    return filtered.sort((a, b) => a.due.getTime() - b.due.getTime())[0];
-  }, [dueCards]);
-  const globalNextBook = useMemo(() => {
-    if (!globalNext) return null;
-    return books.find(b => b.id === globalNext.bookId) || null;
-  }, [globalNext, books]);
 
   // 全復習完了検知（前フレーム >0 -> 現在 0）
   const prevDueCountRef = React.useRef<number>(0);
@@ -398,8 +218,7 @@ export default function QuestScreen() {
                     // デフォルトで合計10枚をラウンドロビン配布
                     const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
                     if (created > 0) {
-                      await loadDueCards();
-                      await loadNewCards();
+                      await refreshAll();
                     }
                   } catch (e) {
                     console.error('Quick start failed', e);
@@ -424,7 +243,7 @@ export default function QuestScreen() {
                   groupedReviewCards={groupedReviewCards}
                   globalNext={globalNext}
                   globalNextBook={globalNextBook}
-                  onReviewComplete={loadDueCards}
+                  onReviewComplete={refreshDue}
                 />
               )}
 
@@ -440,9 +259,7 @@ export default function QuestScreen() {
                   try {
                     const created = await assignNewCardsByAllocation(books, recommended.perBook);
                     if (created > 0) {
-                      await loadDueCards();
-                      await loadNewCards();
-                      await loadDailyTarget();
+                      await refreshAll();
                     }
                   } catch (e) {
                     console.error('Assign recommended new failed', e);
@@ -459,7 +276,7 @@ export default function QuestScreen() {
         onClose={() => setShowFilterModal(false)}
         books={books}
         presets={presets}
-        onPresetsChange={handlePresetsChange}
+        onPresetsChange={refreshAll}
       />
       {/* Actions modal */}
       <Modal visible={showActionsModal} transparent animationType="fade">
@@ -496,8 +313,7 @@ export default function QuestScreen() {
                   if (bookIdsToQuery.length === 0) return;
                   const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
                   if (created > 0) {
-                    await loadDueCards();
-                    await loadNewCards();
+                    await refreshAll();
                   }
                 } catch (e) {
                   console.error('Quick assign from actions menu failed', e);
@@ -527,8 +343,7 @@ export default function QuestScreen() {
           try {
             const created = await (await import('@core/services/cardPlanService')).registerStudiedRange(book, s, e, true);
             if (created > 0) {
-              await loadDueCards();
-              await loadNewCards();
+              await refreshAll();
             }
           } catch (err) {
             console.error('failed to register studied range', err);
