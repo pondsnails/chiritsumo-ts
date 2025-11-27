@@ -2,10 +2,10 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 // Expo SDK 54: 新API移行まではレガシー互換APIを使用
 import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
+import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
 export interface BackupData {
   version: string;
@@ -13,6 +13,7 @@ export interface BackupData {
   books: any[];
   cards: any[];
   ledger: any[];
+  systemSettings?: any[]; // オプショナル（既存バックアップとの互換性）
 }
 
 /**
@@ -23,11 +24,13 @@ export const exportBackup = async (): Promise<void> => {
     const bookRepo = new DrizzleBookRepository();
     const cardRepo = new DrizzleCardRepository();
     const ledgerRepo = new DrizzleLedgerRepository();
+    const settingsRepo = new DrizzleSystemSettingsRepository();
     
     // 全テーブルからデータを取得
     const booksData = await bookRepo.findAll();
     const cardsData = await cardRepo.findAll();
     const ledgerData = await ledgerRepo.findAll();
+    const systemSettingsData = await settingsRepo.getAll();
 
     const backup: BackupData = {
       version: '1.0.0',
@@ -35,23 +38,12 @@ export const exportBackup = async (): Promise<void> => {
       books: booksData,
       cards: cardsData,
       ledger: ledgerData,
+      systemSettings: systemSettingsData,
     };
 
     const jsonString = JSON.stringify(backup, null, 2);
     
-    // Webの場合はダウンロード
-    if (Platform.OS === 'web') {
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chiritsumo_backup_${new Date().getTime()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
-
-    // ネイティブの場合はファイルシステムに保存してシェア
+    // ファイルシステムに保存してシェア
     const isAvailable = await Sharing.isAvailableAsync();
     if (!isAvailable) {
       throw new Error('Sharing is not available on this device');
@@ -82,6 +74,7 @@ export interface ImportResult {
   booksUpdated: number;
   cardsUpserted: number;
   ledgerAdded: number;
+  systemSettingsRestored?: number; // オプショナル（旧バックアップ互換性）
 }
 
 export const importBackup = async (
@@ -91,6 +84,7 @@ export const importBackup = async (
     const bookRepo = new DrizzleBookRepository();
     const cardRepo = new DrizzleCardRepository();
     const ledgerRepo = new DrizzleLedgerRepository();
+    const settingsRepo = new DrizzleSystemSettingsRepository();
     
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/json',
@@ -101,16 +95,9 @@ export const importBackup = async (
       return { booksAdded: 0, booksUpdated: 0, cardsUpserted: 0, ledgerAdded: 0 };
     }
 
-    let jsonString: string;
-    // Web環境の場合
-    if (Platform.OS === 'web' && result.assets[0].file) {
-      const file = result.assets[0].file as File;
-      jsonString = await file.text();
-    } else {
-      // ネイティブ環境ではURIから読み込み
-      const fileUri = result.assets[0].uri;
-      jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
-    }
+    // URIから読み込み
+    const fileUri = result.assets[0].uri;
+    const jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
 
     const backup: BackupData = JSON.parse(jsonString);
 
@@ -182,9 +169,18 @@ export const importBackup = async (
         }));
         await ledgerRepo.bulkAdd(normalizedLedger);
         ledgerAdded = normalizedLedger.length;
+        
+        // systemSettings復元（あれば）
+        let systemSettingsRestored = 0;
+        if (backup.systemSettings && backup.systemSettings.length > 0) {
+          for (const setting of backup.systemSettings) {
+            await settingsRepo.set(setting.key, setting.value);
+            systemSettingsRestored++;
+          }
+        }
 
         console.log('Backup replaced successfully (Native)');
-        return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded };
+        return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded, systemSettingsRestored };
       }
 
       // 書籍データをマージ（比較）: 追加・更新を事前に振り分け、一括実行
@@ -230,9 +226,18 @@ export const importBackup = async (
         await ledgerRepo.bulkAdd(ledgerToAdd);
         ledgerAdded = ledgerToAdd.length;
       }
+      
+      // systemSettings復元（あれば上書き）
+      let systemSettingsRestored = 0;
+      if (backup.systemSettings && backup.systemSettings.length > 0) {
+        for (const setting of backup.systemSettings) {
+          await settingsRepo.set(setting.key, setting.value);
+          systemSettingsRestored++;
+        }
+      }
 
       console.log('Backup merged successfully (Native)');
-      return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded };
+      return { booksAdded, booksUpdated, cardsUpserted, ledgerAdded, systemSettingsRestored };
     } catch (error) {
       console.error('Failed to merge backup:', error);
       throw error;

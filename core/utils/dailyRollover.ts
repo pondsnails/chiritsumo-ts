@@ -1,14 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
+import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 import { getDueCardsCount } from '../fsrs/scheduler';
 import { calculateLexPerCard } from '../logic/lexCalculator';
 import type { Card, Book } from '../types';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
+const settingsRepo = new DrizzleSystemSettingsRepository();
 
 export async function getLastRolloverDate(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(LAST_ROLLOVER_KEY);
+    return await settingsRepo.get(LAST_ROLLOVER_KEY);
   } catch (error) {
     console.error('Failed to get last rollover date:', error);
     return null;
@@ -17,7 +18,7 @@ export async function getLastRolloverDate(): Promise<string | null> {
 
 export async function setLastRolloverDate(date: string): Promise<void> {
   try {
-    await AsyncStorage.setItem(LAST_ROLLOVER_KEY, date);
+    await settingsRepo.set(LAST_ROLLOVER_KEY, date);
   } catch (error) {
     console.error('Failed to set last rollover date:', error);
   }

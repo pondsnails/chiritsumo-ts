@@ -85,9 +85,7 @@ export default function StudyScreen() {
 
     try {
       if (rating === 3 || rating === 4) {
-        if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (confettiRef.current) {
           confettiRef.current.start();
         }
@@ -110,9 +108,7 @@ export default function StudyScreen() {
 
   const handleFailPressIn = () => {
     const timer = setTimeout(() => {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       openCamera();
     }, 800) as unknown as number;
     setLongPressTimer(timer);
@@ -142,15 +138,7 @@ export default function StudyScreen() {
         const photo = await cameraRef.takePictureAsync();
         const card = cards[currentIndex];
         
-        // Web版の場合はそのまま保存
-        if (Platform.OS === 'web') {
-          await cardRepo.update(card.id, { photoPath: photo.uri });
-          setShowCamera(false);
-          Alert.alert('保存完了', '写真メモを保存しました');
-          return;
-        }
-
-        // ネイティブ版: 永続ディレクトリにコピー
+        // 永続ディレクトリにコピー
         const timestamp = Date.now();
         const fileName = `memo_${card.id}_${timestamp}.jpg`;
         const permanentFile = new File(Paths.document, 'photos', fileName);

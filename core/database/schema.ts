@@ -72,9 +72,19 @@ export const inventoryPresets = sqliteTable('inventory_presets', {
   is_default: integer('is_default').notNull().default(0),
 });
 
+// ---------------------------------------------------------
+// 3.5 system_settings (システム設定・キーバリューストア)
+// ---------------------------------------------------------
+export const systemSettings = sqliteTable('system_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_at: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Types Export
 export type Book = typeof books.$inferSelect;
 export type NewBook = typeof books.$inferInsert;
 export type Card = typeof cards.$inferSelect;
 export type Ledger = typeof ledger.$inferSelect;
 export type InventoryPresetRow = typeof inventoryPresets.$inferSelect;
+export type SystemSetting = typeof systemSettings.$inferSelect;
