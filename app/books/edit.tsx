@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar, Target, TrendingUp, Share2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useStores } from '@core/hooks/useStores';
+import { useBookStore } from '@core/store/bookStore';
 import { useServices } from '@core/di/ServicesProvider';
 import { BookMode } from '@core/constants/enums';
 import { colors } from '@core/theme/colors';
@@ -33,9 +33,8 @@ import {
 export default function EditBookScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { useBookStore } = useStores();
+  const { bookRepo, cardRepo } = useServices();
   const { books, updateBook } = useBookStore();
-  const { cardRepo } = useServices();
   const [cards, setCards] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [totalUnit, setTotalUnit] = useState('');
@@ -106,7 +105,7 @@ export default function EditBookScreen() {
 
     try {
       setIsSaving(true);
-      await updateBook(id, {
+      await updateBook(bookRepo, id, {
         title: title.trim(),
         totalUnit: parseInt(totalUnit),
         completedUnit: parseInt(completedUnit),
@@ -160,7 +159,7 @@ export default function EditBookScreen() {
               try {
                 // 各書籍の完了日を一括更新
                 for (const [bookId, deadline] of result.bookDeadlines) {
-                  await updateBook(bookId, {
+                  await updateBook(bookRepo, bookId, {
                     targetCompletionDate: Math.floor(deadline.getTime() / 1000),
                   });
                 }

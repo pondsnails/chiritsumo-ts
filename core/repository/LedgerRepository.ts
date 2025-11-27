@@ -1,7 +1,7 @@
 import { ledger } from '../database/schema';
 import type { Ledger as RawLedger } from '../database/schema';
 import type { LedgerEntry } from '../types';
-import { eq, desc, asc } from 'drizzle-orm';
+import { eq, desc, asc, sql } from 'drizzle-orm';
 import { getDrizzleDb } from '../database/drizzleClient';
 
 export interface ILedgerRepository {
@@ -42,17 +42,13 @@ export class DrizzleLedgerRepository implements ILedgerRepository {
   
   async findActiveDaysDescending(limit?: number): Promise<number[]> {
     const db = await this.db();
-    let query = db
+    const query = db
       .select({ date: ledger.date })
       .from(ledger)
       .where(sql`${ledger.earned_lex} > 0`)
       .orderBy(desc(ledger.date));
     
-    if (limit) {
-      query = query.limit(limit);
-    }
-    
-    const rows = await query.all();
+    const rows = limit ? await query.limit(limit).all() : await query.all();
     return rows.map(r => Number(r.date));
   }
   async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {

@@ -75,7 +75,7 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
     _initialized = true;
     console.log('[Migration] Migrations completed successfully');
   } catch (e) {
-      reportError(e, { context: 'drizzle:migration' });
+      reportError(e);
     throw e;
   }
 }

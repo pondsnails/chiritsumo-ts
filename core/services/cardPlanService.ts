@@ -98,50 +98,51 @@ export class CardPlanService {
     let createdCount = 0;
     const allCreated: Card[] = [];
 
-  for (const [bookId, count] of Object.entries(allocation)) {
-    const book = bookMap.get(bookId);
-    if (!book || count <= 0) continue;
+    for (const [bookId, count] of Object.entries(allocation)) {
+      const book = bookMap.get(bookId);
+      if (!book || count <= 0) continue;
 
-    const existing = await cardRepo.findByBook(book.id);
-    const existingUnits = new Set(existing.map(c => c.unitIndex));
-    const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
-    const totalChunks = Math.ceil(book.totalUnit / chunkSize);
+      const existing = await this.cardRepo.findByBook(book.id);
+      const existingUnits = new Set(existing.map(c => c.unitIndex));
+      const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
+      const totalChunks = Math.ceil(book.totalUnit / chunkSize);
 
-    let createdForBook = 0;
-    let nextIdx = 1;
-    while (createdForBook < count && nextIdx <= totalChunks) {
-      while (existingUnits.has(nextIdx) && nextIdx <= totalChunks) nextIdx++;
-      if (nextIdx > totalChunks) break;
+      let createdForBook = 0;
+      let nextIdx = 1;
+      while (createdForBook < count && nextIdx <= totalChunks) {
+        while (existingUnits.has(nextIdx) && nextIdx <= totalChunks) nextIdx++;
+        if (nextIdx > totalChunks) break;
 
-      const card: Card = {
-        id: makeCardId(book.id, nextIdx),
-        bookId: book.id,
-        unitIndex: nextIdx,
-        state: 0,
-        stability: 0,
-        difficulty: DEFAULT_DIFFICULTY,
-        elapsedDays: 0,
-        scheduledDays: 0,
-        reps: 0,
-        lapses: 0,
-        due: dueToday,
-        lastReview: null,
-        createdAt: nowUnix(),
-        photoPath: null,
-      };
-      allCreated.push(card);
-      existingUnits.add(nextIdx);
-      createdForBook++;
-      createdCount++;
-      nextIdx++;
+        const card: Card = {
+          id: makeCardId(book.id, nextIdx),
+          bookId: book.id,
+          unitIndex: nextIdx,
+          state: 0,
+          stability: 0,
+          difficulty: DEFAULT_DIFFICULTY,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          due: dueToday,
+          lastReview: null,
+          createdAt: nowUnix(),
+          photoPath: null,
+        };
+        allCreated.push(card);
+        existingUnits.add(nextIdx);
+        createdForBook++;
+        createdCount++;
+        nextIdx++;
+      }
     }
-  }
-  
-  if (allCreated.length > 0) {
-    await cardRepo.bulkUpsert(allCreated);
-  }
+    
+    if (allCreated.length > 0) {
+      await this.cardRepo.bulkUpsert(allCreated);
+    }
 
-  return createdCount;
+    return createdCount;
+  }
 }
 
 export async function registerStudiedRange(
@@ -150,6 +151,7 @@ export async function registerStudiedRange(
   endUnitIndex: number,
   asDueToday: boolean = true
 ): Promise<number> {
+  const cardRepo = new DrizzleCardRepository();
   const chunkSize = book.chunkSize && book.chunkSize > 0 ? book.chunkSize : 1;
   const totalChunks = Math.ceil(book.totalUnit / chunkSize);
   const start = Math.max(1, Math.min(startUnitIndex, totalChunks));
@@ -160,6 +162,7 @@ export async function registerStudiedRange(
 
   const when = new Date();
   if (asDueToday) when.setHours(0, 0, 0, 0);
+  const dueUnix = Math.floor(when.getTime() / 1000);
 
   const upserts: Card[] = [];
   for (let idx = start; idx <= end; idx++) {
@@ -170,7 +173,7 @@ export async function registerStudiedRange(
         state: 2, // review
         stability: Math.max(current.stability, 1),
         difficulty: current.difficulty || DEFAULT_DIFFICULTY,
-        due: when,
+        due: dueUnix,
       });
     } else {
       upserts.push({
@@ -184,8 +187,9 @@ export async function registerStudiedRange(
         scheduledDays: 0,
         reps: 0,
         lapses: 0,
-        due: when,
+        due: dueUnix,
         lastReview: null,
+        createdAt: nowUnix(),
         photoPath: null,
       });
     }

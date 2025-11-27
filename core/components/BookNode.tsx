@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Lock, Crown } from 'lucide-react-native';
+import { BookMode } from '@core/constants/enums';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
 import type { Book } from '../types';

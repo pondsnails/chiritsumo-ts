@@ -51,7 +51,7 @@ export class FSRSScheduler {
       scheduled_days: card.scheduledDays,
       reps: card.reps,
       lapses: card.lapses,
-      state: card.state as State,
+      state: card.state as unknown as State,
       last_review: card.lastReview ? new Date(card.lastReview * 1000) : undefined,
     } as FSRSCard;
   }

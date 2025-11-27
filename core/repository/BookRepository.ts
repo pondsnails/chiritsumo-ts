@@ -139,7 +139,7 @@ export class DrizzleBookRepository implements IBookRepository {
             scheduled_days: 0,
             reps: 0,
             lapses: 0,
-            due: new Date().toISOString(),
+            due: Math.floor(Date.now() / 1000),
             last_review: null,
             photo_path: null,
           });

@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
-import { useStores } from '@core/hooks/useStores';
+import { useServices } from '@core/di/ServicesProvider';
+import { useBookStore } from '@core/store/bookStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
@@ -22,17 +23,17 @@ import type { Book } from '@core/types';
 
 export default function BooksScreen() {
   const router = useRouter();
-  const { useBookStore } = useStores();
+  const { bookRepo } = useServices();
   const { books, fetchBooks, deleteBook, isLoading } = useBookStore();
   const { isProUser } = useSubscriptionStore();
 
   useEffect(() => {
-    fetchBooks();
+    fetchBooks(bookRepo);
   }, []);
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteBook(id);
+      await deleteBook(bookRepo, id);
     } catch (error) {
       console.error('Failed to delete book:', error);
     }

@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useStores } from '@core/hooks/useStores';
+import { useBookStore } from '@core/store/bookStore';
 import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { checkBankruptcyStatus } from '@core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@core/components/BrainAnalyticsDashboard';
@@ -28,7 +28,6 @@ import type { LedgerEntry } from '@core/types';
 export default function BankScreen() {
   const router = useRouter();
   const { ledgerRepo } = useServices();
-  const { useBookStore } = useStores();
   const { books } = useBookStore();
   const { isProUser } = useSubscriptionStore();
   
@@ -245,7 +244,7 @@ export default function BankScreen() {
                   renderItem={({ item }) => (
                     <View style={[glassEffect.card, styles.ledgerCard]}>
                       <View style={styles.ledgerDate}>
-                        <Text style={styles.ledgerDateText}>{formatDate(item.date)}</Text>
+                        <Text style={styles.ledgerDateText}>{formatDate(new Date(item.date * 1000).toISOString())}</Text>
                       </View>
                       <View style={styles.ledgerDetails}>
                         <View style={styles.ledgerRow}>

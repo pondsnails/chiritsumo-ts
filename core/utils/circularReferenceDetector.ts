@@ -100,8 +100,8 @@ export function validateBookAddition(
       status: 0,
       priority: 0,
       coverPath: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: Math.floor(Date.now() / 1000),
+      updatedAt: Math.floor(Date.now() / 1000),
     } as Book,
   ];
 

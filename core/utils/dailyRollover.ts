@@ -69,7 +69,7 @@ export async function performDailyRollover(
     const newBalance = currentBalance - targetLex;
 
     await ledgerRepo.upsert({
-      date: today,
+      date: Math.floor(new Date(today).getTime() / 1000),
       earnedLex: 0,
       targetLex,
       balance: newBalance,

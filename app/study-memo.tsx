@@ -11,7 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useStores } from '@core/hooks/useStores';
+import { useServices } from '@core/di/ServicesProvider';
+import { useCardStore } from '@core/store/cardStore';
+import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -20,9 +22,9 @@ import type { Card, Book } from '@core/types';
 export default function StudyMemoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { useCardStore, useBookStore } = useStores();
-  const { fetchDueCards, bulkUpdateCardReviews } = useCardStore();
+  const { cardRepo } = useServices();
   const { books } = useBookStore();
+  const { fetchDueCards, bulkUpdateCardReviews } = useCardStore();
   const [cards, setCards] = useState<Card[]>([]);
   const [failedIndices, setFailedIndices] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +48,7 @@ export default function StudyMemoScreen() {
       const book = books.find((b) => b.id === bookId);
       setCurrentBook(book || null);
 
-      const dueCards = await fetchDueCards([bookId]);
+      const dueCards = await fetchDueCards(cardRepo, [bookId]);
       setCards(dueCards);
     } catch (error) {
       console.error('Failed to load cards:', error);

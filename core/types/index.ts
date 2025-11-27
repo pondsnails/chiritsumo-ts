@@ -1,7 +1,3 @@
-export type BookMode = 'read' | 'solve' | 'memo';
-export type BookStatus = 'active' | 'locked' | 'graduated' | 'sleep';
-export type CardState = 'new' | 'learning' | 'review' | 'relearning';
-
 import { BookMode, BookStatus, BookPriority, CardState } from '@core/constants/enums';
 export interface Book {
   id: string;

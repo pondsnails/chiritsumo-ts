@@ -238,7 +238,7 @@ export class DrizzleCardRepository implements ICardRepository {
           id: card.id,
           book_id: card.bookId,
           unit_index: card.unitIndex,
-          due: card.due.toISOString(),
+          due: card.due,
           stability: card.stability,
           difficulty: card.difficulty,
           elapsed_days: card.elapsedDays,
@@ -246,14 +246,14 @@ export class DrizzleCardRepository implements ICardRepository {
           reps: card.reps,
           lapses: card.lapses,
           state: card.state,
-          last_review: card.lastReview ? card.lastReview.toISOString() : null,
+          last_review: card.lastReview,
           photo_path: card.photoPath ?? null,
         }).onConflictDoUpdate({
           target: cards.id,
           set: {
             book_id: card.bookId,
             unit_index: card.unitIndex,
-            due: card.due.toISOString(),
+            due: card.due,
             stability: card.stability,
             difficulty: card.difficulty,
             elapsed_days: card.elapsedDays,
@@ -261,7 +261,7 @@ export class DrizzleCardRepository implements ICardRepository {
             reps: card.reps,
             lapses: card.lapses,
             state: card.state,
-            last_review: card.lastReview ? card.lastReview.toISOString() : null,
+            last_review: card.lastReview,
             photo_path: card.photoPath ?? null,
           }
         }).run();
@@ -290,7 +290,7 @@ export class DrizzleCardRepository implements ICardRepository {
       scheduled_days: 0,
       reps: 0,
       lapses: 0,
-      due: new Date().toISOString(),
+      due: Math.floor(Date.now() / 1000),
       last_review: null,
     }).run();
   }

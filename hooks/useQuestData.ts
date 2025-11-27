@@ -8,7 +8,7 @@
  * - ビジネスロジックをService層に完全委譲
  */
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useStores } from '@core/hooks/useStores';
+import { useBookStore } from '@core/store/bookStore';
 import { useServices } from '@core/di/ServicesProvider';
 import { computeRecommendedNewAllocation } from '@core/services/recommendationService';
 import { getDailyLexTarget } from '@core/services/lexSettingsService';
@@ -39,7 +39,7 @@ interface QuestData {
 }
 
 export function useQuestData(): QuestData {
-  const { useBookStore } = useStores();
+  const { bookRepo } = useServices();
   const { books, fetchBooks } = useBookStore();
   const [isLoading, setIsLoading] = useState(true);
   const [dueCards, setDueCards] = useState<Card[]>([]);
@@ -57,7 +57,7 @@ export function useQuestData(): QuestData {
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      await fetchBooks();
+      await fetchBooks(bookRepo);
       const loaded = await questService.getInventoryPresets();
       setPresets(loaded);
       const def = loaded.find(p => p.isDefault);

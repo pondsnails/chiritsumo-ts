@@ -3,8 +3,9 @@ import * as DocumentPicker from 'expo-document-picker';
 // Expo SDK 54: 新API移行まではレガシー互換APIを使用
 import * as FileSystem from 'expo-file-system/legacy';
 import { z } from 'zod';
+import { sql, eq } from 'drizzle-orm';
 import { getDrizzleDb } from '../database/drizzleClient';
-import { presetBooks, books, cards, ledger } from '../database/schema';
+import { presetBooks, books, cards, ledger, systemSettings } from '../database/schema';
 import { DrizzleBookRepository } from '../repository/BookRepository';
 import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
@@ -192,11 +193,11 @@ export const exportBackup = async (): Promise<void> => {
     const db = await getDrizzleDb();
     const presetLinks = await db.select().from(presetBooks);
 
-    const backup: BackupData = {
+    const backup: NormalizedBackupData = {
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
-      books: booksData,
-      cards: cardsData,
+      books: booksData as any,
+      cards: cardsData as any,
       ledger: ledgerData,
       systemSettings: systemSettingsData,
       presetBooks: presetLinks,
@@ -262,6 +263,12 @@ export const importBackup = async (
     const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
 
     let backupRaw: RawBackupData;
+    let normalizedBooks: any[];
+    let normalizedCards: any[];
+    let normalizedLedger: any[];
+    let systemSettingsNormalized: any[];
+    let presetBooksNormalized: any[];
+    
     try {
       // NDJSON形式の検出（拡張子またはメタデータで判定）
       const isNDJSON = fileUri.endsWith('.ndjson') || fileContent.startsWith('{"type":"metadata"');
@@ -294,11 +301,11 @@ export const importBackup = async (
       // Zodスキーマでバリデーション
       const backup = BackupSchema.parse(backupRaw);
       // 正規化後のデータを以降で使用
-      const normalizedBooks = backup.books;
-      const normalizedCards = backup.cards;
-      const normalizedLedger = backup.ledger;
-      const systemSettingsNormalized = backup.systemSettings;
-      const presetBooksNormalized = backup.presetBooks;
+      normalizedBooks = backup.books;
+      normalizedCards = backup.cards;
+      normalizedLedger = backup.ledger;
+      systemSettingsNormalized = backup.systemSettings;
+      presetBooksNormalized = backup.presetBooks;
     } catch (e: any) {
       const message = e?.issues ? JSON.stringify(e.issues) : (e?.message ?? 'Unknown parse error');
       throw new Error(`Invalid backup file format: ${message}`);
@@ -531,32 +538,7 @@ export const exportBackupStreaming = async (): Promise<void> => {
       for (const card of chunk) {
         await FileSystem.writeAsStringAsync(
           fileUri,
-      }).transform((b) => {
-        const toUnix = (v: any): number | null => {
-          if (v === null || v === undefined || v === '') return null;
-          if (typeof v === 'number') return v;
-          const d = new Date(v);
-          return Math.floor(d.getTime() / 1000);
-        };
-        return {
-          id: b.id,
-          userId: b.userId ?? b.user_id ?? 'local-user',
-          subjectId: b.subjectId ?? b.subject_id ?? null,
-          title: b.title,
-          isbn: b.isbn ?? null,
-          mode: (b.mode ?? 1) as 0 | 1 | 2,
-          totalUnit: (b.totalUnit ?? b.total_unit ?? 0) as number,
-          chunkSize: (b.chunkSize ?? b.chunk_size ?? 1) as number,
-          completedUnit: (b.completedUnit ?? b.completed_unit ?? 0) as number,
-          status: (b.status ?? 0) as 0 | 1 | 2,
-          previousBookId: b.previousBookId ?? b.previous_book_id ?? null,
-          priority: (b.priority ?? 1) as 0 | 1,
-          coverPath: b.coverPath ?? b.cover_path ?? null,
-          targetCompletionDate: toUnix(b.targetCompletionDate ?? b.target_completion_date),
-          createdAt: toUnix(b.createdAt ?? b.created_at) ?? Math.floor(Date.now()/1000),
-          updatedAt: toUnix(b.updatedAt ?? b.updated_at) ?? toUnix(b.createdAt ?? b.created_at) ?? Math.floor(Date.now()/1000),
-        };
-      }).passthrough();
+          JSON.stringify({ type: 'card', data: card }) + '\n',
           { encoding: 'utf8' }
         );
       }
@@ -567,25 +549,7 @@ export const exportBackupStreaming = async (): Promise<void> => {
     const allLedger = await ledgerRepo.findAll();
     for (const entry of allLedger) {
       await FileSystem.writeAsStringAsync(
-      }).transform((c) => {
-        const toUnixNullable = (v: any): number | null => {
-          if (v === null || v === undefined || v === '') return null;
-          if (typeof v === 'number') return v;
-          const d = new Date(v);
-          return Math.floor(d.getTime() / 1000);
-        };
-        const toUnix = (v: any): number => {
-          const r = toUnixNullable(v);
-          return r ?? Math.floor(Date.now()/1000);
-        };
-        return {
-          id: c.id,
-          bookId: c.bookId ?? c.book_id ?? '',
-          unitIndex: (c.unitIndex ?? c.unit_index ?? 0) as number,
-          due: toUnix(c.due),
-          lastReview: toUnixNullable(c.lastReview ?? c.last_review),
-        };
-      }).passthrough();
+        fileUri,
         JSON.stringify({ type: 'ledger', data: entry }) + '\n',
         { encoding: 'utf8' }
       );
@@ -594,18 +558,7 @@ export const exportBackupStreaming = async (): Promise<void> => {
     console.log('[StreamingBackup] Export completed');
     
     // 共有ダイアログ
-      }).transform((l) => {
-        const toUnix = (v: any): number => {
-          if (typeof v === 'number') return v;
-          return Math.floor(new Date(v).getTime()/1000);
-        };
-        return {
-          date: toUnix(l.date),
-          earnedLex: l.earnedLex ?? l.earned_lex ?? 0,
-          targetLex: l.targetLex ?? l.target_lex ?? 0,
-          balance: l.balance ?? 0,
-        };
-      }).passthrough();
+    const isAvailable = await Sharing.isAvailableAsync();
     if (!isAvailable) {
       throw new Error('Sharing is not available on this device');
     }
@@ -681,7 +634,7 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
             updated_at: toUnix(b.updatedAt ?? b.updated_at ?? b.createdAt ?? b.created_at),
           };
           if (mode === 'replace') {
-            await tx.insert(sql`books_staging`).values(normalized as any).run();
+            await tx.run(sql`INSERT INTO books_staging (id, user_id, subject_id, title, isbn, mode, total_unit, chunk_size, completed_unit, status, previous_book_id, priority, cover_path, target_completion_date, created_at, updated_at) VALUES (${normalized.id}, ${normalized.user_id}, ${normalized.subject_id}, ${normalized.title}, ${normalized.isbn}, ${normalized.mode}, ${normalized.total_unit}, ${normalized.chunk_size}, ${normalized.completed_unit}, ${normalized.status}, ${normalized.previous_book_id}, ${normalized.priority}, ${normalized.cover_path}, ${normalized.target_completion_date}, ${normalized.created_at}, ${normalized.updated_at})`);
             booksAdded++;
           } else {
             const existing = existingBooksMap.get(normalized.id);
@@ -711,7 +664,7 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
             photo_path: c.photoPath ?? c.photo_path ?? null,
           };
           if (mode === 'replace') {
-            await tx.insert(sql`cards_staging`).values(normalized as any).run();
+            await tx.run(sql`INSERT INTO cards_staging (id, book_id, unit_index, state, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, due, last_review, photo_path) VALUES (${normalized.id}, ${normalized.book_id}, ${normalized.unit_index}, ${normalized.state}, ${normalized.stability}, ${normalized.difficulty}, ${normalized.elapsed_days}, ${normalized.scheduled_days}, ${normalized.reps}, ${normalized.lapses}, ${normalized.due}, ${normalized.last_review}, ${normalized.photo_path})`);
           } else {
             await tx.insert(cards).values(normalized).run();
           }
@@ -728,7 +681,7 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
               note: null,
             };
             if (mode === 'replace') {
-              await tx.insert(sql`ledger_staging`).values(normalized as any).run();
+              await tx.run(sql`INSERT INTO ledger_staging (date, earned_lex, target_lex, balance, transaction_type, note) VALUES (${normalized.date}, ${normalized.earned_lex}, ${normalized.target_lex}, ${normalized.balance}, ${normalized.transaction_type}, ${normalized.note})`);
             } else {
               await tx.insert(ledger).values(normalized).run();
             }
@@ -744,7 +697,7 @@ export const importBackupStreaming = async (options?: { mode?: 'merge' | 'replac
           const p = obj.data;
           const normalized = { preset_id: p.preset_id, book_id: p.book_id };
           if (mode === 'replace') {
-            await tx.insert(sql`preset_books_staging`).values(normalized as any).run();
+            await tx.run(sql`INSERT INTO preset_books_staging (preset_id, book_id) VALUES (${normalized.preset_id}, ${normalized.book_id})`);
           } else {
             await tx.insert(presetBooks).values(normalized).run();
           }

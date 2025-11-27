@@ -6,75 +6,77 @@ interface BookState {
   books: Book[];
   isLoading: boolean;
   error: string | null;
-  fetchBooks: () => Promise<void>;
-  addBook: (book: Book) => Promise<void>;
-  updateBook: (id: string, updates: Partial<Book>) => Promise<void>;
-  deleteBook: (id: string) => Promise<void>;
+  fetchBooks: (repo: IBookRepository) => Promise<void>;
+  addBook: (repo: IBookRepository, book: Book) => Promise<void>;
+  updateBook: (repo: IBookRepository, id: string, updates: Partial<Book>) => Promise<void>;
+  deleteBook: (repo: IBookRepository, id: string) => Promise<void>;
   resetStore: () => void;
 }
 
 /**
- * DI対応のStoreファクトリー
- * テスト時はモックRepositoryを注入可能
+ * Zustand Singleton Store (Repository を関数引数で受け取るパターン)
+ * 
+ * 問題のあった設計:
+ * - useMemo(() => createBookStore(repo)) で毎回新しいストアを作成
+ * - Repository インスタンスが変わるとストアが再生成され、状態が消失
+ * 
+ * 修正後:
+ * - ストアはシングルトン（1つだけ存在）
+ * - Repository は関数の引数として注入
+ * - コンポーネントから useBookStore().fetchBooks(repo) のように呼ぶ
  */
-export function createBookStore(bookRepo: IBookRepository) {
-  return create<BookState>((set, get) => ({
-    books: [],
-    isLoading: false,
-    error: null,
+export const useBookStore = create<BookState>((set, get) => ({
+  books: [],
+  isLoading: false,
+  error: null,
 
-    fetchBooks: async () => {
-      try {
-        set({ isLoading: true, error: null });
-        const books = await bookRepo.findAll();
-        set({ books });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to fetch books';
-        set({ error: message });
-      } finally {
-        set({ isLoading: false });
-      }
-    },
+  fetchBooks: async (repo: IBookRepository) => {
+    try {
+      set({ isLoading: true, error: null });
+      const books = await repo.findAll();
+      set({ books });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch books';
+      set({ error: message });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 
-    addBook: async (book: Book) => {
-      try {
-        // Book作成と同時にCard生成（トランザクション内で一括処理）
-        await bookRepo.createWithCards(book);
-        await get().fetchBooks();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to add book';
-        set({ error: message });
-        throw error;
-      }
-    },
+  addBook: async (repo: IBookRepository, book: Book) => {
+    try {
+      await repo.createWithCards(book);
+      await get().fetchBooks(repo);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to add book';
+      set({ error: message });
+      throw error;
+    }
+  },
 
-    updateBook: async (id: string, updates: Partial<Book>) => {
-      try {
-        await bookRepo.update(id, updates);
-        await get().fetchBooks();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to update book';
-        set({ error: message });
-        throw error;
-      }
-    },
+  updateBook: async (repo: IBookRepository, id: string, updates: Partial<Book>) => {
+    try {
+      await repo.update(id, updates);
+      await get().fetchBooks(repo);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update book';
+      set({ error: message });
+      throw error;
+    }
+  },
 
-    deleteBook: async (id: string) => {
-      try {
-        await bookRepo.delete(id);
-        await get().fetchBooks();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to delete book';
-        set({ error: message });
-        throw error;
-      }
-    },
+  deleteBook: async (repo: IBookRepository, id: string) => {
+    try {
+      await repo.delete(id);
+      await get().fetchBooks(repo);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete book';
+      set({ error: message });
+      throw error;
+    }
+  },
 
-    resetStore: () => {
-      set({ books: [], isLoading: false, error: null });
-    },
-  }));
-}
-
-// Export factory for use with ServicesProvider
-export { createBookStore };
+  resetStore: () => {
+    set({ books: [], isLoading: false, error: null });
+  },
+}));

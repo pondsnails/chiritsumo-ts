@@ -10,7 +10,7 @@ import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { useStores } from '@core/hooks/useStores';
+import { useBookStore } from '@core/store/bookStore';
 import { useServices } from '@core/di/ServicesProvider';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
@@ -50,7 +50,6 @@ export default function QuestScreen() {
     globalNextBook,
   } = questData;
   
-  const { useBookStore } = useStores();
   const { books } = useBookStore();
   
   // UI状態のみ管理
@@ -178,7 +177,7 @@ export default function QuestScreen() {
                 onPress={async () => {
                   try {
                     // サービス層に委譲
-                    const created = await learningService.distributeNewCards(
+                    const created = await learningSessionService.distributeNewCards(
                       activePresetId,
                       presets,
                       10
@@ -224,7 +223,7 @@ export default function QuestScreen() {
                 groupedNewCards={groupedNewCards}
                 onAssignRecommended={async () => {
                   try {
-                    const created = await learningService.distributeNewCardsByAllocation(recommended.perBook);
+                    const created = await learningSessionService.distributeNewCardsByAllocation(recommended.perBook);
                     if (created > 0) {
                       await refreshAll();
                     }
@@ -280,7 +279,7 @@ export default function QuestScreen() {
                   if (bookIdsToQuery.length === 0) return;
                   
                   // LearningSessionService経由で新規カードを割り当て（アーキテクチャ統一）
-                  const created = await learningService.distributeNewCards(
+                  const created = await learningSessionService.distributeNewCards(
                     activePresetId,
                     presets,
                     10

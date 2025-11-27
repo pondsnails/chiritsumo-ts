@@ -49,8 +49,8 @@ export function ReviewSection({
       {showAdvanced && (
         <View style={styles.list}>
           {groupedReviewCards.map(({ book, cards }) => {
-            const now = new Date();
-            const dueList = cards.filter(c => c.due <= now);
+            const nowUnix = Math.floor(Date.now() / 1000);
+            const dueList = cards.filter(c => c.due <= nowUnix);
             return (
               <View key={book.id} style={[glassEffect.card, styles.bookCard]}>
                 <Text style={styles.bookTitle} numberOfLines={1}>{book.title}</Text>
