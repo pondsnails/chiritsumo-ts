@@ -4,6 +4,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { ChevronRight, Clock } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
+import { getModeColor, getModeIcon, getModeShortLabel } from '../utils/uiHelpers';
 import type { Book } from '../types';
 
 interface TaskCardProps {
@@ -18,18 +19,6 @@ interface TaskCardProps {
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export function TaskCard({ book, cardsDue, estimatedLex, index, onPress, onSkip }: TaskCardProps) {
-  const getModeColor = () => {
-    if (book.mode === 0) return colors.read;
-    if (book.mode === 1) return colors.solve;
-    return colors.memo;
-  };
-
-  const getModeLabel = () => {
-    if (book.mode === 0) return '読む';
-    if (book.mode === 1) return '解く';
-    return '暗記';
-  };
-
   return (
     <AnimatedTouchable
       entering={FadeInUp.delay(index * 100).springify()}
@@ -38,9 +27,9 @@ export function TaskCard({ book, cardsDue, estimatedLex, index, onPress, onSkip 
     >
       <View style={[glassEffect.card, styles.card]}>
         <View style={styles.content}>
-          <View style={[styles.modeBadge, { backgroundColor: getModeColor() }]}>
+          <View style={[styles.modeBadge, { backgroundColor: getModeColor(book.mode) }]}>
             <Text style={styles.modeBadgeText}>
-              {book.mode === 0 ? '読' : book.mode === 1 ? '解' : '暗'}
+              {getModeIcon(book.mode)}
             </Text>
           </View>
 
@@ -60,7 +49,7 @@ export function TaskCard({ book, cardsDue, estimatedLex, index, onPress, onSkip 
               </View>
             </View>
 
-            <Text style={styles.modeLabel}>{getModeLabel()}</Text>
+            <Text style={styles.modeLabel}>{getModeShortLabel(book.mode)}</Text>
           </View>
 
           <ChevronRight color={colors.textSecondary} size={24} strokeWidth={2} />
@@ -72,7 +61,7 @@ export function TaskCard({ book, cardsDue, estimatedLex, index, onPress, onSkip 
               styles.progressFill,
               {
                 width: `${book.totalUnit > 0 ? ((book.completedUnit || 0) / book.totalUnit) * 100 : 0}%`,
-                backgroundColor: getModeColor(),
+                backgroundColor: getModeColor(book.mode),
               },
             ]}
           />

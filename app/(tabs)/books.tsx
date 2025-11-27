@@ -17,6 +17,7 @@ import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
+import { getModeColor, getModeLabel, getStatusLabel, formatUnixToDate } from '@core/utils/uiHelpers';
 import type { Book } from '@core/types';
 
 export default function BooksScreen() {
@@ -44,7 +45,7 @@ export default function BooksScreen() {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const target = new Date(book.targetCompletionDate);
+    const target = new Date(book.targetCompletionDate * 1000);
     target.setHours(0, 0, 0, 0);
     
     const daysRemaining = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -52,24 +53,6 @@ export default function BooksScreen() {
     if (daysRemaining <= 0) return null;
     
     return Math.ceil(remaining / daysRemaining);
-  };
-
-  const getModeColor = (mode: number) => {
-    if (mode === 0) return colors.read;
-    if (mode === 1) return colors.solve;
-    return colors.memo;
-  };
-
-  const getModeLabel = (mode: number) => {
-    if (mode === 0) return i18n.t('common.modeRead');
-    if (mode === 1) return i18n.t('common.modeSolve');
-    return i18n.t('common.modeMemo');
-  };
-
-  const getStatusLabel = (status: number) => {
-    if (status === 0) return i18n.t('books.statusInProgress');
-    if (status === 1) return i18n.t('books.statusCompleted');
-    return i18n.t('books.statusPaused');
   };
 
   return (

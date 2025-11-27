@@ -11,13 +11,16 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBookStore } from '@core/store/bookStore';
-import { assignNewCardsToday, assignNewCardsByAllocation } from '@core/services/cardPlanService';
+import { createLearningSessionService } from '@core/services/LearningSessionService';
 import { InventoryFilterChip } from '@core/components/InventoryFilterChip';
 import { InventoryFilterModal } from '@core/components/InventoryFilterModal';
 import RegisterStudiedModal from '@core/components/RegisterStudiedModal';
 import { SummaryCards, ReviewSection, NewSection } from '@core/components/quest';
 import i18n from '@core/i18n';
+import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
+
+const learningService = createLearningSessionService();
 
 
 export default function QuestScreen() {
@@ -65,22 +68,6 @@ export default function QuestScreen() {
       refreshAll();
     }, [refreshAll])
   );
-
-  const getModeLabel = (mode: 0 | 1 | 2) => {
-    switch (mode) {
-      case 0: return i18n.t('common.modeRead');
-      case 1: return i18n.t('common.modeSolve');
-      case 2: return i18n.t('common.modeMemo');
-    }
-  };
-
-  const getModeColor = (mode: 0 | 1 | 2) => {
-    switch (mode) {
-      case 0: return colors.read;
-      case 1: return colors.solve;
-      case 2: return colors.memo;
-    }
-  };
 
   const startStudy = (bookId: string) => {
     router.push(`/study?bookId=${bookId}`);
@@ -191,25 +178,13 @@ export default function QuestScreen() {
                 style={[styles.quickStartButton, { marginTop: 16 }]}
                 onPress={async () => {
                   try {
-                    // 現在のフィルタ（プリセット/アクティブ）に基づいて配布対象を決定
-                    let bookIdsToQuery: string[];
-                    if (activePresetId) {
-                      const activePreset = presets.find(p => p.id === activePresetId);
-                      bookIdsToQuery = activePreset?.bookIds || [];
-                    } else {
-                      bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-                    }
-                    if (bookIdsToQuery.length === 0 && books.length > 0) {
-                      bookIdsToQuery = books.filter(b => b.status === 0).map(b => b.id);
-                      if (bookIdsToQuery.length === 0) {
-                        bookIdsToQuery = books.map(b => b.id);
-                      }
-                    }
-
-                    if (bookIdsToQuery.length === 0) return;
-
-                    // デフォルトで合計10枚をラウンドロビン配布
-                    const created = await assignNewCardsToday(books, bookIdsToQuery, 10);
+                    // サービス層に委譲
+                    const created = await learningService.distributeNewCards(
+                      activePresetId,
+                      presets,
+                      10
+                    );
+                    
                     if (created > 0) {
                       await refreshAll();
                     }
@@ -250,7 +225,7 @@ export default function QuestScreen() {
                 groupedNewCards={groupedNewCards}
                 onAssignRecommended={async () => {
                   try {
-                    const created = await assignNewCardsByAllocation(books, recommended.perBook);
+                    const created = await learningService.distributeNewCardsByAllocation(recommended.perBook);
                     if (created > 0) {
                       await refreshAll();
                     }
