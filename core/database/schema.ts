@@ -68,8 +68,16 @@ export const inventoryPresets = sqliteTable('inventory_presets', {
   id: integer('id').primaryKey(),
   label: text('label').notNull(),
   icon_code: integer('icon_code').notNull().default(0),
-  book_ids: text('book_ids').notNull(), // JSON配列文字列
   is_default: integer('is_default').notNull().default(0),
+});
+
+// ---------------------------------------------------------
+// 3.4.1 preset_books (プリセット-書籍 中間テーブル)
+// ---------------------------------------------------------
+export const presetBooks = sqliteTable('preset_books', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  preset_id: integer('preset_id').notNull().references(() => inventoryPresets.id, { onDelete: 'cascade' }),
+  book_id: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
 });
 
 // ---------------------------------------------------------
@@ -87,4 +95,5 @@ export type NewBook = typeof books.$inferInsert;
 export type Card = typeof cards.$inferSelect;
 export type Ledger = typeof ledger.$inferSelect;
 export type InventoryPresetRow = typeof inventoryPresets.$inferSelect;
+export type PresetBookRow = typeof presetBooks.$inferSelect;
 export type SystemSetting = typeof systemSettings.$inferSelect;

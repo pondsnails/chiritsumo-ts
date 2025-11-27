@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Lock, Crown } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { glassEffect } from '../theme/glassEffect';
 import type { Book } from '../types';
+import { PressableScale } from './PressableScale';
 
 interface BookNodeProps {
   book: Book;
@@ -12,6 +14,8 @@ interface BookNodeProps {
   onPress: () => void;
   onLongPress?: () => void;
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(PressableScale as any);
 
 export function BookNode({ book, isHub, hubCount, onPress, onLongPress }: BookNodeProps) {
   const getStatusStyle = () => {
@@ -44,24 +48,22 @@ export function BookNode({ book, isHub, hubCount, onPress, onLongPress }: BookNo
 
   if (isHub) {
     return (
-      <TouchableOpacity onPress={onPress} style={styles.hubContainer}>
-        <View style={[glassEffect.card, styles.hubNode]}>
-          <View style={styles.hubContent}>
-            <Text style={styles.hubText}>他{hubCount}冊</Text>
-            <Text style={styles.hubSubtext}>タップして表示</Text>
+      <Animated.View entering={FadeInUp.springify()} style={styles.hubContainer}>
+        <PressableScale onPress={onPress}>
+          <View style={[glassEffect.card, styles.hubNode]}>
+            <View style={styles.hubContent}>
+              <Text style={styles.hubText}>他{hubCount}冊</Text>
+              <Text style={styles.hubSubtext}>タップして表示</Text>
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </PressableScale>
+      </Animated.View>
     );
   }
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={500}
-      style={styles.nodeContainer}
-    >
+    <Animated.View entering={FadeInUp.delay(60).springify()} style={styles.nodeContainer}>
+      <PressableScale onPress={onPress} onLongPress={onLongPress} delayLongPress={500}>
       <View
         style={[
           glassEffect.card,
@@ -107,7 +109,8 @@ export function BookNode({ book, isHub, hubCount, onPress, onLongPress }: BookNo
           {book.completedUnit} / {book.totalUnit}
         </Text>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
+  </Animated.View>
   );
 }
 

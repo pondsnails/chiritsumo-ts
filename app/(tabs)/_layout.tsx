@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, StyleSheet, Platform } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Zap, Route, Wallet, BookOpen, Settings } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
@@ -56,44 +57,28 @@ export default function TabsLayout() {
         name="quest"
         options={{
           title: 'Quest',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Zap color={color} size={24} strokeWidth={2.5} />
-            </View>
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Zap color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
       <Tabs.Screen
         name="route"
         options={{
           title: 'Route',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Route color={color} size={24} strokeWidth={2.5} />
-            </View>
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Route color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
       <Tabs.Screen
         name="bank"
         options={{
           title: 'Bank',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Wallet color={color} size={24} strokeWidth={2.5} />
-            </View>
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Settings color={color} size={24} strokeWidth={2.5} />
-            </View>
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Settings color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
       <Tabs.Screen
@@ -103,6 +88,18 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+function TabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: withSpring(focused ? 1.05 : 1, { stiffness: 220, damping: 18 }) }],
+    opacity: withSpring(focused ? 1 : 0.8, { stiffness: 220, damping: 18 }),
+  }));
+  return (
+    <Animated.View style={[styles.iconContainer, focused && styles.iconContainerActive, style]}>
+      {children}
+    </Animated.View>
   );
 }
 

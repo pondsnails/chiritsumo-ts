@@ -1,16 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useOnboardingStore } from '@core/store/onboardingStore';
 import { Book, Target, TrendingUp, Zap, Gift, Users } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PressableScale } from '@core/components/PressableScale';
 
 const { width } = Dimensions.get('window');
 
@@ -86,9 +88,9 @@ const slides: OnboardingSlide[] = [
 
 export default function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { completeOnboarding } = useOnboardingStore();
+  const insets = useSafeAreaInsets();
 
   const isLastSlide = currentIndex === slides.length - 1;
 
@@ -98,10 +100,6 @@ export default function Onboarding() {
     } else {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      scrollViewRef.current?.scrollTo({
-        x: nextIndex * width,
-        animated: true,
-      });
     }
   };
 
@@ -119,7 +117,8 @@ export default function Onboarding() {
 
   return (
     <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.container}>
-      <View style={styles.header}>
+      {/* Header (absolute) */}
+      <View style={[styles.header, { paddingTop: Math.max(16, insets.top + 8) }]}>
         <Text style={styles.pageIndicator}>
           {currentIndex + 1} / {slides.length}
         </Text>
@@ -130,20 +129,8 @@ export default function Onboarding() {
         )}
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        style={styles.scrollView}
-      >
-        {slides.map((_, index) => (
-          <View key={index} style={[styles.slide, { width }]} />
-        ))}
-      </ScrollView>
-
-      <View style={styles.content}>
+      {/* Centered content */}
+      <Animated.View key={currentIndex} entering={FadeIn.duration(250)} style={styles.centerWrapper}>
         <View style={styles.iconContainer}>
           <Icon size={64} color="#00F260" strokeWidth={1.5} />
         </View>
@@ -159,9 +146,10 @@ export default function Onboarding() {
             </View>
           ))}
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.footer}>
+      {/* Footer (absolute) */}
+      <View style={[styles.footer, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
         <View style={styles.dotsContainer}>
           {slides.map((_, index) => (
             <View
@@ -174,7 +162,7 @@ export default function Onboarding() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <PressableScale style={styles.nextButton} onPress={handleNext} scaleTo={0.95}>
           <LinearGradient
             colors={['#00F260', '#0575E6']}
             start={{ x: 0, y: 0 }}
@@ -185,7 +173,7 @@ export default function Onboarding() {
               {isLastSlide ? '始める' : '次へ'}
             </Text>
           </LinearGradient>
-        </TouchableOpacity>
+        </PressableScale>
       </View>
     </LinearGradient>
   );
@@ -196,12 +184,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   pageIndicator: {
     fontSize: 14,
@@ -213,13 +204,7 @@ const styles = StyleSheet.create({
     color: '#00F260',
     fontWeight: '600',
   },
-  scrollView: {
-    flex: 0,
-  },
-  slide: {
-    height: 1,
-  },
-  content: {
+  centerWrapper: {
     flex: 1,
     paddingHorizontal: 32,
     justifyContent: 'center',
@@ -271,8 +256,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: 32,
-    paddingBottom: 48,
     gap: 24,
   },
   dotsContainer: {

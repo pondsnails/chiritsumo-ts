@@ -21,20 +21,22 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (isLoading) return;
+    const go = async () => {
       if (hasCompletedOnboarding) {
-        // 2回目以降は直接questへ
+        // 2回目以降は日次ロールオーバー実行後にquestへ
+        await checkRollover();
         router.replace('/(tabs)/quest');
       } else {
-        // 初回はオンボーディングへ
+        // 初回はオンボーディングへ（ロールオーバーは実行しない）
         router.replace('/onboarding');
       }
-    }
+    };
+    void go();
   }, [isLoading, hasCompletedOnboarding]);
 
   const initialize = async () => {
     await checkOnboardingStatus();
-    await checkRollover();
   };
 
   const checkRollover = async () => {
