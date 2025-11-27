@@ -1,6 +1,62 @@
 # Gemini指摘事項への対応状況
 
-## 優先度1: 致命的なバグの修正（完了）
+**最新レビュー結果**: 実装は「プロトタイプ」レベル。リリース前に根本的な再設計が必須。
+
+---
+
+## 🚨 優先度0: システムの根幹（即座に着手）
+
+### ❌ マイグレーション管理の欠如【最重要・緊急】
+**問題**: 
+- `ensureSchema` で生SQLを手動実行
+- `drizzle-kit` の機能を使わず、TypeScript型定義とSQL文字列の二重管理
+- スキーマ変更時に破綻する設計
+
+**リスク**: 
+- リリース後のスキーマ変更が実質不可能
+- ユーザーデータの破損リスク
+- アップデート時のクラッシュ
+
+**対応**: 
+```typescript
+// 現状（NG）
+await db.execSync(`CREATE TABLE IF NOT EXISTS cards (...)`)
+
+// 正しい実装
+import { migrate } from 'drizzle-orm/expo-sqlite/migrator'
+await migrate(db, { migrationsFolder: './drizzle' })
+```
+
+**ステータス**: 🔴 未着手（即座に対応必須）
+
+### ❌ 全件メモリロードの撲滅【緊急】
+**問題**:
+- `cardStore.fetchCards()` → `SELECT * FROM cards`
+- 1,000枚でメモリ圧迫、5,000枚でクラッシュ確実
+- SQLiteの集計機能を無視
+
+**対応**:
+```typescript
+// NG: 全件取得
+const cards = await cardRepo.findAll()
+
+// OK: 必要分のみ取得
+const dueCards = await cardRepo.findDue(bookIds, new Date(), limit: 20)
+
+// ヒートマップはSQL集計
+SELECT DATE(last_review) as date, COUNT(*) as count 
+FROM cards 
+WHERE last_review IS NOT NULL 
+GROUP BY DATE(last_review)
+ORDER BY date DESC 
+LIMIT 90
+```
+
+**ステータス**: 🔴 未着手（パフォーマンス地雷）
+
+---
+
+## ✅ 優先度1: 致命的なバグの修正（完了）
 
 ### ✅ 日付処理のUTC/JST問題
 **問題**: `new Date().toISOString().split('T')[0]` はUTC基準の日付を取得するため、日本のユーザーが深夜0:00〜9:00に操作すると「前日」として扱われるバグ
@@ -26,75 +82,84 @@
 
 ---
 
-## 優先度2: パフォーマンス改善（計画中）
+## 🚨 優先度2: アーキテクチャの根本的欠陥（緊急）
 
-### 📋 SQL集計処理への移行（未実装）
-**問題**: `BrainAnalyticsDashboard` などでJS側でループを回して集計処理
+### ❌ JSON in SQL（velocityService）
+**問題**: 時系列データをJSON文字列として`system_settings`に保存
 
-**計画**:
-- ヒートマップ: `SELECT date, COUNT(*) FROM cards WHERE last_review IS NOT NULL GROUP BY date`
-- 保持率計算: SQLのウィンドウ関数を活用
-- DB側で計算し、結果のみJSに返す
+**対応**:
+```sql
+CREATE TABLE velocity_measurements (
+  date TEXT PRIMARY KEY,
+  earned_lex INTEGER NOT NULL,
+  target_lex INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+)
+```
 
-### 📋 ページネーション導入（未実装）
-**問題**: `cardStore.fetchCards()` が全件取得（`SELECT * FROM cards`）
+**ステータス**: 🔴 未着手
 
-**計画**:
-- カード一覧画面: FlatListの`onEndReached`でページング
-- Repository層に `findPaginated(offset, limit)` を追加
-- 初回10件、スクロールで追加20件ずつ取得
+### ❌ God Hook化した useQuestData
+**問題**: 
+- データ取得、計算、フィルタリング、表示ロジックが全て詰め込まれている
+- テスト不能、可読性低下、無駄な再レンダリング
 
----
+**対応**:
+- 計算ロジックをService層に完全分離
+- フックは「Serviceを呼んでStateに反映」のみ
 
-## 優先度3: アーキテクチャ改善（計画中）
+**ステータス**: 🔴 未着手
 
-### 📋 マイグレーション機構の刷新（未実装）
-**問題**: `ensureSchema` での手動DDL実行は脆い
+### ❌ Repository層の責務過多
+**問題**: Repositoryがビジネスロジックを知りすぎている
 
-**計画**:
-- `drizzle-kit` のマイグレーション生成機能を正式導入
-- マイグレーションファイルをバージョン管理
-- アプリ起動時に未適用マイグレーションを自動実行
+**対応**: Repository = DB操作のみ、ドメインロジックはService層へ
 
-### 📋 JSON保存の正規化（未実装）
-**問題**: `velocityService.ts` が日々の計測データをJSON文字列で保存
-
-**計画**:
-- `velocity_measurements` テーブルを作成
-- カラム: `date TEXT PRIMARY KEY, earned_lex INTEGER, target_lex INTEGER`
-- SQLで期間集計可能に
+**ステータス**: 🔴 未着手
 
 ---
 
-## 優先度4: コード品質向上（計画中）
+## 🟡 優先度3: 型安全性とコード品質
 
-### 📋 型安全性の強化（未実装）
-- `backupService.ts` の `any` 型を削除
-- Zodスキーマの厳密化
+### ❌ バックアップ処理の `any` 型
+**問題**: `backupService.ts` で型安全性が途切れている
 
-### 📋 環境変数管理（未実装）
-- `subscriptionStore.ts` の `YOUR_IOS_API_KEY` を `.env` で管理
-- `expo-constants` 経由で注入
+**リスク**: 破損データのインポートでアプリ起動不能
 
----
+**対応**: Zodスキーマとの完全な型連携
 
-## まとめ
-
-### ✅ 完了（2項目）
-1. 日付処理のUTC/JST問題（致命的バグ）
-2. ChunkSizeSelectorのバリデーション
-
-### 🚧 次のステップ
-1. SQL集計処理への移行（パフォーマンス最重要）
-2. ページネーション導入（スケーラビリティ）
-3. マイグレーション機構の刷新（保守性）
-
-### 📊 進捗
-- 致命的バグ修正: **100%** ✅
-- パフォーマンス改善: **0%** 📋
-- アーキテクチャ改善: **0%** 📋
-- コード品質: **50%** (バリデーション完了)
+**ステータス**: 🔴 未着手
 
 ---
 
-**優先順位**: 日付処理 > SQL集計 > ページネーション > マイグレーション > 型安全性
+## 📊 進捗サマリー
+
+### 完了項目
+- ✅ 日付処理のUTC/JST問題
+- ✅ ChunkSizeSelectorバリデーション
+
+### 緊急対応必須（リリースブロッカー）
+- 🔴 マイグレーション管理の導入
+- 🔴 全件ロードの撲滅
+- 🔴 JSON in SQLの正規化
+
+### 重要（技術的負債）
+- 🔴 useQuestDataのリファクタリング
+- 🔴 Repository/Service責務分離
+- 🔴 型安全性の強化
+
+---
+
+## ⚠️ リリース判定
+
+**現状**: プロトタイプレベル。以下を完了するまでリリース非推奨。
+
+**最低限のリリース条件**:
+1. ✅ 日付処理バグ修正（完了）
+2. 🔴 マイグレーション自動化（**必須**）
+3. 🔴 カード全件ロード廃止（**必須**）
+4. 🔴 SQL集計への移行（推奨）
+
+**判定**: 🔴 **NOT READY FOR PRODUCTION**
+
+---
