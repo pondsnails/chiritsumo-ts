@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   TouchableOpacity,
   Modal,
@@ -13,6 +12,7 @@ import {
   InteractionManager,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { BookOpen, X, ExternalLink, Trophy } from 'lucide-react-native';
@@ -54,30 +54,41 @@ export default function RouteScreen() {
       );
     };
     
-    // 各ルートから依存チェーンを辿る
-    const buildChain = (startBook: Book): Book[] => {
-      const chain: Book[] = [];
-      let current: Book | undefined = startBook;
-      
-      while (current && !visited.has(current.id)) {
-        visited.add(current.id);
-        chain.push(current);
-        
-        // 次の書籍を探す（このcurrentを前提としている書籍）
-        current = books.find(b => b.previousBookId === current!.id);
+    // 各ルートから依存チェーンを辿る（深さ優先探索で全分岐を網羅）
+    const buildChainsFromBook = (startBook: Book): Book[][] => {
+      if (visited.has(startBook.id)) {
+        return [];
       }
       
-      return chain;
+      visited.add(startBook.id);
+      
+      // このstartBookを前提としている書籍を全て探す
+      const children = books.filter(b => b.previousBookId === startBook.id);
+      
+      if (children.length === 0) {
+        // 末端ノード：このブック単体でチェーン終了
+        return [[startBook]];
+      }
+      
+      // 各子ブックから再帰的にチェーンを構築
+      const allChains: Book[][] = [];
+      children.forEach(child => {
+        const childChains = buildChainsFromBook(child);
+        childChains.forEach(childChain => {
+          // startBookを先頭に追加
+          allChains.push([startBook, ...childChain]);
+        });
+      });
+      
+      return allChains;
     };
     
     // 各ルートからチェーンを構築
     const rootBooks = getRootBooks();
     rootBooks.forEach(root => {
       if (!visited.has(root.id)) {
-        const chain = buildChain(root);
-        if (chain.length > 0) {
-          routes.push(chain);
-        }
+        const chains = buildChainsFromBook(root);
+        routes.push(...chains);
       }
     });
     
