@@ -4,14 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   TouchableOpacity,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Plus, BookOpen, Sparkles } from 'lucide-react-native';
+import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
 import { useBookStore } from '@core/store/bookStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';

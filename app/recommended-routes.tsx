@@ -9,10 +9,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, ExternalLink, Clock, BarChart3 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';

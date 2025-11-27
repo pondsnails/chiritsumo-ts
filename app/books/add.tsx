@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Alert,
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Barcode } from 'lucide-react-native';
@@ -125,7 +125,7 @@ export default function AddBookScreen() {
       setIsSaving(true);
       const newBook: Book = {
         ...newBookData,
-        userId: 'local',
+        userId: 'local-user',
         totalUnit: parseInt(totalUnit),
         chunkSize: parseInt(chunkSize) || 1,
         completedUnit: 0,
