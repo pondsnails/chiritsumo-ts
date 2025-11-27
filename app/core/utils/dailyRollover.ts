@@ -5,11 +5,14 @@ import type { Card, Book } from '../types';
 
 const LAST_ROLLOVER_KEY = 'lastRolloverDate';
 
+// Default Lex per card value used when no books exist
+const DEFAULT_LEX_PER_CARD = 30;
+
 /**
  * Calculate average Lex per card across all books
  */
 function getAverageLexPerCard(books: Book[]): number {
-  if (books.length === 0) return 30; // Default fallback
+  if (books.length === 0) return DEFAULT_LEX_PER_CARD;
   
   const totalLex = books.reduce((sum, book) => {
     return sum + calculateLexPerCard(book.mode);
@@ -71,7 +74,7 @@ export async function performDailyRollover(
     const newBalance = currentBalance - targetLex;
 
     await ledgerDB.add({
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 1000),
       date: new Date().toISOString(),
       targetLex,
       earnedLex: 0,
