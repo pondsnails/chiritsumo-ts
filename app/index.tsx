@@ -24,7 +24,10 @@ export default function Index() {
         await checkOnboardingStatus();
       } catch (error) {
         console.error('[Index] Onboarding check failed:', error);
-        if (mounted) setDestination('/onboarding');
+        if (mounted) {
+          setDestination('/onboarding');
+          setReady(true);
+        }
         return;
       }
       
@@ -41,13 +44,17 @@ export default function Index() {
           console.error('[Index] Rollover failed:', error);
         }
         console.log('[Index] Setting destination to /(tabs)/quest');
-        if (mounted) setDestination('/(tabs)/quest' as Href);
+        if (mounted) {
+          setDestination('/(tabs)/quest' as Href);
+          setReady(true);
+        }
       } else {
         console.log('[Index] Setting destination to /onboarding');
-        if (mounted) setDestination('/onboarding' as Href);
+        if (mounted) {
+          setDestination('/onboarding' as Href);
+          setReady(true);
+        }
       }
-      
-      if (mounted) setReady(true);
     };
     
     initialize();

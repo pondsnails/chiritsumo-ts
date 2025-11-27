@@ -128,7 +128,8 @@ export const exportBackup = async (): Promise<void> => {
 };
 
 /**
- * JSONファイルを読み込み、データベースを復元
+ * JSONまたはNDJSONファイルを読み込み、データベースを復元
+ * - 通常のJSON形式（exportBackup）とNDJSON形式（exportBackupStreaming）の両方に対応
  */
 export interface ImportResult {
   booksAdded: number;
@@ -148,7 +149,7 @@ export const importBackup = async (
     const settingsRepo = new DrizzleSystemSettingsRepository();
     
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'application/json',
+      type: ['application/json', 'application/x-ndjson'],
       copyToCacheDirectory: true,
     });
 
@@ -158,11 +159,40 @@ export const importBackup = async (
 
     // URIから読み込み
     const fileUri = result.assets[0].uri;
-    const jsonString = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
+    const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' as const });
 
     let backup: BackupData;
     try {
-      backup = BackupSchema.parse(JSON.parse(jsonString));
+      // NDJSON形式の検出（拡張子またはメタデータで判定）
+      const isNDJSON = fileUri.endsWith('.ndjson') || fileContent.startsWith('{"type":"metadata"');
+      
+      if (isNDJSON) {
+        // NDJSON形式の復元
+        const lines = fileContent.split('\n').filter(line => line.trim());
+        const books: any[] = [];
+        const cards: any[] = [];
+        const ledger: any[] = [];
+        const systemSettings: any[] = [];
+        const presetBooks: any[] = [];
+        
+        for (const line of lines) {
+          const obj = JSON.parse(line);
+          if (obj.type === 'metadata') continue;
+          if (obj.type === 'book') books.push(obj.data);
+          if (obj.type === 'card') cards.push(obj.data);
+          if (obj.type === 'ledger') ledger.push(obj.data);
+          if (obj.type === 'systemSetting') systemSettings.push(obj.data);
+          if (obj.type === 'presetBook') presetBooks.push(obj.data);
+        }
+        
+        backup = { books, cards, ledger, systemSettings, presetBooks };
+      } else {
+        // 通常のJSON形式
+        backup = JSON.parse(fileContent);
+      }
+      
+      // Zodスキーマでバリデーション
+      backup = BackupSchema.parse(backup);
     } catch (e: any) {
       const message = e?.issues ? JSON.stringify(e.issues) : (e?.message ?? 'Unknown parse error');
       throw new Error(`Invalid backup file format: ${message}`);

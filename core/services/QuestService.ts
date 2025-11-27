@@ -225,8 +225,9 @@ export function filterTodayNewCards(allNew: Card[], targetBookIds: string[]): Ca
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   return allNew.filter(c => {
     if (!targetBookIds.includes(c.bookId)) return false;
-    if (!('createdAt' in c)) return false;
-    const createdDate = new Date((c as any).createdAt).toISOString().slice(0, 10);
+    // createdAt が存在しない場合は除外（古いデータ）
+    if (!('createdAt' in c) || !c.createdAt) return false;
+    const createdDate = new Date(c.createdAt).toISOString().slice(0, 10);
     return createdDate === today;
   });
 }

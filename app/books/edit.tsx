@@ -111,7 +111,7 @@ export default function EditBookScreen() {
         chunkSize: chunkSize || 1,
         mode,
         status,
-        targetCompletionDate: targetCompletionDate?.toISOString() || null,
+        targetCompletionDate: targetCompletionDate ? Math.floor(targetCompletionDate.getTime() / 1000) : null,
       });
       router.back();
     } catch (error) {
@@ -159,7 +159,7 @@ export default function EditBookScreen() {
                 // 各書籍の完了日を一括更新
                 for (const [bookId, deadline] of result.bookDeadlines) {
                   await updateBook(bookId, {
-                    targetCompletionDate: deadline.toISOString(),
+                    targetCompletionDate: Math.floor(deadline.getTime() / 1000),
                   });
                 }
                 Alert.alert('完了', `${routeLength}冊の完了日を設定しました`);

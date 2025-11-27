@@ -133,8 +133,8 @@ export default function AddBookScreen() {
         completedUnit: 0,
         mode,
         status: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
       };
 
       await addBook(newBook);

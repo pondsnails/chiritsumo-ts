@@ -7,6 +7,7 @@ import { getDrizzleDb } from '../database/drizzleClient';
 export interface ILedgerRepository {
   findAll(): Promise<LedgerEntry[]>;
   findRecent(limit: number): Promise<LedgerEntry[]>;
+  findActiveDaysDescending(limit?: number): Promise<number[]>; // For streak calculation - returns Unix timestamps
   upsert(entry: Omit<LedgerEntry,'id'>): Promise<void>;
   add(entry: Omit<LedgerEntry,'id'>): Promise<void>;
   bulkAdd(entries: Omit<LedgerEntry,'id'>[]): Promise<void>; // Bulk add for backup restore
@@ -37,6 +38,22 @@ export class DrizzleLedgerRepository implements ILedgerRepository {
     const db = await this.db();
     const rows = await db.select().from(ledger).orderBy(desc(ledger.date)).limit(limit).all();
     return rows.map(r => mapRow(r as RawLedger));
+  }
+  
+  async findActiveDaysDescending(limit?: number): Promise<number[]> {
+    const db = await this.db();
+    let query = db
+      .select({ date: ledger.date })
+      .from(ledger)
+      .where(sql`${ledger.earned_lex} > 0`)
+      .orderBy(desc(ledger.date));
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    const rows = await query.all();
+    return rows.map(r => Number(r.date));
   }
   async upsert(entry: Omit<LedgerEntry,'id'>): Promise<void> {
     const db = await this.db();
@@ -90,6 +107,8 @@ export class DrizzleLedgerRepository implements ILedgerRepository {
           earned_lex: entry.earnedLex,
           target_lex: entry.targetLex,
           balance: entry.balance,
+          transaction_type: 'daily',
+          note: null,
         }).run();
       }
     });

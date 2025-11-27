@@ -126,7 +126,7 @@ export default function CardListScreen() {
       .sort((a, b) => {
         switch (sortBy) {
           case 'due':
-            return a.due.getTime() - b.due.getTime();
+            return a.due - b.due;
           case 'stability':
             return b.stability - a.stability;
           case 'difficulty':

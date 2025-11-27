@@ -119,24 +119,53 @@ export class DrizzleCardRepository implements ICardRepository {
     if (bookIds.length === 0) return [];
     const nowUnix = Math.floor(now.getTime() / 1000);
     const db = await this.db();
-    const rows = await db
-      .select()
-      .from(cards)
-      .where(and(inArray(cards.book_id, bookIds), lte(cards.due, nowUnix)))
-      .orderBy(asc(cards.due))
-      .all();
-    return rows.map(r => mapRow(r as RawCard));
+    
+    // SQLite IN clause limit対策: 900個ずつチャンク分割
+    const CHUNK_SIZE = 900;
+    const allRows: RawCard[] = [];
+    
+    for (let i = 0; i < bookIds.length; i += CHUNK_SIZE) {
+      const chunk = bookIds.slice(i, i + CHUNK_SIZE);
+      const rows = await db
+        .select()
+        .from(cards)
+        .where(and(inArray(cards.book_id, chunk), lte(cards.due, nowUnix)))
+        .orderBy(asc(cards.due))
+        .all();
+      allRows.push(...(rows as RawCard[]));
+    }
+    
+    // 全チャンクをマージ後、due順にソート
+    return allRows
+      .map(r => mapRow(r))
+      .sort((a, b) => a.due - b.due);
   }
 
   async findNew(bookIds: string[]): Promise<Card[]> {
+    if (bookIds.length === 0) return [];
     const db = await this.db();
-    const rows = await db
-      .select()
-      .from(cards)
-      .where(and(eq(cards.state, 0), inArray(cards.book_id, bookIds)))
-      .orderBy(asc(cards.book_id), asc(cards.unit_index))
-      .all();
-    return rows.map(r => mapRow(r as RawCard));
+    
+    // SQLite IN clause limit対策: 900個ずつチャンク分割
+    const CHUNK_SIZE = 900;
+    const allRows: RawCard[] = [];
+    
+    for (let i = 0; i < bookIds.length; i += CHUNK_SIZE) {
+      const chunk = bookIds.slice(i, i + CHUNK_SIZE);
+      const rows = await db
+        .select()
+        .from(cards)
+        .where(and(eq(cards.state, 0), inArray(cards.book_id, chunk)))
+        .orderBy(asc(cards.book_id), asc(cards.unit_index))
+        .all();
+      allRows.push(...(rows as RawCard[]));
+    }
+    
+    return allRows
+      .map(r => mapRow(r))
+      .sort((a, b) => {
+        if (a.bookId === b.bookId) return a.unitIndex - b.unitIndex;
+        return a.bookId.localeCompare(b.bookId);
+      });
   }
 
   async create(card: Card): Promise<void> {
