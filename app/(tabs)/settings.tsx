@@ -300,11 +300,69 @@ export default function SettingsScreen() {
             <Text style={styles.subtitle}>{i18n.t('settings.subtitle')}</Text>
           </View>
 
+          {/* Pro版ステータス表示 */}
+          {!isProUser && (
+            <TouchableOpacity
+              style={[glassEffect.card, styles.proStatusCard]}
+              onPress={() => router.push('/paywall' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.proStatusHeader}>
+                <Text style={styles.proStatusTitle}>Free版を使用中</Text>
+                <View style={styles.proUpgradeBadge}>
+                  <Text style={styles.proUpgradeBadgeText}>⬆ アップグレード</Text>
+                </View>
+              </View>
+              <View style={styles.proStatusLimits}>
+                <View style={styles.proStatusLimit}>
+                  <Text style={styles.proStatusLimitLabel}>参考書登録：</Text>
+                  <Text style={styles.proStatusLimitValue}>{books.length}/3冊</Text>
+                </View>
+                <View style={styles.proStatusLimit}>
+                  <Text style={styles.proStatusLimitLabel}>目標調整：</Text>
+                  <Text style={styles.proStatusLimitValue}>手動のみ</Text>
+                </View>
+              </View>
+              <Text style={styles.proStatusCTA}>Pro版なら参考書無制限・AI目標調整 →</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Pro版ステータス表示 */}
+          {!isProUser && (
+            <TouchableOpacity
+              style={[glassEffect.card, styles.proStatusCard]}
+              onPress={() => router.push('/paywall' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.proStatusHeader}>
+                <Text style={styles.proStatusTitle}>Free版を使用中</Text>
+                <View style={styles.proUpgradeBadge}>
+                  <Text style={styles.proUpgradeBadgeText}>⬆ アップグレード</Text>
+                </View>
+              </View>
+              <View style={styles.proStatusLimits}>
+                <View style={styles.proStatusLimit}>
+                  <Text style={styles.proStatusLimitLabel}>参考書登録：</Text>
+                  <Text style={styles.proStatusLimitValue}>{books.length}/3冊</Text>
+                </View>
+                <View style={styles.proStatusLimit}>
+                  <Text style={styles.proStatusLimitLabel}>目標調整：</Text>
+                  <Text style={styles.proStatusLimitValue}>手動のみ</Text>
+                </View>
+                <View style={styles.proStatusLimit}>
+                  <Text style={styles.proStatusLimitLabel}>学習分析：</Text>
+                  <Text style={styles.proStatusLimitValue}>利用不可</Text>
+                </View>
+              </View>
+              <Text style={styles.proStatusCTA}>Pro版なら参考書無制限・AI目標調整・脳内分析 →</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Lex目標設定セクション */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>学習目標設定</Text>
+            <Text style={styles.sectionTitle}>日次Lex目標</Text>
             
-            {/* Velocity設定へのリンク（推奨） */}
+            {/* Velocity推奨 */}
             <TouchableOpacity
               style={[glassEffect.card, styles.velocityCard]}
               onPress={() => router.push('/velocity-settings' as any)}
@@ -323,39 +381,65 @@ export default function SettingsScreen() {
               <Text style={styles.lexProfileHint}>または従来のプリセットから選択</Text>
               
               {/* プリセットプロファイル選択 */}
-              {(isProUser ? getAllProfiles() : getAvailableProfilesForFree()).map((profile) => (
-                <TouchableOpacity
-                  key={profile.id}
-                  style={[
-                    styles.profileOption,
-                    selectedProfileId === profile.id && styles.profileOptionSelected,
-                  ]}
-                  onPress={() => handleLexProfileChange(profile.id)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={[
-                        styles.profileName,
-                        selectedProfileId === profile.id && styles.profileNameSelected,
-                      ]}>
-                        {profile.name}
+              {getAllProfiles().map((profile) => {
+                const isLocked = profile.isPro && !isProUser;
+                return (
+                  <TouchableOpacity
+                    key={profile.id}
+                    style={[
+                      styles.profileOption,
+                      selectedProfileId === profile.id && styles.profileOptionSelected,
+                      isLocked && styles.profileOptionLocked,
+                    ]}
+                    onPress={() => {
+                      if (isLocked) {
+                        Alert.alert(
+                          'Pro版限定プラン',
+                          `${profile.name}はPro版でのみ利用可能です。\n\nPro版にアップグレードすると、より高い目標設定やカスタム設定が利用できます。`,
+                          [
+                            { text: 'キャンセル', style: 'cancel' },
+                            { 
+                              text: 'Pro版を見る', 
+                              onPress: () => router.push('/paywall' as any) 
+                            },
+                          ]
+                        );
+                      } else {
+                        handleLexProfileChange(profile.id);
+                      }
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[
+                          styles.profileName,
+                          selectedProfileId === profile.id && styles.profileNameSelected,
+                          isLocked && styles.profileNameLocked,
+                        ]}>
+                          {profile.name}
+                        </Text>
+                        {profile.isPro && (
+                          <View style={styles.proChip}>
+                            <Text style={styles.proChipText}>{isLocked ? '🔒 Pro' : 'Pro'}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.profileDescription, isLocked && styles.profileDescriptionLocked]}>
+                        {profile.description}
+                        {isLocked && ' （Pro版で利用可能）'}
                       </Text>
-                      {profile.isPro && (
-                        <View style={styles.proChip}>
-                          <Text style={styles.proChipText}>Pro</Text>
-                        </View>
-                      )}
+                      <Text style={[styles.profileTarget, isLocked && styles.profileTargetLocked]}>
+                        {profile.dailyLexTarget} Lex/日（約{Math.round(profile.dailyLexTarget / 10)}分）
+                      </Text>
                     </View>
-                    <Text style={styles.profileDescription}>{profile.description}</Text>
-                    <Text style={styles.profileTarget}>{profile.dailyLexTarget} Lex/日（約{Math.round(profile.dailyLexTarget / 10)}分）</Text>
-                  </View>
-                  {selectedProfileId === profile.id && (
-                    <View style={styles.checkmark}>
-                      <Text style={styles.checkmarkText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+                    {selectedProfileId === profile.id && !isLocked && (
+                      <View style={styles.checkmark}>
+                        <Text style={styles.checkmarkText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
               
               {/* カスタム設定（Pro版のみ） */}
               {isProUser && (
@@ -751,6 +835,10 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary + '10',
   },
+  profileOptionLocked: {
+    opacity: 0.6,
+    backgroundColor: colors.surface + '10',
+  },
   profileName: {
     fontSize: 16,
     fontWeight: '600',
@@ -759,17 +847,27 @@ const styles = StyleSheet.create({
   profileNameSelected: {
     color: colors.primary,
   },
+  profileNameLocked: {
+    color: colors.textSecondary,
+  },
   profileDescription: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 4,
     lineHeight: 16,
   },
+  profileDescriptionLocked: {
+    color: colors.textTertiary,
+  },
   profileTarget: {
     fontSize: 14,
     color: colors.primary,
     fontWeight: '600',
     marginTop: 4,
+  },
+  profileTargetLocked: {
+    color: colors.textTertiary,
+    opacity: 0.5,
   },
   proChip: {
     backgroundColor: colors.warning + '20',
@@ -861,6 +959,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSecondary,
+  },
+  proStatusCard: {
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.warning + '40',
+    backgroundColor: colors.warning + '08',
+  },
+  proStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  proStatusTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  proUpgradeBadge: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  proUpgradeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  proStatusLimits: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  proStatusLimit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  proStatusLimitLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  proStatusLimitValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  proStatusCTA: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   policyCard: {
     paddingVertical: 12,

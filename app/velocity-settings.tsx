@@ -191,7 +191,56 @@ export default function VelocitySettingsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* 自動調整（Pro版限定） */}
+              {/* Pro版限定機能のプレビュー（Free版） */}
+              {!isProUser && (
+                <TouchableOpacity 
+                  style={[glassEffect.card, styles.proPreviewCard]}
+                  onPress={() => router.push('/paywall' as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.proPreviewHeader}>
+                    <View style={styles.proPreviewIcon}>
+                      <Zap color={colors.warning} size={32} />
+                    </View>
+                    <Text style={styles.proPreviewTitle}>Pro版で学習を加速</Text>
+                  </View>
+                  <View style={styles.proPreviewBenefits}>
+                    <View style={styles.proPreviewBenefit}>
+                      <Text style={styles.proPreviewBenefitIcon}>🎯</Text>
+                      <Text style={styles.proPreviewBenefitText}>
+                        <Text style={styles.proPreviewBenefitBold}>目標自動調整：</Text>
+                        達成率に応じてAIが最適な目標を提案
+                      </Text>
+                    </View>
+                    <View style={styles.proPreviewBenefit}>
+                      <Text style={styles.proPreviewBenefitIcon}>📚</Text>
+                      <Text style={styles.proPreviewBenefitText}>
+                        <Text style={styles.proPreviewBenefitBold}>参考書無制限：</Text>
+                        何冊でも登録可能（Free版は3冊まで）
+                      </Text>
+                    </View>
+                    <View style={styles.proPreviewBenefit}>
+                      <Text style={styles.proPreviewBenefitIcon}>🧠</Text>
+                      <Text style={styles.proPreviewBenefitText}>
+                        <Text style={styles.proPreviewBenefitBold}>学習分析：</Text>
+                        ヒートマップ・忘却曲線で記憶を可視化
+                      </Text>
+                    </View>
+                    <View style={styles.proPreviewBenefit}>
+                      <Text style={styles.proPreviewBenefitIcon}>🔥</Text>
+                      <Text style={styles.proPreviewBenefitText}>
+                        <Text style={styles.proPreviewBenefitBold}>ストリーク保護：</Text>
+                        破産時も継続日数を維持
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.proPreviewCTA}>
+                    <Text style={styles.proPreviewCTAText}>Pro版を見る →</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* 自動調整（Pro版限定） */}}
               <View style={[glassEffect.card, styles.autoAdjustCard]}>
                 <View style={styles.autoAdjustHeader}>
                   <Zap color={isProUser ? colors.success : colors.textTertiary} size={24} />
@@ -396,5 +445,65 @@ const styles = StyleSheet.create({
   currentSettingSubtext: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  proPreviewCard: {
+    padding: 24,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.warning + '40',
+    backgroundColor: colors.warning + '08',
+  },
+  proPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 20,
+  },
+  proPreviewIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.warning + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proPreviewTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  proPreviewBenefits: {
+    gap: 16,
+    marginBottom: 20,
+  },
+  proPreviewBenefit: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  proPreviewBenefitIcon: {
+    fontSize: 20,
+  },
+  proPreviewBenefitText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+  },
+  proPreviewBenefitBold: {
+    fontWeight: '700',
+    color: colors.text,
+  },
+  proPreviewCTA: {
+    backgroundColor: colors.warning,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  proPreviewCTAText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.background,
   },
 });

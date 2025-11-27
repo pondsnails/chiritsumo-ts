@@ -97,12 +97,12 @@ export default function AddBookScreen() {
     // Free Planの制限チェック
     if (!canAddBook(books.length, isProUser)) {
       Alert.alert(
-        i18n.t('books.limitTitle'),
-        i18n.t('books.limitMessage'),
+        '📚 参考書登録制限（Free版）',
+        `Free版では最大3冊まで参考書を登録できます。\n現在：${books.length}/3冊\n\nPro版にアップグレードすると：\n✓ 参考書を無制限に登録可能\n✓ 目標の自動調整機能\n✓ 学習分析ダッシュボード\n✓ ストリーク保護機能`,
         [
-          { text: i18n.t('common.cancel'), style: 'cancel' },
+          { text: 'キャンセル', style: 'cancel' },
           {
-            text: i18n.t('books.viewProPlan'),
+            text: 'Pro版を見る（¥3,600）',
             onPress: () => router.push('/paywall'),
           },
         ]

@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Plus, BookOpen, Sparkles, Edit2, Trash2, Target } from 'lucide-react-native';
 import { useBookStore } from '@core/store/bookStore';
+import { useSubscriptionStore } from '@core/store/subscriptionStore';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import i18n from '@core/i18n';
@@ -21,6 +22,7 @@ import type { Book } from '@core/types';
 export default function BooksScreen() {
   const router = useRouter();
   const { books, fetchBooks, deleteBook, isLoading } = useBookStore();
+  const { isProUser } = useSubscriptionStore();
 
   useEffect(() => {
     fetchBooks();
@@ -188,6 +190,43 @@ export default function BooksScreen() {
               }}
             />
           )}
+
+          {/* Pro版アップグレードカード（Free版のみ） */}
+          {!isProUser && books.length > 0 && (
+            <TouchableOpacity
+              style={[glassEffect.card, styles.proUpgradeCard]}
+              onPress={() => router.push('/paywall' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.proUpgradeHeader}>
+                <Text style={styles.proUpgradeTitle}>🚀 Pro版でさらに加速</Text>
+                <View style={styles.proUpgradeBadge}>
+                  <Text style={styles.proUpgradeBadgeText}>¥3,600</Text>
+                </View>
+              </View>
+              <Text style={styles.proUpgradeDescription}>
+                現在：{books.length}/3冊の参考書を登録中
+              </Text>
+              <View style={styles.proUpgradeFeatures}>
+                <View style={styles.proUpgradeFeature}>
+                  <Text style={styles.proUpgradeFeatureIcon}>✓</Text>
+                  <Text style={styles.proUpgradeFeatureText}>参考書無制限登録</Text>
+                </View>
+                <View style={styles.proUpgradeFeature}>
+                  <Text style={styles.proUpgradeFeatureIcon}>✓</Text>
+                  <Text style={styles.proUpgradeFeatureText}>AI目標自動調整</Text>
+                </View>
+                <View style={styles.proUpgradeFeature}>
+                  <Text style={styles.proUpgradeFeatureIcon}>✓</Text>
+                  <Text style={styles.proUpgradeFeatureText}>学習分析ダッシュボード</Text>
+                </View>
+                <View style={styles.proUpgradeFeature}>
+                  <Text style={styles.proUpgradeFeatureIcon}>✓</Text>
+                  <Text style={styles.proUpgradeFeatureText}>ストリーク保護機能</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -354,5 +393,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  proUpgradeCard: {
+    padding: 20,
+    marginTop: 16,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.warning + '40',
+    backgroundColor: colors.warning + '08',
+  },
+  proUpgradeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  proUpgradeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  proUpgradeBadge: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  proUpgradeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  proUpgradeDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  proUpgradeFeatures: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  proUpgradeFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '48%',
+  },
+  proUpgradeFeatureIcon: {
+    fontSize: 16,
+    color: colors.success,
+    fontWeight: '700',
+  },
+  proUpgradeFeatureText: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
   },
 });

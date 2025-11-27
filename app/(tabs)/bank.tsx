@@ -175,13 +175,36 @@ export default function BankScreen() {
                   style={[glassEffect.card, styles.proUpgradeCard]}
                   onPress={() => router.push('/paywall' as any)}
                 >
-                  <Lock color={colors.primary} size={32} strokeWidth={2} />
+                  <View style={styles.proUpsellHeader}>
+                    <Lock color={colors.warning} size={40} />
+                    <View style={styles.proUpsellBadge}>
+                      <Text style={styles.proUpsellBadgeText}>Pro限定</Text>
+                    </View>
+                  </View>
                   <View style={styles.proUpgradeContent}>
                     <Text style={styles.proUpgradeTitle}>🧠 脳内分析ダッシュボード</Text>
                     <Text style={styles.proUpgradeDescription}>
-                      学習ヒートマップ・忘却曲線・記憶保持率など、あなたの脳を可視化。Pro版で解放！
+                      あなたの学習データをAIが分析し、記憶の定着度を可視化します
                     </Text>
-                    <Text style={styles.proUpgradePrice}>¥3,600で一生使える</Text>
+                    <View style={styles.proUpsellFeatures}>
+                      <View style={styles.proUpsellFeature}>
+                        <Text style={styles.proUpsellFeatureIcon}>📊</Text>
+                        <Text style={styles.proUpsellFeatureText}>学習ヒートマップ</Text>
+                      </View>
+                      <View style={styles.proUpsellFeature}>
+                        <Text style={styles.proUpsellFeatureIcon}>📉</Text>
+                        <Text style={styles.proUpsellFeatureText}>忘却曲線グラフ</Text>
+                      </View>
+                      <View style={styles.proUpsellFeature}>
+                        <Text style={styles.proUpsellFeatureIcon}>💯</Text>
+                        <Text style={styles.proUpsellFeatureText}>記憶保持率</Text>
+                      </View>
+                      <View style={styles.proUpsellFeature}>
+                        <Text style={styles.proUpsellFeatureIcon}>⚡</Text>
+                        <Text style={styles.proUpsellFeatureText}>学習速度分析</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.proUpgradePrice}>買い切り ¥3,600</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -408,13 +431,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   proUpgradeCard: {
-    flexDirection: 'row',
     padding: 24,
     marginBottom: 24,
-    gap: 16,
-    alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary + '40',
+    borderColor: colors.warning + '40',
+    backgroundColor: colors.warning + '08',
+  },
+  proUpsellHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  proUpsellBadge: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  proUpsellBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
+  },
   },
   proUpgradeContent: {
     flex: 1,
