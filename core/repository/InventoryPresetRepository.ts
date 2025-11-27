@@ -18,22 +18,38 @@ export class DrizzleInventoryPresetRepository implements IInventoryPresetReposit
   }
   async findAll(): Promise<InventoryPreset[]> {
     const db = await this.db();
-    const rows = await db.select().from(inventoryPresets).orderBy(asc(inventoryPresets.id)).all();
-    const presetIds = (rows as InventoryPresetRow[]).map(r => r.id).filter((v): v is number => typeof v === 'number');
+    
+    // JOINを使って一度に取得し、N+1問題を解消
+    const rows = await db.select({
+      preset: inventoryPresets,
+      bookId: presetBooks.book_id
+    })
+    .from(inventoryPresets)
+    .leftJoin(presetBooks, eq(inventoryPresets.id, presetBooks.preset_id))
+    .orderBy(asc(inventoryPresets.id))
+    .all();
 
-    let links: PresetBookRow[] = [];
-    if (presetIds.length > 0) {
-      links = await db.select().from(presetBooks).where(inArray(presetBooks.preset_id, presetIds)).all() as PresetBookRow[];
+    // アプリケーション側でグルーピング
+    const presetMap = new Map<number, InventoryPreset>();
+
+    for (const row of rows) {
+      const pid = row.preset.id;
+      if (!presetMap.has(pid)) {
+        presetMap.set(pid, {
+          id: pid,
+          label: row.preset.label,
+          iconCode: row.preset.icon_code ?? 0,
+          bookIds: [],
+          isDefault: !!row.preset.is_default,
+        });
+      }
+      
+      if (row.bookId) {
+        presetMap.get(pid)!.bookIds.push(row.bookId);
+      }
     }
 
-    const booksByPreset = new Map<number, string[]>();
-    for (const link of links) {
-      const list = booksByPreset.get(link.preset_id) ?? [];
-      list.push(link.book_id);
-      booksByPreset.set(link.preset_id, list);
-    }
-
-    return (rows as InventoryPresetRow[]).map(r => this.mapRow(r, booksByPreset.get(r.id ?? 0) ?? []));
+    return Array.from(presetMap.values());
   }
   
   async findDefault(): Promise<InventoryPreset | null> {

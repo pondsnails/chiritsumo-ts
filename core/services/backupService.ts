@@ -10,15 +10,7 @@ import { DrizzleCardRepository } from '../repository/CardRepository';
 import { DrizzleLedgerRepository } from '../repository/LedgerRepository';
 import { DrizzleSystemSettingsRepository } from '../repository/SystemSettingsRepository';
 
-export interface BackupData {
-  version: string;
-  exportedAt: string;
-  books: any[];
-  cards: any[];
-  ledger: any[];
-  systemSettings?: any[]; // オプショナル（既存バックアップとの互換性）
-  presetBooks?: { preset_id: number; book_id: string }[]; // 正規化後のリンクテーブル
-}
+// BackupData type definition moved to after Zod schema definition
 
 // =====================
 // Zod Schemas
@@ -78,6 +70,8 @@ const BackupSchema = z.object({
   systemSettings: z.array(SystemSettingBackupSchema).optional(),
   presetBooks: z.array(PresetBookLinkSchema).optional(),
 });
+
+export type BackupData = z.infer<typeof BackupSchema>;
 
 /**
  * 全データをJSONとしてエクスポートし、シェア機能で保存
