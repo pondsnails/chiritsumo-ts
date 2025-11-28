@@ -70,7 +70,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="bank"
         options={{
-          title: 'Bank',
+          title: 'Stats',
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />

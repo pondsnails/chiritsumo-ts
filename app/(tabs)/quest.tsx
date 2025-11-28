@@ -126,32 +126,6 @@ export default function QuestScreen() {
             </View>
           )}
 
-          {presets.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterChips}
-            >
-              <TouchableOpacity
-                style={[styles.allChip, !activePresetId && styles.allChipActive]}
-                onPress={() => setActivePresetId(null)}
-              >
-                <Text style={[styles.allChipText, !activePresetId && styles.allChipTextActive]}>
-                  {i18n.t('quest.filterAll')}
-                </Text>
-              </TouchableOpacity>
-              {presets.map(preset => (
-                <InventoryFilterChip
-                  key={preset.id}
-                  preset={preset}
-                  isActive={activePresetId === preset.id}
-                  onPress={() => handleFilterPress(preset.id)}
-                  onLongPress={handleFilterLongPress}
-                />
-              ))}
-            </ScrollView>
-          )}
-
           <View style={styles.banner}>
             <Text style={styles.bannerTitle}>📚 今日のクエスト</Text>
             <Text style={styles.bannerText}>復習を優先 → 目標Lexまで新規追加</Text>
@@ -168,6 +142,7 @@ export default function QuestScreen() {
 
           {groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
             <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>📚</Text>
               <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
               <Text style={styles.emptySubtext}>
                 {activePresetId
@@ -175,10 +150,9 @@ export default function QuestScreen() {
                   : i18n.t('quest.addBooksPrompt')}
               </Text>
               <TouchableOpacity
-                style={[styles.quickStartButton, { marginTop: 16 }]}
+                style={styles.primaryActionButton}
                 onPress={async () => {
                   try {
-                    // サービス層に委譲
                     const created = await learningSessionService.distributeNewCards(
                       activePresetId,
                       presets,
@@ -193,13 +167,7 @@ export default function QuestScreen() {
                   }
                 }}
               >
-                <Text style={styles.quickStartText}>新規カード10枚を追加</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickStartButton, { marginTop: 8, backgroundColor: colors.success }]}
-                onPress={() => setShowRegisterModal(true)}
-              >
-                <Text style={styles.quickStartText}>既習範囲を登録</Text>
+                <Text style={styles.primaryActionText}>学習を開始</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -425,6 +393,10 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
     paddingHorizontal: 32,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
@@ -503,5 +475,22 @@ const styles = StyleSheet.create({
   chunkHint: {
     fontSize: 10,
     color: colors.textSecondary,
+  },
+  primaryActionButton: {
+    marginTop: 32,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 48,
+    paddingVertical: 20,
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  primaryActionText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 18,
   },
 });
