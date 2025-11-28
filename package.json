@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "expo start",
+    "dev": "expo start --tunnel",
+    "dev:clear": "expo start --clear --tunnel",
     "build:web": "expo export --platform web --output-dir ./dist",
     "build": "expo export --platform web --output-dir ./dist",
     "lint": "expo lint",
