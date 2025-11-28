@@ -203,8 +203,6 @@ export default function AddBookScreen() {
                 value={chunkSize}
                 onChange={setChunkSize}
                 totalUnit={parseInt(totalUnit || '0') || undefined}
-                modeAverageLex={calculateLexPerCard(mode)}
-                onRequestPro={() => router.push('/paywall')}
               />
             </View>
 

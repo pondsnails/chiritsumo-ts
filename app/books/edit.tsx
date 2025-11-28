@@ -233,8 +233,6 @@ export default function EditBookScreen() {
                 onChange={setChunkSize}
                 totalUnit={parseInt(totalUnit || '0') || undefined}
                 disabled={hasExistingCards}
-                modeAverageLex={modeAverageLex}
-                onRequestPro={() => router.push('/paywall')}
               />
             </View>
 
