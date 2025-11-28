@@ -33,7 +33,7 @@ export function useQuestFilters(books: Book[]): UseQuestFiltersReturn {
 
   const selectedBookIds = useMemo(
     () => questService.resolveTargetBookIds(books, presets, activePresetId),
-    [questService, books, presets, activePresetId]
+    [books.map(b => b.id).join(','), presets.map(p => p.id).join(','), activePresetId]
   );
 
   return {

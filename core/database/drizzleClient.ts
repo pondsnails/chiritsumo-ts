@@ -62,6 +62,16 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
     );
     const appliedHashes = new Set(appliedMigrations.map(m => m.hash));
 
+    // 🔧 新規DBかどうかをチェック（booksテーブルの存在確認）
+    const existingTables = _sqlite.getAllSync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='books'"
+    );
+    const isNewDatabase = existingTables.length === 0;
+    
+    if (isNewDatabase) {
+      console.log('[Migration] 🆕 New database detected, running fresh migrations');
+    }
+
     // 未適用のマイグレーションを実行
     for (const entry of migrationData.journal.entries) {
       const migrationKey = `m${String(entry.idx).padStart(4, '0')}`;
@@ -79,20 +89,36 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
         continue;
       }
 
+      // 🔧 新規DB時はマイグレーション0002をスキップ（既存テーブルからのデータ移行が不要）
+      if (isNewDatabase && entry.idx === 2) {
+        console.log(`[Migration] ⏭️  Skipping migration ${entry.tag} (new database, no data to migrate)`);
+        // 履歴には記録して、次回以降スキップされるようにする
+        _sqlite.runSync(
+          'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+          [hash, Date.now()]
+        );
+        continue;
+      }
+
       console.log(`[Migration] 📦 Applying migration ${entry.tag}...`);
       
       // トランザクション内で実行
       _sqlite.execSync('BEGIN TRANSACTION');
       
       try {
-        // SQL文を実行（複数文対応）
+        // SQL文を実行(複数文対応)
         const statements = migrationSql
           .split(';')
           .map((s: string) => s.trim())
           .filter((s: string) => s.length > 0);
 
         for (const statement of statements) {
-          _sqlite.execSync(statement);
+          try {
+            _sqlite.execSync(statement);
+          } catch (stmtError) {
+            console.error(`[Migration] Failed to execute statement:`, statement);
+            throw stmtError;
+          }
         }
 
         // マイグレーション履歴に記録
@@ -104,6 +130,7 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
         _sqlite.execSync('COMMIT');
         console.log(`[Migration] ✅ Migration ${entry.tag} applied successfully`);
       } catch (migrationError) {
+        console.error(`[Migration] ❌ Migration ${entry.tag} failed:`, migrationError);
         _sqlite.execSync('ROLLBACK');
         throw migrationError;
       }
@@ -126,25 +153,7 @@ export async function getDrizzleDb(): Promise<ExpoSQLiteDatabase> {
   
   _initializationPromise = (async () => {
     try {
-      // データベースの健全性チェック
-      const health = await checkDatabaseHealth();
-      
-      if (health.status === DatabaseStatus.CORRUPTED && health.backupPath) {
-        console.warn('[DB] Database corrupted, attempting restore from backup...');
-        await restoreFromBackup(health.backupPath);
-      } else if (health.status === DatabaseStatus.MIGRATION_FAILED) {
-        throw new DatabaseInitializationError(
-          'Database migration failed. Required tables are missing.',
-          false
-        );
-      } else if (health.status === DatabaseStatus.CORRUPTED) {
-        throw new DatabaseInitializationError(
-          'Database is corrupted and no backup is available.',
-          false
-        );
-      }
-      
-      // SQLiteデータベースを開く
+      // SQLiteデータベースを開く（新規の場合は作成される）
       if (!_sqlite) {
         _sqlite = SQLite.openDatabaseSync('chiritsumo.db');
         

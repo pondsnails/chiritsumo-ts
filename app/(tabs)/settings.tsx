@@ -41,6 +41,7 @@ export default function SettingsScreen() {
   const [customLexTarget, setCustomLexTarget] = useState('200');
   const [dailyLexTarget, setDailyLexTarget] = useState(200);
   const [forceUpdate, setForceUpdate] = useState(0); // 強制再レンダリング用
+  const [showDevTools, setShowDevTools] = useState(false);
 
   // 開発モードチェック
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -244,7 +245,7 @@ export default function SettingsScreen() {
   const handleDevResetOnboarding = () => {
     Alert.alert(
       'オンボーディングリセット',
-      'アプリを再起動すると初回起動時のチュートリアルが再表示されます。',
+      'アプリ再起動でチュートリアル再表示',
       [
         { text: 'キャンセル', style: 'cancel' },
         { 
@@ -263,7 +264,7 @@ export default function SettingsScreen() {
   const handleDevResetCards = () => {
     Alert.alert(
       'カードリセット',
-      'すべてのカードを新規状態にリセットします。\n\n• FSRS学習データを削除\n• すべて"New"状態に戻る\n• 書籍データは保持されます',
+      '全カードを新規状態にリセット\n\n• FSRSデータ削除\n• 全て"New"に戻る\n• 教材データ保持',
       [
         { text: 'キャンセル', style: 'cancel' },
         { 
@@ -335,19 +336,19 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.proStatusLimits}>
                 <View style={styles.proStatusLimit}>
-                  <Text style={styles.proStatusLimitLabel}>参考書登録：</Text>
+                  <Text style={styles.proStatusLimitLabel}>教材登録：</Text>
                   <Text style={styles.proStatusLimitValue}>{books.length}/3冊</Text>
                 </View>
                 <View style={styles.proStatusLimit}>
                   <Text style={styles.proStatusLimitLabel}>目標調整：</Text>
-                  <Text style={styles.proStatusLimitValue}>手動のみ</Text>
+                  <Text style={styles.proStatusLimitValue}>手動</Text>
                 </View>
                 <View style={styles.proStatusLimit}>
-                  <Text style={styles.proStatusLimitLabel}>学習分析：</Text>
-                  <Text style={styles.proStatusLimitValue}>利用不可</Text>
+                  <Text style={styles.proStatusLimitLabel}>分析：</Text>
+                  <Text style={styles.proStatusLimitValue}>不可</Text>
                 </View>
               </View>
-              <Text style={styles.proStatusCTA}>Pro版なら参考書無制限・AI目標調整・脳内分析 →</Text>
+              <Text style={styles.proStatusCTA}>Pro: 無制限・AI調整・脳内分析 →</Text>
             </TouchableOpacity>
           )}
 
@@ -364,7 +365,7 @@ export default function SettingsScreen() {
                 <Text style={styles.velocityBadge}>推奨</Text>
                 <Text style={styles.velocityTitle}>学習速度ベースの目標設定</Text>
                 <Text style={styles.velocityDescription}>
-                  あなたの実際の学習ペースを計測し、「1日何分勉強したいか」から自動的に目標を算出します
+                  実際のペースを計測し、「1日何分勉強するか」から目標を自動算出
                 </Text>
               </View>
             </TouchableOpacity>
@@ -417,10 +418,12 @@ export default function SettingsScreen() {
                           </View>
                         )}
                       </View>
-                      <Text style={[styles.profileDescription, isLocked && styles.profileDescriptionLocked]}>
-                        {profile.description}
-                        {isLocked && ' （Pro版で利用可能）'}
-                      </Text>
+                      {selectedProfileId === profile.id && (
+                        <Text style={[styles.profileDescription, isLocked && styles.profileDescriptionLocked]}>
+                          {profile.description}
+                          {isLocked && ' （Pro版で利用可能）'}
+                        </Text>
+                      )}
                       <Text style={[styles.profileTarget, isLocked && styles.profileTargetLocked]}>
                         {profile.dailyLexTarget} Lex/日（約{Math.round(profile.dailyLexTarget / 10)}分）
                       </Text>
@@ -483,7 +486,7 @@ export default function SettingsScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Download color={colors.primary} size={20} strokeWidth={2} />
-                <Text style={styles.menuItemText}>バックアップをエクスポート</Text>
+                <Text style={styles.menuItemText}>エクスポート</Text>
               </View>
               {isExporting && <ActivityIndicator color={colors.primary} />}
             </TouchableOpacity>
@@ -495,7 +498,7 @@ export default function SettingsScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Upload color={colors.primary} size={20} strokeWidth={2} />
-                <Text style={styles.menuItemText}>バックアップをインポート</Text>
+                <Text style={styles.menuItemText}>インポート</Text>
               </View>
               {isImporting && <ActivityIndicator color={colors.primary} />}
             </TouchableOpacity>
@@ -593,11 +596,21 @@ export default function SettingsScreen() {
           {/* 開発者向けセクション（開発モードのみ表示） */}
           {isDevelopment && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.warning }]}>
-                🔧 開発者ツール
-              </Text>
+              <TouchableOpacity 
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}
+                onPress={() => setShowDevTools(!showDevTools)}
+              >
+                <Text style={[styles.sectionTitle, { color: colors.warning, marginBottom: 0, marginRight: 8 }]}>
+                  🔧 開発者ツール
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  {showDevTools ? '▼' : '▶'}
+                </Text>
+              </TouchableOpacity>
               
-              <View style={[glassEffect.card, styles.devCard]}>
+              {showDevTools && (
+                <>
+                  <View style={[glassEffect.card, styles.devCard]}>
                 <View style={styles.devHeader}>
                   <Text style={styles.devTitle}>開発モード</Text>
                   <View style={[styles.devBadge, { backgroundColor: colors.warning + '20' }]}>
@@ -681,6 +694,8 @@ export default function SettingsScreen() {
                 </View>
                 <Text style={styles.devToggleHint}>リセット</Text>
               </TouchableOpacity>
+              </>
+              )}
             </View>
           )}
         </ScrollView>

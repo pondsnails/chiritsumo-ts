@@ -21,12 +21,16 @@ import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
 
 export default function QuestScreen() {
+  console.log('[QuestScreen] Component rendering');
   const router = useRouter();
   const { useBookStore, learningSessionService } = useServices();
   const { books } = useBookStore();
   
+  console.log('[QuestScreen] Calling useQuestData...');
   // useQuestDataフックからすべてのデータとロジックを取得
   const questData = useQuestData();
+  console.log('[QuestScreen] useQuestData returned, isLoading:', questData.isLoading);
+  
   const {
     isLoading,
     dueCards,
@@ -115,9 +119,6 @@ export default function QuestScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.title}>{i18n.t('quest.title')}</Text>
-            <TouchableOpacity onPress={() => setShowActionsModal(true)} style={styles.settingsButton}>
-              <Settings color={colors.textSecondary} size={24} strokeWidth={2} />
-            </TouchableOpacity>
           </View>
           {showCompletionToast && (
             <View style={styles.completionToast}>
@@ -152,8 +153,8 @@ export default function QuestScreen() {
           )}
 
           <View style={styles.banner}>
-            <Text style={styles.bannerTitle}>今日の流れ</Text>
-            <Text style={styles.bannerText}>1. 復習を全部終わらせる → 2. 不足Lex分を新規で補う → 3. 余裕があれば追加割り当て</Text>
+            <Text style={styles.bannerTitle}>📚 今日のクエスト</Text>
+            <Text style={styles.bannerText}>復習を優先 → 目標Lexまで新規追加</Text>
           </View>
 
           <SummaryCards
@@ -192,13 +193,13 @@ export default function QuestScreen() {
                   }
                 }}
               >
-                <Text style={styles.quickStartText}>今日の新規カードを10枚割り当てる</Text>
+                <Text style={styles.quickStartText}>新規カード10枚を追加</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.quickStartButton, { marginTop: 8, backgroundColor: colors.success }]}
                 onPress={() => setShowRegisterModal(true)}
               >
-                <Text style={styles.quickStartText}>既習範囲を復習として登録する</Text>
+                <Text style={styles.quickStartText}>既習範囲を登録</Text>
               </TouchableOpacity>
             </View>
           ) : (

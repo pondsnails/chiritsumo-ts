@@ -27,61 +27,61 @@ const slides: OnboardingSlide[] = [
   {
     icon: Book,
     title: 'ChiriTsumoへようこそ',
-    description: '間隔反復学習で知識を定着させるアプリです',
+    description: '間隔反復で知識を定着',
     details: [
-      '読んだ本の内容を忘れないよう復習をサポート',
-      '科学的根拠に基づいた間隔反復アルゴリズム(FSRS)を採用',
-      '効率的な学習でゲーム感覚で知識を積み上げ',
+      '読んだ本の復習をサポート',
+      '科学的アルゴリズム(FSRS)採用',
+      'ゲーム感覚で学習習慣化',
     ],
   },
   {
     icon: Target,
     title: 'クエストで毎日の学習',
-    description: '毎日のクエストをクリアして知識を定着',
+    description: '毎日のクエストで知識定着',
     details: [
-      '復習が必要なカードが自動的に表示されます',
-      '記憶の定着度に応じて次の復習日を自動調整',
-      '復習を続けるとカードのレベルが上がります',
+      '復習カードが自動表示',
+      '定着度で復習日を自動調整',
+      '継続でカードレベル上昇',
     ],
   },
   {
     icon: TrendingUp,
     title: 'マイルートで学習計画',
-    description: '書籍の依存関係を設定して効率的に学習',
+    description: '教材の依存関係を設定',
     details: [
-      '基礎となる本を先に学習してから応用へ',
-      '依存関係を可視化して学習の道筋を確認',
-      '最適な学習順序で知識を積み上げ',
+      '基礎から応用へ最適順序',
+      '依存関係を可視化',
+      '効率的な知識の積み上げ',
     ],
   },
   {
     icon: Zap,
     title: 'Lexポイントシステム',
-    description: '学習量に応じてポイントが貯まります',
+    description: '学習でポイント獲得',
     details: [
-      '学習するとLexポイントを獲得',
-      '新しい本を購入するにはLexが必要',
-      '毎日の目標Lexを設定して習慣化',
+      '学習でLex獲得',
+      '新規教材にLex消費',
+      '目標設定で習慣化',
     ],
   },
   {
     icon: Users,
     title: 'おすすめルート',
-    description: '効率的な学習順序を提案',
+    description: '効率的な学習順序',
     details: [
-      '厳選された書籍ルートを参考に学習',
-      'アフィリエイトリンクで書籍を購入可能',
-      '他のユーザーの学習経路を参考にできます',
+      '厳選ルートを参考',
+      'リンクで書籍購入',
+      '他ユーザーの経路参照',
     ],
   },
   {
     icon: Gift,
-    title: '⚠️ 重要: データバックアップについて',
-    description: '機種変更時は必ず手動でバックアップしてください',
+    title: '⚠️ 重要: バックアップ',
+    description: '機種変更前に手動バックアップ必須',
     details: [
-      '❌ このアプリはサーバーにデータを保存していません',
-      '❌ 端末紛失・機種変更時、データは自動復元されません',
-      '✅ 設定画面から定期的にJSONエクスポートを実行してください',
+      '❌ サーバー保存なし',
+      '❌ 端末紛失で自動復元不可',
+      '✅ 設定→JSONエクスポート実行',
     ],
   },
 ];
@@ -109,8 +109,16 @@ export default function Onboarding() {
   };
 
   const handleFinish = async () => {
-    await completeOnboarding();
-    router.replace('/(tabs)/quest');
+    try {
+      console.log('[Onboarding] Completing onboarding...');
+      await completeOnboarding();
+      console.log('[Onboarding] Onboarding completed, navigating to quest...');
+      router.replace('/(tabs)/quest');
+    } catch (error) {
+      console.error('[Onboarding] Failed to complete onboarding:', error);
+      // エラーが発生してもQuest画面に遷移（初回起動時はDBが未初期化の可能性）
+      router.replace('/(tabs)/quest');
+    }
   };
 
   const slide = slides[currentIndex];
