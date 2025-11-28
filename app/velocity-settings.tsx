@@ -36,7 +36,6 @@ export default function VelocitySettingsScreen() {
   
   const [velocityData, setVelocityData] = useState<VelocityData | null>(null);
   const [settings, setSettings] = useState<VelocitySettings | null>(null);
-  const [desiredMinutes, setDesiredMinutes] = useState('30');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -52,10 +51,6 @@ export default function VelocitySettingsScreen() {
       
       setVelocityData(data);
       setSettings(currentSettings);
-      
-      if (currentSettings.desiredDailyMinutes) {
-        setDesiredMinutes(currentSettings.desiredDailyMinutes.toString());
-      }
     } catch (error) {
       console.error('Failed to load velocity data:', error);
     } finally {
@@ -63,23 +58,39 @@ export default function VelocitySettingsScreen() {
     }
   };
 
-  const handleSetTarget = async () => {
+  // 過去の学習データから推奨時間を自動計算
+  const getRecommendedMinutes = (): number => {
+    if (!velocityData?.measurements || velocityData.measurements.length === 0) {
+      return 30; // デフォルト
+    }
+    
+    // 直近の実績時間の平均を計算
+    const recentMinutes = velocityData.measurements
+      .slice(-7) // 直近7日間
+      .map(m => m.minutesSpent)
+      .filter(m => m > 0);
+    
+    if (recentMinutes.length === 0) return 30;
+    
+    const average = recentMinutes.reduce((sum, m) => sum + m, 0) / recentMinutes.length;
+    
+    // 5分単位に丸める
+    return Math.max(10, Math.round(average / 5) * 5);
+  };
+
+  const handleAcceptRecommendation = async () => {
     if (!velocityData?.measurementCompleted) {
       Alert.alert('計測未完了', '最初の3日間の学習データを収集中です。もう少しお待ちください。');
       return;
     }
 
-    const minutes = parseInt(desiredMinutes, 10);
-    if (isNaN(minutes) || minutes < 5 || minutes > 480) {
-      Alert.alert('入力エラー', '5分〜480分の範囲で入力してください。');
-      return;
-    }
+    const recommendedMinutes = getRecommendedMinutes();
 
     try {
-      const calculatedTarget = await setDesiredDailyMinutes(minutes);
+      const calculatedTarget = await setDesiredDailyMinutes(recommendedMinutes);
       Alert.alert(
         '目標を設定しました',
-        `1日${minutes}分の学習で、目標は ${calculatedTarget} Lex になります。\n\nあなたの平均学習速度: ${velocityData.averageVelocity?.toFixed(1)} Lex/分`
+        `1日 ${recommendedMinutes}分ペースで、目標 ${calculatedTarget} Lex に設定されました`
       );
       await loadData();
     } catch (error) {
@@ -163,32 +174,32 @@ export default function VelocitySettingsScreen() {
           {/* 目標設定 */}
           {isMeasurementComplete && (
             <>
-              <View style={[glassEffect.card, styles.inputCard]}>
-                <View style={styles.inputHeader}>
+              <View style={[glassEffect.card, styles.recommendationCard]}>
+                <View style={styles.recommendationHeader}>
                   <Clock color={colors.primary} size={24} />
-                  <Text style={styles.inputLabel}>1日何分勉強しますか？</Text>
+                  <Text style={styles.recommendationTitle}>おすすめの学習ペース</Text>
                 </View>
                 
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={styles.input}
-                    value={desiredMinutes}
-                    onChangeText={setDesiredMinutes}
-                    keyboardType="number-pad"
-                    placeholder="30"
-                    placeholderTextColor={colors.textTertiary}
-                  />
-                  <Text style={styles.inputUnit}>分</Text>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationDescription}>
+                    あなたの学習履歴から自動計算しました
+                  </Text>
+                  
+                  <View style={styles.recommendationValueBox}>
+                    <Text style={styles.recommendationValue}>
+                      {getRecommendedMinutes()}分 / 日
+                    </Text>
+                    <Text style={styles.recommendationSubtext}>
+                      → 目標 {Math.floor(averageVelocity * getRecommendedMinutes())} Lex
+                    </Text>
+                  </View>
                 </View>
 
-                {desiredMinutes && !isNaN(parseInt(desiredMinutes, 10)) && (
-                  <Text style={styles.calculatedTarget}>
-                    → 目標: {Math.floor(averageVelocity * parseInt(desiredMinutes, 10))} Lex
-                  </Text>
-                )}
-
-                <TouchableOpacity style={styles.setButton} onPress={handleSetTarget}>
-                  <Text style={styles.setButtonText}>目標を設定</Text>
+                <TouchableOpacity 
+                  style={styles.acceptButton} 
+                  onPress={handleAcceptRecommendation}
+                >
+                  <Text style={styles.acceptButtonText}>この目標で設定</Text>
                 </TouchableOpacity>
               </View>
 
@@ -350,6 +361,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSecondary,
+  },
+  recommendationCard: {
+    padding: 20,
+    marginBottom: 16,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  recommendationContent: {
+    gap: 16,
+  },
+  recommendationDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  recommendationValueBox: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+  },
+  recommendationValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  recommendationSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  acceptButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  acceptButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.background,
   },
   inputCard: {
     padding: 20,

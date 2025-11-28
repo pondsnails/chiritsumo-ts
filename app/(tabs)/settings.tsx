@@ -365,7 +365,7 @@ export default function SettingsScreen() {
                 <Text style={styles.velocityBadge}>推奨</Text>
                 <Text style={styles.velocityTitle}>学習速度ベースの目標設定</Text>
                 <Text style={styles.velocityDescription}>
-                  実際のペースを計測し、「1日何分勉強するか」から目標を自動算出
+                  あなたの学習ペースに合わせて自動計算
                 </Text>
               </View>
             </TouchableOpacity>
