@@ -238,7 +238,6 @@ export default function CardListScreen() {
             </View>
           )}
         </View>
-        </View>
       </TouchableOpacity>
     );
   }, [bookMap, calculateRetrievability, getDaysUntilDue, router]);

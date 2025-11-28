@@ -67,7 +67,7 @@ export default function VelocitySettingsScreen() {
     // 直近の実績時間の平均を計算
     const recentMinutes = velocityData.measurements
       .slice(-7) // 直近7日間
-      .map(m => m.minutesSpent)
+      .map(m => (m as any).minutes_spent)
       .filter(m => m > 0);
     
     if (recentMinutes.length === 0) return 30;

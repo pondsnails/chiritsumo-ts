@@ -44,7 +44,7 @@ export default function PaywallScreen() {
     try {
       setIsPurchasing(true);
       // selectedPlanに基づいてパッケージを選択
-      const targetPackage = offerings.availablePackages.find(pkg => 
+      const targetPackage = offerings.availablePackages.find((pkg: any) => 
         selectedPlan === 'lifetime' 
           ? pkg.identifier.includes('lifetime') 
           : pkg.identifier.includes('annual')
