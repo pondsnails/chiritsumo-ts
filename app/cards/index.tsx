@@ -88,6 +88,16 @@ export default function CardListScreen() {
     return Math.round(retrievability * 100);
   }, []);
 
+  // 記憶レベルをユーザーフレンドリーに表示
+  const getMemoryLevel = useCallback((card: Card): string => {
+    const retrievability = calculateRetrievability(card);
+    if (retrievability >= 90) return '🟢 定着';
+    if (retrievability >= 70) return '🟡 良好';
+    if (retrievability >= 50) return '🟠 普通';
+    if (retrievability >= 30) return '🔴 不安';
+    return '⚫ 忘却';
+  }, [calculateRetrievability]);
+
   // 次回復習までの日数
   const getDaysUntilDue = useCallback((card: Card): number => {
     const now = new Date();
@@ -195,49 +205,24 @@ export default function CardListScreen() {
 
         <View style={styles.metricsGrid}>
           <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>記憶定着率</Text>
-            <Text style={styles.metricValue}>{retrievability}%</Text>
-            <Text style={styles.metricFormula}>
-              (1 + {card.elapsedDays}/(9×{card.stability.toFixed(2)}))⁻¹
+            <Text style={styles.metricLabel}>記憶レベル</Text>
+            <Text style={styles.metricValue}>{getMemoryLevel(card)}</Text>
+          </View>
+
+          <View style={styles.metricBox}>
+            <Text style={styles.metricLabel}>次回復習</Text>
+            <Text style={[styles.metricValue, daysUntil < 0 && { color: colors.error }]}>
+              {daysUntil < 0 ? `${Math.abs(daysUntil)}日遅延` : `${daysUntil}日後`}
             </Text>
           </View>
 
           <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>安定性 (S)</Text>
-            <Text style={styles.metricValue}>{card.stability.toFixed(2)}</Text>
-            <Text style={styles.metricFormula}>日数</Text>
-          </View>
-
-          <View style={styles.metricBox}>
-            <Text style={styles.metricLabel}>難易度 (D)</Text>
-            <Text style={styles.metricValue}>{card.difficulty.toFixed(2)}</Text>
-            <Text style={styles.metricFormula}>0-10</Text>
+            <Text style={styles.metricLabel}>復習回数</Text>
+            <Text style={styles.metricValue}>{card.reps}回</Text>
           </View>
         </View>
 
         <View style={styles.detailsGrid}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>経過日数:</Text>
-            <Text style={styles.detailValue}>{card.elapsedDays}日</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>予定間隔:</Text>
-            <Text style={styles.detailValue}>{card.scheduledDays}日</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>復習回数:</Text>
-            <Text style={styles.detailValue}>{card.reps}回</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>失敗回数:</Text>
-            <Text style={styles.detailValue}>{card.lapses}回</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>次回復習:</Text>
-            <Text style={[styles.detailValue, daysUntil < 0 && { color: colors.error }]}>
-              {daysUntil < 0 ? `${Math.abs(daysUntil)}日遅延` : `${daysUntil}日後`}
-            </Text>
-          </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>復習日時:</Text>
             <Text style={styles.detailValue}>
@@ -252,6 +237,7 @@ export default function CardListScreen() {
               </Text>
             </View>
           )}
+        </View>
         </View>
       </TouchableOpacity>
     );
