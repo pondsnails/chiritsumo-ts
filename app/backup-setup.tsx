@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setCloudBackupEnabled } from '@core/services/cloudBackupService';
 import { requestSafBackupFolder } from '@core/services/safBackupService';
 import { colors } from '@core/theme/colors';
+import { useServices } from '@core/di/ServicesProvider';
 
 /**
  * BackupSetupPrompt.tsx
@@ -23,6 +24,7 @@ export default function BackupSetupPrompt() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(false);
+  const { settingsRepo } = useServices();
 
   const handleCloudBackup = async () => {
     setIsLoading(true);
@@ -31,6 +33,7 @@ export default function BackupSetupPrompt() {
       // TODO: iCloud/Google Drive認証フロー
       // iOS: Info.plistにiCloudコンテナID追加後、自動有効化
       // Android: Google Sign-In → Drive API権限取得
+      await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
       alert('クラウドバックアップを有効化しました！');
       router.replace('/(tabs)/quest');
     } catch (e) {
@@ -47,12 +50,14 @@ export default function BackupSetupPrompt() {
         // Android: SAFフォルダ選択
         const uri = await requestSafBackupFolder();
         if (uri) {
+          await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
           alert('バックアップフォルダを設定しました！');
         } else {
-          alert('フォルダ選択をキャンセルしました。');
+          alert('フォルダ選択をキャンセルしました。\n\nExpo Goでは SAF 未提供のため、スタンドアロンビルドで再度お試しください。\n現在は設定画面から手動エクスポートできます。');
         }
       } else {
         // iOS: 手動バックアップは設定画面から
+        await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
         alert('設定画面から手動バックアップを実行できます。');
       }
       router.replace('/(tabs)/quest');
@@ -63,13 +68,15 @@ export default function BackupSetupPrompt() {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     // 警告ダイアログ表示
     if (
       confirm(
         '⚠️ バックアップなしで続行しますか？\n\n端末紛失・故障時にデータが完全消失します。\n後から設定画面で有効化できます。'
       )
     ) {
+      // スキップしてもフラグは立てる（次回起動時に再表示しないため）
+      await settingsRepo.set('@chiritsumo_backup_setup_done', 'skip');
       router.replace('/(tabs)/quest');
     }
   };

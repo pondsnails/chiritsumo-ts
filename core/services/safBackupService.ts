@@ -3,7 +3,8 @@
 // Google Console不要・コードベース完結
 
 import * as FileSystem from 'expo-file-system';
-const StorageAccessFramework = require('expo-file-system/StorageAccessFramework') as any; // 型未提供のため
+// Expo SDK 54+ では StorageAccessFramework はサブパスではなく本体からの名前付きエクスポート
+const StorageAccessFramework = (FileSystem as any).StorageAccessFramework; // 型未提供のため
 import { Platform } from 'react-native';
 import { getDrizzleDb } from '../database/drizzleClient';
 import { books, cards, ledger, systemSettings, presetBooks } from '../database/schema';
@@ -15,6 +16,10 @@ export const LAST_BACKUP_AT_KEY = 'last_auto_backup_at';
 /** SAFバックアップ先フォルダの選択（初回のみ） */
 export async function requestSafBackupFolder(): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
+  if (!StorageAccessFramework) {
+    console.warn('SAF未提供: Expo Goや環境によりStorageAccessFrameworkが利用不可です');
+    return null;
+  }
   try {
     const uri = await StorageAccessFramework.requestDirectoryPermissionsAsync();
     if (uri && uri.granted && uri.directoryUri) {
@@ -33,6 +38,10 @@ export async function requestSafBackupFolder(): Promise<string | null> {
 /** SAFバックアップJSONをフォルダに自動保存 */
 export async function autoSafBackup(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
+  if (!StorageAccessFramework) {
+    // Expo Goでは未提供の場合があるため静かにスキップ
+    return false;
+  }
   try {
     const db = await getDrizzleDb();
     const { eq } = await import('drizzle-orm');

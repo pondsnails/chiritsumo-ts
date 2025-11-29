@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import type { Href } from 'expo-router';
 import { checkAndPerformRollover } from '@core/utils/dailyRollover';
+import { checkDatabaseIntegrity } from '@core/utils/dbIntegrityCheck';
 import { RolloverNotification } from '@core/components/RolloverNotification';
 import { useServices } from '@core/di/ServicesProvider';
 
@@ -44,6 +45,35 @@ export default function Index() {
         } catch (error) {
           console.error('[Index] Rollover failed:', error);
         }
+        // 起動時DB整合性チェック → 破損検知時は復旧UIへ
+        try {
+          const integrity = await checkDatabaseIntegrity();
+          if (!integrity.isHealthy) {
+            console.warn('[Index] DB integrity issues detected:', integrity.errors);
+            if (mounted) {
+              setDestination('/recovery' as Href);
+              setReady(true);
+            }
+            return;
+          }
+        } catch (e) {
+          console.warn('[Index] Integrity check failed, proceeding to quest:', e);
+        }
+
+        // 初回起動時のバックアップ設定促進（必須ステップ・スキップ可）
+        try {
+          const setupDone = await settingsRepo.get('@chiritsumo_backup_setup_done');
+          if (setupDone !== 'true') {
+            if (mounted) {
+              setDestination('/backup-setup' as Href);
+              setReady(true);
+            }
+            return;
+          }
+        } catch (e) {
+          console.warn('[Index] backup setup check error, proceeding:', e);
+        }
+
         console.log('[Index] Setting destination to /(tabs)/quest');
         if (mounted) {
           setDestination('/(tabs)/quest' as Href);

@@ -9,7 +9,8 @@
  * - Android: expo-google-drive (または react-native-google-drive-api-wrapper)
  */
 
-import * as FileSystem from 'expo-file-system';
+// Use legacy typings for documentDirectory/cacheDirectory
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { getDrizzleDb } from '../database/drizzleClient';
 import { books, cards, ledger, systemSettings, presetBooks } from '../database/schema';

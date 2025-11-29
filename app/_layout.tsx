@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { autoSafBackup } from '@core/services/safBackupService';
 import { autoIosBackup } from '@core/services/iosBackupService';
+import { performCloudBackup } from '@core/services/cloudBackupService';
 import { useToast } from '@core/ui/ToastProvider';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,13 +24,21 @@ function AppContent() {
         const androidOk = await autoSafBackup();
         const iosOk = await autoIosBackup();
         if (androidOk || iosOk) {
-          toast.show('自動バックアップ完了', { type: 'success' });
+          toast.show('自動バックアップ完了');
         } else {
           // フォルダ未設定などは静かにスキップ
           console.log('自動バックアップ対象なし (フォルダ未設定または非対応プラットフォーム)');
         }
+
+        // クラウド自動バックアップ（裏側で実行、エラーでも続行）
+        const cloudResult = await performCloudBackup();
+        if (cloudResult.success) {
+          console.log('[CloudBackup] 自動バックアップ成功');
+        } else if (cloudResult.error !== 'Cloud backup disabled by user') {
+          console.warn('[CloudBackup] 自動バックアップ失敗:', cloudResult.error);
+        }
       } catch (e) {
-        toast.show('バックアップ失敗', { type: 'error' });
+        toast.show('バックアップ失敗');
       }
     })();
   }, []);
@@ -38,6 +47,8 @@ function AppContent() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="backup-setup" options={{ headerShown: false }} />
+      <Stack.Screen name="recovery" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

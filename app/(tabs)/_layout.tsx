@@ -90,33 +90,31 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Zap color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
-      {gate.showRoute && (
-        <Tabs.Screen
-          name="route"
-          options={{
-            title: 'Route',
-            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Route color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-          }}
-        />
-      )}
-      {gate.showBank && (
-        <Tabs.Screen
-          name="bank"
-          options={{
-            title: 'Stats',
-            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-          }}
-        />
-      )}
-      {gate.showSettings && (
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Settings color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="route"
+        options={{
+          title: 'Route',
+          // gateがfalseのときはルートを非表示にする
+          href: gate.showRoute ? undefined : null,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Route color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+        }}
+      />
+      <Tabs.Screen
+        name="bank"
+        options={{
+          title: 'Stats',
+          href: gate.showBank ? undefined : null,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          href: gate.showSettings ? undefined : null,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Settings color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+        }}
+      />
       <Tabs.Screen
         name="books"
         options={{

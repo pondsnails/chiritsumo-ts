@@ -1,15 +1,13 @@
 import { StyleSheet, Platform } from 'react-native';
-import * as Device from 'expo-device';
 import { colors } from './colors';
 
 /**
  * Glassmorphism effect styles
  * Android端末ではBlur効果の代わりに不透明度の高い背景を使用してパフォーマンス改善
  * 
- * v7.2.1新機能: ローエンド端末自動検出
- * - Android 8以下
- * - RAM 2GB未満（expo-device経由で検出）
- * 上記端末ではBlurView完全無効化、ソリッドカラーに自動切替
+ * v7.2.1新機能: ローエンド端末自動検出（簡易）
+ * - Androidは既定でソリッドカラーを採用（安全策）
+ * - iOSのみBlurを使用
  */
 
 // ローエンド端末判定（起動時に一度だけ実行）
@@ -24,9 +22,6 @@ function checkIsLowEndDevice(): boolean {
     return true;
   }
 
-  // RAM 2GB未満（expo-deviceで取得）
-  // ⚠️ expo-deviceはtotalMemoryをサポートしていないため、
-  // デバイス名やモデルから推測（または将来的にカスタムネイティブモジュール）
   // 現時点ではAndroid全般でソリッドカラー採用（安全策）
   if (Platform.OS === 'android') {
     isLowEndDevice = true; // Androidは全てソリッドカラー（保守的）

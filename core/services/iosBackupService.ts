@@ -1,4 +1,5 @@
-import * as FileSystem from 'expo-file-system';
+// Expo SDK 54 legacy API provides documentDirectory typings
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { getDrizzleDb } from '../database/drizzleClient';

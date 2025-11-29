@@ -1,5 +1,6 @@
 import { autoSafBackup } from '@core/services/safBackupService';
 import { autoIosBackup } from '@core/services/iosBackupService';
+import { performCloudBackup } from '@core/services/cloudBackupService';
 import { useToast } from '@core/ui/ToastProvider';
 import { useEffect, useRef } from 'react';
 import { reportError } from '@core/services/errorReporter';
@@ -44,10 +45,18 @@ export function useAppStateRollover(onRolloverPerformed?: () => void) {
             const androidOk = await autoSafBackup();
             const iosOk = await autoIosBackup();
             if (androidOk || iosOk) {
-              toast.show('自動バックアップ完了', { type: 'success' });
+              toast.show('自動バックアップ完了');
+            }
+
+            // クラウド自動バックアップ（裏側で実行、エラーでも続行）
+            const cloudResult = await performCloudBackup();
+            if (cloudResult.success) {
+              console.log('[CloudBackup] フォアグラウンド復帰時バックアップ成功');
+            } else if (cloudResult.error !== 'Cloud backup disabled by user') {
+              console.warn('[CloudBackup] フォアグラウンド復帰時バックアップ失敗:', cloudResult.error);
             }
           } catch (e: any) {
-            toast.show(`バックアップ失敗: ${e?.message ?? '不明なエラー'}`, { type: 'error' });
+            toast.show(`バックアップ失敗: ${e?.message ?? '不明なエラー'}`);
           }
         } catch (error) {
           reportError(error, { context: 'appStateRollover' });
