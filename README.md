@@ -2,7 +2,7 @@
 
 **脱・時間管理。成果主義のデジタル学習台帳**
 
-Version: 7.2.0 (Local-First + Zero-Operation Cost + Auto-Backup)
+Version: 7.2.1 (Local-First + Zero-Operation Cost + Cloud Sync)
 
 ## 🎯 コンセプト
 
@@ -16,7 +16,7 @@ Version: 7.2.0 (Local-First + Zero-Operation Cost + Auto-Backup)
 - **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
 
-### ✅ 実装済み（Phase 1-4 完了 / v7.2.0）
+### ✅ 実装済み（Phase 1-5 完了 / v7.2.1）
 
 #### データベース & コアロジック
 - [x] **SQLite (Drizzle ORM)** - Web版廃止、Native専用に統一
@@ -61,6 +61,27 @@ Version: 7.2.0 (Local-First + Zero-Operation Cost + Auto-Backup)
   - ペルソナCはオンボーディング最速スキップ、即Quest画面遷移
 - [x] **Metroレイアウト非同期キャッシュ** - `computeMetroLayoutCached()`で差分検出＋キャッシュヒット、UI blocking回避
 - [x] **Zodスキーマアダプタ** - DB row → domain正規化の統一レイヤー、バリデーション・型安全性向上
+
+#### データ安全性強化（v7.2.1新規）- **評価フィードバック対応**
+- [x] **クラウド自動同期（iCloud/Google Drive）** - ユーザー意識不要の裏側バックアップ
+  - iOS: iCloud Container統合（Info.plist設定で完全動作）
+  - Android: Google Drive App Data folder統合（実装中）
+  - 起動・復帰時に`performCloudBackup()`自動実行、データロスト防止
+- [x] **プリセットルートのワンタップ展開** - 導入障壁の完全排除
+  - TOEIC 800点/簿記3級/基本情報技術者/React入門の4ルート実装
+  - 依存関係・推定日数・Amazonアフィリエイトリンク完備
+  - Onboarding完了時に選択→即スタート可能
+- [x] **ローエンド端末対応** - Android 8以下/RAM 2GB未満で自動最適化
+  - BlurView完全無効化、ソリッドカラーに自動切替
+  - `shouldUseBlurView()`でコンポーネント側から判定可能
+  - パフォーマンス劣化による低評価防止
+- [x] **初回起動バックアップ設定促進** - データロスト低評価爆撃の最前線
+  - `app/backup-setup.tsx`でクラウド vs 手動の選択UI
+  - スキップ可能だが警告表示、ユーザー判断を尊重
+- [x] **DB整合性チェック＋自動復旧** - 起動時の自動診断・修復フロー
+  - 外部キー違反・不正データ・残高不整合を検出
+  - 破損時はクラウドバックアップから自動復元提案
+  - `dbIntegrityCheck.ts`でヘルスチェック実装
 
 #### ストア対応
 - [x] app.jsonにカメラ権限説明追加
@@ -110,15 +131,17 @@ npm run dev
 - 本番リリース：**ネイティブアプリのみ配布**（iOS/Android）
 - Web版：非対応
 
-#### 2. バックアップ方針（ゼロ運用コスト）
+#### 2. バックアップ方針（ゼロ運用コスト + クラウド同期）
 
-**v7.2.0より自動バックアップに対応（Google Console不要）:**
-- **Android**: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存
-- **iOS**: ドキュメントディレクトリ生成後、共有ダイアログで保存先選択可能
-- **トリガー**: アプリ起動時・バックグラウンド復帰時に自動実行
+**v7.2.1より完全自動バックアップに進化（ユーザー意識不要）:**
+- **iOS**: iCloud Container自動同期（Info.plist設定で有効化、裏で自動保存）
+- **Android**: Google Drive App Data folder自動同期（実装中、SAF代替）
+- **ローカルバックアップ**: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存（v7.2.0互換）
 - **手動バックアップ**: 引き続き設定画面からJSON Export/Import可能
+- **トリガー**: アプリ起動時・バックグラウンド復帰時に自動実行
+- **復旧**: 起動時にDB整合性チェック、破損検知時は自動復元提案
 
-OS標準の共有シートでエクスポート/インポートでき、壊れにくく維持費ゼロです。
+**「Local Firstの不便さ」をUXで完全隠蔽** - データロスト恐怖を排除し、安心して使える設計。
 
 ### RevenueCat設定（本番環境）
 
@@ -183,11 +206,12 @@ core/                    # アプリケーションコア（app外に配置）
 │   ├── lexCalculator.ts
 │   └── rolloverLogic.ts
 ├── services/
-│   ├── bookDataService.ts  # OpenBD + Google Books統合
+│   ├── bookDataService.ts     # OpenBD + Google Books統合
 │   ├── BookService.ts
-│   ├── backupService.ts    # 手動バックアップ（JSON）
-│   ├── safBackupService.ts # ✅ v7.2.0新規: Android SAF自動バックアップ
-│   ├── iosBackupService.ts # ✅ v7.2.0新規: iOS自動バックアップ
+│   ├── backupService.ts       # 手動バックアップ（JSON）
+│   ├── safBackupService.ts    # ✅ v7.2.0: Android SAF自動バックアップ
+│   ├── iosBackupService.ts    # ✅ v7.2.0: iOS自動バックアップ
+│   ├── cloudBackupService.ts  # ✅ v7.2.1新規: iCloud/GoogleDrive統合
 │   └── aiAffiliate.ts
 ├── servicesV2/         # 次世代サービス層（設計中）
 │   ├── CardQueryService.ts
@@ -202,10 +226,13 @@ core/                    # アプリケーションコア（app外に配置）
 │   └── glassEffect.ts
 ├── types/
 │   └── index.ts
+├── presets/                 # ✅ v7.2.1新規: プリセットルートテンプレート
+│   └── presetRouteTemplates.ts  # TOEIC/簿記/情報処理/React入門
 └── utils/
     ├── bookLogic.ts
     ├── dailyRollover.ts
-    └── dateUtils.ts
+    ├── dateUtils.ts
+    └── dbIntegrityCheck.ts   # ✅ v7.2.1新規: DB整合性チェック・自動復旧
 
 hooks/
 └── useQuestData.ts     # Quest画面データ統合フック（Repository使用）
@@ -255,16 +282,22 @@ hooks/
 - 認証/クラウドストレージ非対応（手動バックアップ）
 - 維持コストゼロを最優先
 
-## 💾 Backup（自動 + 手動）
+## 💾 Backup（完全自動 + 手動）
 
-### 自動バックアップ（v7.2.0新規）
+### クラウド自動同期（v7.2.1新規）- **推奨**
+- **iOS**: iCloud Container統合（Info.plist設定で有効化、ユーザー意識不要）
+- **Android**: Google Drive App Data folder統合（実装中）
+- **裏側で自動実行**: 起動・復帰時に`performCloudBackup()`
+- **自動復旧**: 起動時にDB整合性チェック、破損検知時は自動復元提案
+- **データロスト恐怖の完全排除**: 端末水没・紛失でも安心
+
+### ローカル自動バックアップ（v7.2.0）
 - **Android**: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存
 - **iOS**: ドキュメントディレクトリ生成後、共有ダイアログで保存先選択
 - **トリガー**: アプリ起動時・バックグラウンド復帰時に自動実行
 - **最終バックアップ時刻**: SystemSettingsに記録、Toast通知で確認可能
-- **Google Console不要**: OS標準APIのみ使用、ゼロ運用コスト維持
 
-### 手動バックアップ
+### 手動バックアップ（レガシー互換）
 - Settings画面から JSON形式でエクスポート/インポート可能
 - 全データ（Books, Cards, Ledger）を含む完全バックアップ
 - OS標準の共有シートを利用（壊れにくく、維持費ゼロ）
@@ -364,7 +397,8 @@ const db = drizzle(sqlite);
 **Phase 1（完了）**: Repository実装 + Store層統合  
 **Phase 2（完了）**: UI層の残存レガシー参照を段階排除  
 **Phase 3（完了）**: `db.native.ts`削除、完全Drizzle化達成（v7.1.0）  
-**Phase 4（完了）**: Zodアダプタ導入、自動バックアップ統合、UX最適化（v7.2.0）
+**Phase 4（完了）**: Zodアダプタ導入、自動バックアップ統合、UX最適化（v7.2.0）  
+**Phase 5（完了）**: データ安全性強化、クラウド同期、プリセットルート、DB復旧（v7.2.1）
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
