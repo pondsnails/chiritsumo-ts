@@ -21,12 +21,14 @@ import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
 import { getVelocityData } from '@core/services/velocityService';
 import { getLexConfig } from '@core/services/configService';
+import { DrizzleSystemSettingsRepository } from '@core/repository/SystemSettingsRepository';
 
 export default function QuestScreen() {
   console.log('[QuestScreen] Component rendering');
   const router = useRouter();
   const { useBookStore, learningSessionService } = useServices();
   const { books } = useBookStore();
+  const settingsRepo = new DrizzleSystemSettingsRepository();
   
   console.log('[QuestScreen] Calling useQuestData...');
   // useQuestDataフックからすべてのデータとロジックを取得
@@ -66,11 +68,21 @@ export default function QuestScreen() {
   const [avgVelocityLexPerMin, setAvgVelocityLexPerMin] = useState<number | null>(null);
   const [minutesPerDayEstimate, setMinutesPerDayEstimate] = useState<number | null>(null);
   const [completionDaysEstimate, setCompletionDaysEstimate] = useState<number | null>(null);
+  const [lastStudiedBookId, setLastStudiedBookId] = useState<string | null>(null);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
     useCallback(() => {
       refreshAll();
+      // 最後に学習した書籍IDを取得
+      (async () => {
+        try {
+          const lastBookId = await settingsRepo.get('last_studied_book_id');
+          setLastStudiedBookId(lastBookId);
+        } catch (e) {
+          console.warn('Failed to load last studied book', e);
+        }
+      })();
       // 速度情報の取得
       (async () => {
         try {
@@ -101,8 +113,15 @@ export default function QuestScreen() {
     }, [refreshAll])
   );
 
-  const startStudy = (bookId: string) => {
+  const startStudy = async (bookId: string) => {
     const book = books.find(b => b.id === bookId);
+    // 最後に学習した書籍IDを保存
+    try {
+      await settingsRepo.set('last_studied_book_id', bookId);
+      setLastStudiedBookId(bookId);
+    } catch (e) {
+      console.warn('Failed to save last studied book', e);
+    }
     // Read/Memoモードは一括検品画面へ、Solveは従来通り
     if (book && (book.mode === 0 || book.mode === 2)) {
       router.push(`/study-memo?bookId=${bookId}` as any);
@@ -174,6 +193,27 @@ export default function QuestScreen() {
           {showCompletionToast && (
             <View style={styles.completionToast}>
               <Text style={styles.completionToastText}>復習お疲れさま！新規を進めましょう 🎉</Text>
+            </View>
+          )}
+
+          {/* 前回の続きから開始ボタン（最上位優先） */}
+          {lastStudiedBookId && books.find(b => b.id === lastStudiedBookId && b.status !== 2) && (
+            <View style={styles.resumeSection}>
+              <Text style={styles.resumeLabel}>前回の続きから</Text>
+              <TouchableOpacity
+                style={styles.resumeButton}
+                onPress={() => startStudy(lastStudiedBookId)}
+              >
+                <View style={styles.resumeContent}>
+                  <Text style={styles.resumeEmoji}>▶️</Text>
+                  <View style={styles.resumeTextContainer}>
+                    <Text style={styles.resumeTitle}>
+                      {books.find(b => b.id === lastStudiedBookId)?.title}
+                    </Text>
+                    <Text style={styles.resumeSubtitle}>タップで即再開</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -516,6 +556,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textTertiary,
     textAlign: 'center',
+  },
+  resumeSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+  },
+  resumeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  resumeButton: {
+    ...glassEffect.card,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primary + '10',
+  },
+  resumeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  resumeEmoji: {
+    fontSize: 32,
+  },
+  resumeTextContainer: {
+    flex: 1,
+  },
+  resumeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  resumeSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   taskList: {
     gap: 12,
