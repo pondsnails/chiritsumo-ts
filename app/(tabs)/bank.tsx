@@ -102,38 +102,28 @@ export default function BankScreen() {
               {/* 残高カード */}
               <View style={[glassEffect.containerLarge, styles.balanceCard]}>
                 <Text style={styles.balanceLabel}>残高</Text>
-                <Text style={[styles.balanceValue, { color: balance >= 0 ? colors.success : colors.error }]}>
-                  {balance >= 0 ? '+' : ''}{balance} Lex
+                <Text style={[styles.balanceValue, { color: balance >= 0 ? colors.success : colors.primary }]}>
+                  {balance >= 0 ? '+' : ''}{balance} XP
                 </Text>
 
-                {/* 破産警告（Free版のみ） */}
-                {bankruptcyStatus.isInDebt && bankruptcyStatus.warningLevel > 0 && (
-                  <View style={[styles.warningBox, { 
-                    backgroundColor: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) + '20',
-                    borderColor: getBankruptcyWarningColor(bankruptcyStatus.warningLevel),
+                {/* リベンジモード演出（マイナス時） */}
+                {bankruptcyStatus.isInDebt && bankruptcyStatus.bonusMultiplier > 1 && (
+                  <View style={[styles.revengeBox, { 
+                    backgroundColor: colors.warning + '20',
+                    borderColor: colors.warning,
                   }]}>
-                    <AlertTriangle 
-                      color={getBankruptcyWarningColor(bankruptcyStatus.warningLevel)} 
-                      size={20} 
-                    />
-                    <View style={styles.warningTextContainer}>
-                      <Text style={[styles.warningTitle, { 
-                        color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
-                      }]}>
-                        {bankruptcyStatus.isFunctionLocked ? '機能制限中' : '借金警告'}
+                    <View style={styles.revengeHeader}>
+                      <Text style={styles.revengeIcon}>🔥</Text>
+                      <Text style={styles.revengeTitle}>REVENGE MODE</Text>
+                      <Text style={styles.revengeMultiplier}>{bankruptcyStatus.bonusMultiplier.toFixed(1)}x</Text>
+                    </View>
+                    <View style={styles.revengeTextContainer}>
+                      <Text style={styles.revengeMessage}>
+                        今なら獲得XPが{bankruptcyStatus.bonusMultiplier.toFixed(1)}倍！効率よく追い上げましょう
                       </Text>
-                      <Text style={[styles.warningMessage, { 
-                        color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
-                      }]}>
-                        {bankruptcyStatus.message}
+                      <Text style={styles.revengeHint}>
+                        💡 ゾーン発動中！学習を開始してボーナスを獲得
                       </Text>
-                      {!isProUser && bankruptcyStatus.warningLevel >= 2 && (
-                        <Text style={[styles.warningHint, { 
-                          color: getBankruptcyWarningColor(bankruptcyStatus.warningLevel) 
-                        }]}>
-                          💡 Pro版なら借金上限なし！
-                        </Text>
-                      )}
                     </View>
                   </View>
                 )}
@@ -321,6 +311,47 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     width: '100%',
+  },
+  revengeBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    width: '100%',
+    marginTop: 16,
+  },
+  revengeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  revengeIcon: {
+    fontSize: 24,
+  },
+  revengeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.warning,
+    flex: 1,
+  },
+  revengeMultiplier: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  revengeTextContainer: {
+    gap: 8,
+  },
+  revengeMessage: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  revengeHint: {
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: '600',
   },
   warningTextContainer: {
     flex: 1,

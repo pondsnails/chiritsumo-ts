@@ -28,7 +28,9 @@ import { BookNode } from '@core/components/BookNode';
 import { BookMode } from '@core/constants/enums';
 import i18n from '@core/i18n';
 import { useServices } from '@core/di/ServicesProvider';
-import type { Book, RouteStep, PresetRoute } from '@core/types';
+import { getVelocityData } from '@core/services/velocityService';
+import { getLexConfig, getConfigNumber, ConfigKeys } from '@core/services/configService';
+import type { Book, RouteStep, PresetRoute } from @core/types';
 import type { NodePosition } from '@core/layout/metroLayout';
 import recommendedRoutesData from '@core/data/recommendedRoutes.json';
 
@@ -66,6 +68,13 @@ export default function RouteScreen() {
   const [edges, setEdges] = useState<any[]>([]);
   const [circularRefs, setCircularRefs] = useState<string[]>([]); // 循環参照の警告メッセージ
   const [bookRoutes, setBookRoutes] = useState<Book[][]>([]);
+  const [examGPS, setExamGPS] = useState<{
+    targetDate: number | null;
+    predictedDate: number | null;
+    daysAhead: number;
+    velocityAdvice: string | null;
+  } | null>(null);
+
   const routeProgress = useMemo(() => {
     return bookRoutes.map(r => calculateRouteProgress(r));
   }, [bookRoutes]);
@@ -121,6 +130,63 @@ export default function RouteScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchAllBooks();
+      // Exam GPS計算
+      (async () => {
+        try {
+          const vd = await getVelocityData();
+          const lexCfg = await getLexConfig();
+          const dailyTarget = await getConfigNumber(ConfigKeys.DAILY_LEX_TARGET_DEFAULT);
+          
+          // 全書籍の目標完了日の最大値を取得
+          const targetDates = books.filter(b => b.targetCompletionDate).map(b => b.targetCompletionDate!);
+          if (targetDates.length === 0) {
+            setExamGPS(null);
+            return;
+          }
+          const maxTargetDate = Math.max(...targetDates);
+          
+          // 全未完了ユニットの合計Lexを計算
+          let totalLexRemaining = 0;
+          for (const book of books) {
+            if (book.status === 2) continue; // 完了済みはスキップ
+            const baseLex = book.mode === 1 ? lexCfg.solve : (book.mode === 2 ? lexCfg.memo : lexCfg.read);
+            const completed = book.completedUnit ?? 0;
+            const remaining = Math.max(0, book.totalUnit - completed);
+            const chunk = book.chunkSize ?? 1;
+            const cards = Math.ceil(remaining / chunk);
+            totalLexRemaining += cards * baseLex;
+          }
+          
+          // 予想完了日の計算
+          const nowEpoch = Math.floor(Date.now() / 1000);
+          const daysNeeded = dailyTarget > 0 ? Math.ceil(totalLexRemaining / dailyTarget) : 999;
+          const predictedEpoch = nowEpoch + (daysNeeded * 24 * 60 * 60);
+          const daysAhead = Math.floor((maxTargetDate - predictedEpoch) / (24 * 60 * 60));
+          
+          // 遅れている場合のアドバイス計算
+          let velocityAdvice: string | null = null;
+          if (daysAhead < 0) {
+            const daysShort = Math.abs(daysAhead);
+            const totalDaysAvailable = Math.floor((maxTargetDate - nowEpoch) / (24 * 60 * 60));
+            if (totalDaysAvailable > 0) {
+              const requiredDailyLex = Math.ceil(totalLexRemaining / totalDaysAvailable);
+              const lexIncrease = requiredDailyLex - dailyTarget;
+              const minutesIncrease = vd.averageVelocity ? Math.ceil(lexIncrease / vd.averageVelocity) : Math.ceil(lexIncrease / 10);
+              velocityAdvice = `1日あたり ${lexIncrease} XP（約${minutesIncrease}分）増やせば間に合います`;
+            }
+          }
+          
+          setExamGPS({
+            targetDate: maxTargetDate,
+            predictedDate: predictedEpoch,
+            daysAhead,
+            velocityAdvice,
+          });
+        } catch (e) {
+          console.warn('Exam GPS calculation failed', e);
+          setExamGPS(null);
+        }
+      })();
     }, [])
   );
 
@@ -215,6 +281,26 @@ export default function RouteScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>{i18n.t('route.title')}</Text>
           <Text style={styles.subtitle}>{i18n.t('route.subtitle')}</Text>
+          
+          {/* Exam GPS表示 */}
+          {examGPS && examGPS.targetDate && (
+            <View style={[glassEffect.card, styles.examGPSCard, examGPS.daysAhead < 0 && styles.examGPSWarning]}>
+              <View style={styles.examGPSRow}>
+                <Text style={styles.examGPSLabel}>目標日:</Text>
+                <Text style={styles.examGPSValue}>{new Date(examGPS.targetDate * 1000).toLocaleDateString()}</Text>
+              </View>
+              <View style={styles.examGPSRow}>
+                <Text style={styles.examGPSLabel}>予想到着:</Text>
+                <Text style={[styles.examGPSValue, examGPS.daysAhead < 0 && styles.examGPSValueWarning]}>
+                  {new Date(examGPS.predictedDate! * 1000).toLocaleDateString()}
+                  {examGPS.daysAhead >= 0 ? ` (${examGPS.daysAhead}日余裕)` : ` (${Math.abs(examGPS.daysAhead)}日遅れ)`}
+                </Text>
+              </View>
+              {examGPS.velocityAdvice && (
+                <Text style={styles.examGPSAdvice}>💡 {examGPS.velocityAdvice}</Text>
+              )}
+            </View>
+          )}
           
           {/* Tab Selector */}
           <View style={styles.tabContainer}>
@@ -526,6 +612,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 16,
+  },
+  examGPSCard: {
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: colors.surface + '40',
+  },
+  examGPSWarning: {
+    backgroundColor: colors.error + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  examGPSRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  examGPSLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginRight: 8,
+    width: 70,
+  },
+  examGPSValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  examGPSValueWarning: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  examGPSAdvice: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 8,
+    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
