@@ -1,3 +1,6 @@
+import { autoSafBackup } from '@core/services/safBackupService';
+import { autoIosBackup } from '@core/services/iosBackupService';
+import { useToast } from '@core/ui/ToastProvider';
 import { useEffect, useRef } from 'react';
 import { reportError } from '@core/services/errorReporter';
 import { AppState, AppStateStatus } from 'react-native';
@@ -9,6 +12,7 @@ import { useServices } from '@core/di/ServicesProvider';
  * 日付変更を検知してRollover処理を自動実行するフック
  */
 export function useAppStateRollover(onRolloverPerformed?: () => void) {
+  const toast = useToast();
   const appState = useRef(AppState.currentState);
   const { useBookStore, cardRepo, ledgerRepo, settingsRepo } = useServices();
   const { books } = useBookStore();
@@ -32,9 +36,18 @@ export function useAppStateRollover(onRolloverPerformed?: () => void) {
               newBalance: result.newBalance,
               targetLex: result.targetLex,
             });
-            
             // コールバックがあれば実行（UI更新用）
             onRolloverPerformed?.();
+          }
+          // Rollover有無に関わらずバックグラウンド復帰時に自動バックアップ
+          try {
+            const androidOk = await autoSafBackup();
+            const iosOk = await autoIosBackup();
+            if (androidOk || iosOk) {
+              toast.show('自動バックアップ完了', { type: 'success' });
+            }
+          } catch (e: any) {
+            toast.show(`バックアップ失敗: ${e?.message ?? '不明なエラー'}`, { type: 'error' });
           }
         } catch (error) {
           reportError(error, { context: 'appStateRollover' });

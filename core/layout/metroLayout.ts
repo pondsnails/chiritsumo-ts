@@ -181,3 +181,34 @@ export class MetroLayoutEngine {
     return edges;
   }
 }
+
+// =============================
+// Cached Async Helper
+// =============================
+type CacheEntry = { key: string; positions: NodePosition[]; edges: Edge[]; createdAt: number };
+let _metroCache: CacheEntry | null = null;
+
+function buildKey(books: Book[]): string {
+  return books
+    .map(b => `${b.id}:${b.updatedAt ?? b.createdAt}`)
+    .sort()
+    .join('|');
+}
+
+export async function computeMetroLayoutCached(books: Book[]): Promise<{ positions: NodePosition[]; edges: Edge[] }> {
+  const key = buildKey(books);
+  if (_metroCache && _metroCache.key === key) {
+    return { positions: _metroCache.positions, edges: _metroCache.edges };
+  }
+  // 実行を軽量化するため次フレームにずらす
+  await new Promise(r => setTimeout(r, 0));
+  const engine = new MetroLayoutEngine(books);
+  const positions = engine.getNodePositions();
+  const edges = engine.getEdges(positions);
+  _metroCache = { key, positions, edges, createdAt: Date.now() };
+  return { positions, edges };
+}
+
+export function clearMetroLayoutCache() {
+  _metroCache = null;
+}

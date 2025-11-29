@@ -106,6 +106,12 @@ const personaOptions = [
     description: 'まずは気軽に始めて、続けることを重視したい',
     next: '/(tabs)/quest',
   },
+  {
+    key: 'C',
+    label: '最速スタート（超シンプル）',
+    description: '細かい設定なしで今すぐ復習を始めたい',
+    next: '/(tabs)/quest',
+  },
 ];
 
 export default function Onboarding() {

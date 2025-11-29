@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Tabs } from 'expo-router';
+import { useServices } from '@core/di/ServicesProvider';
 import { View, StyleSheet, Platform } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
@@ -9,6 +10,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { useBookStore, ledgerRepo } = useServices();
+  const { books } = useBookStore();
+
+  // 進捗メトリクス算出（軽量）
+  const progress = useMemo(() => {
+    const bookCount = books.length;
+    const activeBooks = books.filter(b => b.status === 0).length;
+    return { bookCount, activeBooks };
+  }, [books]);
+
+  // Ledger残高（失敗時は0）
+  const [balance, setBalance] = React.useState<number>(0);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const all = await ledgerRepo.findAll();
+        if (all.length) {
+          setBalance(all[all.length - 1].balance);
+        }
+      } catch {}
+    })();
+  }, [ledgerRepo]);
+
+  // ゲーティング条件
+  const gate = {
+    showRoute: progress.bookCount >= 1, // 1冊以上登録でルート解放
+    showBank: balance > 0 || progress.activeBooks >= 1, // LEX発生または稼働中書籍あり
+    showSettings: progress.bookCount >= 2, // 2冊で詳細設定解放
+  };
   const baseBarHeight = 58; // content area height excluding safe area
   const bottomInset = Math.max(insets.bottom, 12);
   const barHeight = baseBarHeight + bottomInset;
@@ -60,27 +90,33 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Zap color={color} size={24} strokeWidth={2.5} /></TabIcon>,
         }}
       />
-      <Tabs.Screen
-        name="route"
-        options={{
-          title: 'Route',
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Route color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-        }}
-      />
-      <Tabs.Screen
-        name="bank"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Settings color={color} size={24} strokeWidth={2.5} /></TabIcon>,
-        }}
-      />
+      {gate.showRoute && (
+        <Tabs.Screen
+          name="route"
+          options={{
+            title: 'Route',
+            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Route color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+          }}
+        />
+      )}
+      {gate.showBank && (
+        <Tabs.Screen
+          name="bank"
+          options={{
+            title: 'Stats',
+            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Wallet color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+          }}
+        />
+      )}
+      {gate.showSettings && (
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: 'Settings',
+            tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><Settings color={color} size={24} strokeWidth={2.5} /></TabIcon>,
+          }}
+        />
+      )}
       <Tabs.Screen
         name="books"
         options={{
