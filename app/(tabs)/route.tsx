@@ -27,10 +27,9 @@ import { MetroLine } from '@core/components/MetroLine';
 import { BookNode } from '@core/components/BookNode';
 import { BookMode } from '@core/constants/enums';
 import i18n from '@core/i18n';
-import { useServices } from '@core/di/ServicesProvider';
 import { getVelocityData } from '@core/services/velocityService';
 import { getLexConfig, getConfigNumber, ConfigKeys } from '@core/services/configService';
-import type { Book, RouteStep, PresetRoute } from @core/types';
+import type { Book, RouteStep, PresetRoute } from '@core/types';
 import type { NodePosition } from '@core/layout/metroLayout';
 import recommendedRoutesData from '@core/data/recommendedRoutes.json';
 
