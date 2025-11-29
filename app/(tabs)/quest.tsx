@@ -69,6 +69,9 @@ export default function QuestScreen() {
   const [minutesPerDayEstimate, setMinutesPerDayEstimate] = useState<number | null>(null);
   const [completionDaysEstimate, setCompletionDaysEstimate] = useState<number | null>(null);
   const [lastStudiedBookId, setLastStudiedBookId] = useState<string | null>(null);
+  const [showGacha, setShowGacha] = useState(false);
+  const [gachaLex, setGachaLex] = useState<number | null>(null);
+  const [gachaBook, setGachaBook] = useState<string | null>(null);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
@@ -167,6 +170,14 @@ export default function QuestScreen() {
       setMinutesPerDayEstimate(null);
     }
   }, [dailyTargetLex, avgVelocityLexPerMin]);
+
+  // ガチャ演出を表示する関数
+  const triggerGacha = (lex: number, bookTitle: string) => {
+    setGachaLex(lex);
+    setGachaBook(bookTitle);
+    setShowGacha(true);
+    setTimeout(() => setShowGacha(false), 3500);
+  };
 
   if (isLoading) {
     return (
@@ -290,7 +301,16 @@ export default function QuestScreen() {
                   groupedReviewCards={groupedReviewCards}
                   globalNext={globalNext}
                   globalNextBook={globalNextBook}
-                  onReviewComplete={refreshDue}
+                  onReviewComplete={async () => {
+                    await refreshDue();
+                    // 学習完了時にガチャ演出をトリガー
+                    if (dueCards.length === 1 && globalNextBook) {
+                      // 仮: 1回分のLexを表示
+                      const lexCfg = await getLexConfig();
+                      const baseLex = globalNextBook.mode === 1 ? lexCfg.solve : (globalNextBook.mode === 2 ? lexCfg.memo : lexCfg.read);
+                      triggerGacha(baseLex, globalNextBook.title);
+                    }
+                  }}
                 />
               )}
 
@@ -439,6 +459,17 @@ export default function QuestScreen() {
       />
       {celebrate && (
         <ConfettiCannon count={120} origin={{ x: 40, y: 0 }} fadeOut fallSpeed={2500} explosionSpeed={600} />
+      )}
+      {showGacha && (
+        <View style={styles.gachaOverlay}>
+          <ConfettiCannon count={80} origin={{x: -10, y: 0}} fadeOut={true} explosionSpeed={350} fallSpeed={2500} />
+          <View style={styles.gachaCard}>
+            <Text style={styles.gachaEmoji}>{gachaLex && gachaLex >= 500 ? '🌟' : gachaLex && gachaLex >= 100 ? '✨' : '🎉'}</Text>
+            <Text style={styles.gachaTitle}>Lex獲得！</Text>
+            <Text style={styles.gachaLex}>{gachaLex ?? 0} Lex</Text>
+            <Text style={styles.gachaBook}>{gachaBook ?? ''}</Text>
+          </View>
+        </View>
       )}
     </LinearGradient>
   );
@@ -681,5 +712,49 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 18,
+  },
+  gachaOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  gachaCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  gachaEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  gachaTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  gachaLex: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.success,
+    marginBottom: 8,
+  },
+  gachaBook: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
 });
