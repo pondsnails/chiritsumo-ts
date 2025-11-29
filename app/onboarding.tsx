@@ -13,6 +13,7 @@ import { useServices } from '@core/di/ServicesProvider';
 import { Book, Target, TrendingUp, Zap, Gift, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@core/components/PressableScale';
+import { DrizzleSystemSettingsRepository } from '@core/repository/SystemSettingsRepository';
 
 const { width } = Dimensions.get('window');
 
@@ -86,21 +87,43 @@ const slides: OnboardingSlide[] = [
   },
 ];
 
+const personaSlide = {
+  icon: Users,
+  title: 'あなたのタイプは？',
+  description: 'どちらの使い方が自分に合いそうですか？',
+  details: [],
+};
+const personaOptions = [
+  {
+    key: 'A',
+    label: '効率重視・データ派',
+    description: '自分の学習速度を計測して、最適な目標設定をしたい',
+    next: '/velocity-settings',
+  },
+  {
+    key: 'B',
+    label: '習慣化したい・楽しみたい',
+    description: 'まずは気軽に始めて、続けることを重視したい',
+    next: '/(tabs)/quest',
+  },
+];
+
 export default function Onboarding() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showPersona, setShowPersona] = useState(false);
   const router = useRouter();
   const { useOnboardingStore } = useServices();
   const { completeOnboarding } = useOnboardingStore();
   const insets = useSafeAreaInsets();
+  const settingsRepo = new DrizzleSystemSettingsRepository();
 
   const isLastSlide = currentIndex === slides.length - 1;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastSlide) {
-      handleFinish();
+      setShowPersona(true);
     } else {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
@@ -119,6 +142,12 @@ export default function Onboarding() {
       // エラーが発生してもQuest画面に遷移（初回起動時はDBが未初期化の可能性）
       router.replace('/(tabs)/quest');
     }
+  };
+
+  const handlePersonaSelect = async (option: typeof personaOptions[0]) => {
+    await settingsRepo.set('onboarding_persona', option.key);
+    await completeOnboarding();
+    router.replace(option.next as any);
   };
 
   const slide = slides[currentIndex];
@@ -140,21 +169,45 @@ export default function Onboarding() {
 
       {/* Centered content */}
       <Animated.View key={currentIndex} entering={FadeIn.duration(250)} style={styles.centerWrapper}>
-        <View style={styles.iconContainer}>
-          <Icon size={64} color="#00F260" strokeWidth={1.5} />
-        </View>
-
-        <Text style={styles.title}>{slide.title}</Text>
-        <Text style={styles.description}>{slide.description}</Text>
-
-        <View style={styles.detailsContainer}>
-          {slide.details.map((detail, index) => (
-            <View key={index} style={styles.detailRow}>
-              <View style={styles.bullet} />
-              <Text style={styles.detailText}>{detail}</Text>
+        {showPersona ? (
+          <View style={styles.centerWrapper}>
+            <View style={styles.iconContainer}>
+              <Users size={64} color="#00F260" strokeWidth={1.5} />
             </View>
-          ))}
-        </View>
+            <Text style={styles.title}>あなたのタイプは？</Text>
+            <Text style={styles.description}>どちらの使い方が自分に合いそうですか？</Text>
+            <View style={{ gap: 24, width: '100%', marginTop: 32 }}>
+              {personaOptions.map(option => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={styles.personaButton}
+                  onPress={() => handlePersonaSelect(option)}
+                >
+                  <Text style={styles.personaLabel}>{option.label}</Text>
+                  <Text style={styles.personaDesc}>{option.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.iconContainer}>
+              <Icon size={64} color="#00F260" strokeWidth={1.5} />
+            </View>
+
+            <Text style={styles.title}>{slide.title}</Text>
+            <Text style={styles.description}>{slide.description}</Text>
+
+            <View style={styles.detailsContainer}>
+              {slide.details.map((detail, index) => (
+                <View key={index} style={styles.detailRow}>
+                  <View style={styles.bullet} />
+                  <Text style={styles.detailText}>{detail}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </Animated.View>
 
       {/* Footer (absolute) */}
@@ -299,5 +352,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  personaButton: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    marginHorizontal: 8,
+    borderWidth: 2,
+    borderColor: '#00F260',
+    alignItems: 'center',
+    shadowColor: '#00F260',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    marginBottom: 8,
+  },
+  personaLabel: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#00F260',
+    marginBottom: 8,
+  },
+  personaDesc: {
+    fontSize: 15,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
 });
