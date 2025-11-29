@@ -90,9 +90,14 @@ export default function VelocitySettingsScreen() {
       const calculatedTarget = await setDesiredDailyMinutes(recommendedMinutes);
       Alert.alert(
         '目標を設定しました',
-        `1日 ${recommendedMinutes}分ペースで、目標 ${calculatedTarget} Lex に設定されました`
+        `1日 ${recommendedMinutes}分ペースで、目標 ${calculatedTarget} Lex に設定されました`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)/quest'),
+          },
+        ]
       );
-      await loadData();
     } catch (error) {
       Alert.alert('エラー', '目標の設定に失敗しました。');
     }
