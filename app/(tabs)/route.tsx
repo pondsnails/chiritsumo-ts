@@ -223,7 +223,7 @@ export default function RouteScreen() {
       return;
     }
 
-    if (node.book.status === 2) {
+    if (!node.book || node.book.status === 2) {
       return;
     }
 
