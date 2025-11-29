@@ -3,13 +3,15 @@ import type { Card, LedgerEntry } from '../types';
 export interface BankruptcyStatus {
   isInDebt: boolean;
   deficit: number;
-  warningLevel: 0 | 1 | 2 | 3; // 0: 健全, 1: 注意, 2: 警告, 3: 借金超過（機能制限）
-  isFunctionLocked: boolean; // 機能制限フラグ（新規カード追加不可など）
+  warningLevel: 0 | 1 | 2 | 3; // 0: 健全, 1: 注意, 2: 警告, 3: 重度（ボーナス最大）
+  isFunctionLocked: boolean; // 機能制限フラグ（常にfalseに変更）
   message: string;
 }
 
-// 借金の上限設定（Free版のみ機能制限）
-const FUNCTION_LOCK_THRESHOLD_FREE = -1000; // -1000 Lexで機能制限
+// 機能制限は廃止。しきい値はボーナス演出のみに使用（UI目的）。
+const BONUS_LEVEL_1 = 200;   // 軽度
+const BONUS_LEVEL_2 = 500;   // 中程度
+const BONUS_LEVEL_3 = 1000;  // 重度
 
 /**
  * 改善版破産判定
@@ -33,46 +35,18 @@ export function checkBankruptcyStatus(
   }
 
   const deficit = Math.abs(balance);
-
-  // Pro版は借金上限なし
-  if (isProUser) {
-    let warningLevel: 0 | 1 | 2 | 3 = 1;
-    if (deficit >= 2000) warningLevel = 3;
-    else if (deficit >= 1000) warningLevel = 2;
-    else if (deficit >= 500) warningLevel = 1;
-
-    return {
-      isInDebt: true,
-      deficit,
-      warningLevel,
-      isFunctionLocked: false,
-      message: `借金: ${deficit} Lex（Pro版は上限なし）`,
-    };
-  }
-
-  // Free版は-1000で機能制限（データは保持）
-  if (balance <= FUNCTION_LOCK_THRESHOLD_FREE) {
-    return {
-      isInDebt: true,
-      deficit,
-      warningLevel: 3,
-      isFunctionLocked: true,
-      message: '借金が上限に達しました。新規カードの追加が制限されています。復習でLexを稼いで借金を返済してください。',
-    };
-  }
-
-  // 制限寸前の警告レベル
+  // すべてのユーザーで機能制限は行わず、ボーナス段階のみ付与
   let warningLevel: 0 | 1 | 2 | 3 = 1;
-  if (deficit >= 800) warningLevel = 3;
-  else if (deficit >= 500) warningLevel = 2;
-  else if (deficit >= 200) warningLevel = 1;
+  if (deficit >= BONUS_LEVEL_3) warningLevel = 3;
+  else if (deficit >= BONUS_LEVEL_2) warningLevel = 2;
+  else if (deficit >= BONUS_LEVEL_1) warningLevel = 1;
 
   return {
     isInDebt: true,
     deficit,
     warningLevel,
     isFunctionLocked: false,
-    message: `借金: ${deficit} Lex（残り ${Math.abs(FUNCTION_LOCK_THRESHOLD_FREE) - deficit} Lex で機能制限）`,
+    message: `遅れ: ${deficit} XP（学習ボーナス適用）`,
   };
 }
 
