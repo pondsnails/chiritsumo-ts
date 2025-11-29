@@ -12,93 +12,39 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 
 - **No Time Tracking**: 時間計測の完全廃止。学習の「質」と「量」のみを評価
 - **Local First & Speed**: 全データを端末内DB（SQLite）に永続化。完全オフライン動作
-- **The Trinity Modes**: 教材を「読む」「解く」「暗記」の3モードに分類
-- **Visualized Roadmap**: 学習ルートを地下鉄路線図のようなグラフで可視化
-
-## 🛠 Tech Stack
 
 - **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
-- **Storage**: SQLite (Native Only) - **Web版は廃止**
-- **ORM**: Drizzle ORM (expo-sqlite driver)
-- **State**: Zustand
-- **Scheduling**: ts-fsrs（FSRS v5）
-- **IAP**: react-native-purchases（RevenueCat）
-- **Visualization/Share**: react-native-svg, react-native-view-shot
-- **Architecture**: Repository Pattern + Service Layer
-
-## 📦 主要機能
 
 ### ✅ 実装済み（Phase 1-3 完了 / v7.1.0）
 
 #### データベース & コアロジック
 - [x] **SQLite (Drizzle ORM)** - Web版廃止、Native専用に統一
 - [x] **Repository Pattern移行完了** - Books/Cards/Ledger/InventoryPresetsをDrizzle化
-- [x] **Store層リファクタ完了** - bookStore/cardStoreの直接DB呼び出しを排除
-- [x] Books/Cards/Ledgerスキーマ定義
-- [x] Chunking機能（1カードあたりの学習量指定）
-- [x] Chunk Size プリセット & Proカスタム（学習単位サイズをプリセット 1/2/3/5/10/15 + Pro追加 20/30/50/75/100 + カスタム入力）
-- [x] 循環参照防止（DAGグラフ管理）
-- [x] FSRS v5アルゴリズム統合
-- [x] **書籍情報取得マルチソース化** - OpenBD（国内優先）+ Google Books（洋書予備）でAPIキー不要
-
-#### 学習機能
 - [x] Read/Solve/Memoの3モード対応
 - [x] モード別Retention設定（0.85/0.90/0.80）
-- [x] Memoモード一括検品UI
-- [x] 写真メモ機能（失敗時の記録）
-
-#### Bank機能
 - [x] 日次Rollover処理
 - [x] Lex残高管理
-- [x] Time Freeze（有給休暇）購入機能
-- [x] ブラックマーケット（カード売却）
-
-#### Route（路線図）
 - [x] 地下鉄路線図風のグラフ描画（マイルート）
 - [x] ルートプリセット（厳選書籍の静的リンク集）
-- [x] MainLine/Branch/Hub表示
-
-#### データ管理（ゼロ運用コスト）
 - [x] JSONバックアップ機能（Export/Import）
 - [x] 設定画面（手動バックアップのみ）
-- [x] **クラウド連携・自動バックアップ削除（維持費ゼロ方針確定）**
-- [x] **google-signin / google-drive-api-wrapper / background-fetch 依存削除**
-
-#### 課金システム
 - [x] RevenueCat統合
 - [x] Paywallスクリーン（買い切り¥3,600優先／年額¥1,500は補助表示）
-- [x] Free Plan制限（Book 3冊まで）
-- [x] Pro Plan判定ロジック
-- [x] ストリーク維持（徳政令）機能
-
-#### 分析/シェア
 - [x] Brain Analytics Dashboard（忘却曲線・ヒートマップ）
 - [x] Shareable Stats（SNS向け実績カード生成・共有）
-- [x] 連続学習（ストリーク）算出・表示
-
-#### 目標・報酬バランス（v7.1.0）
 - [x] BASE_LEXを時間価値で統一（1分=10 Lex）
   - Read: 30 / Solve: 50 / Memo: 1
-- [x] Lexプロファイルを時間ベースに再構築
   - 15分=150 / 1h=600 / 3h=1800 / 5h=3000（Pro） / 8h=4800（Pro）
-
 #### ストア対応
 - [x] app.jsonにカメラ権限説明追加
 - [x] プライバシーポリシーHTML作成
-- [x] iOS/Android権限設定
-
-## 🚀 Getting Started
 
 ### 前提条件
 
 ```bash
 node >= 18.x
 npm >= 9.x
-```
-
-### リリース準備
-
 **⚠️ 本番環境でのリリース前に必ず以下を実施してください:**
 
 1. **RevenueCat APIキーの設定**
@@ -176,13 +122,6 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_xxxxxxxxxxxxxxxx
 
 ## 🛠 Development
 
-`privacy-policy.html` をGitHub PagesやNetlifyにデプロイし、`app/(tabs)/settings.tsx` のURLを更新してください。
-
-```typescript
-await WebBrowser.openBrowserAsync('https://your-domain.com/privacy-policy.html');
-```
-
-## 📁 プロジェクト構造
 
 ```
 app/
@@ -191,33 +130,18 @@ app/
 │   ├── route.tsx        # 路線図画面
 │   ├── bank.tsx         # 読書銀行画面
 │   ├── books.tsx        # 書籍一覧
-│   └── settings.tsx     # 設定画面
-├── books/
-│   ├── add.tsx          # 書籍追加（制限チェック実装）
 │   └── edit.tsx         # 書籍編集
 ├── paywall.tsx          # Paywallスクリーン
-├── study.tsx            # Read/Solve学習画面
-└── study-memo.tsx       # Memo一括学習画面
 
 core/                    # アプリケーションコア（app外に配置）
-├── components/          # 再利用可能なコンポーネント
-│   ├── ChunkSizeSelector.tsx
 │   ├── BankruptcyWarning.tsx
 │   ├── BookNode.tsx
-│   ├── InventoryFilterModal.tsx
 │   └── ...
 ├── database/
-│   ├── drizzleClient.ts # Drizzle ORM クライアント
-│   ├── schema.ts       # Drizzle スキーマ定義
-│   └── supabase.ts
 ├── repository/         # Repository Pattern（Drizzle移行完了）
 │   ├── BookRepository.ts
-│   ├── CardRepository.ts
-│   ├── LedgerRepository.ts
 │   └── InventoryPresetRepository.ts
 ├── fsrs/               # FSRS v5スケジューラ
-│   └── scheduler.ts
-├── layout/             # 路線図レイアウトエンジン
 │   └── metroLayout.ts
 ├── logic/              # ビジネスロジック
 │   ├── bankruptcyLogic.ts

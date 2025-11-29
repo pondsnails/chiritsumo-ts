@@ -27,6 +27,7 @@ import { MetroLine } from '@core/components/MetroLine';
 import { BookNode } from '@core/components/BookNode';
 import { BookMode } from '@core/constants/enums';
 import i18n from '@core/i18n';
+import { useServices } from '@core/di/ServicesProvider';
 import type { Book, RouteStep, PresetRoute } from '@core/types';
 import type { NodePosition } from '@core/layout/metroLayout';
 import recommendedRoutesData from '@core/data/recommendedRoutes.json';
@@ -35,6 +36,23 @@ type TabType = 'myRoute' | 'presetRoute';
 
 export default function RouteScreen() {
   const router = useRouter();
+  const { useBookStore } = useServices();
+  const { updateBook } = useBookStore();
+                <Text style={styles.bookTitle}>{book.title}</Text>
+                {book.status !== 0 && (
+                  <TouchableOpacity
+                    style={styles.activateButton}
+                    onPress={async () => {
+                      try {
+                        await updateBook(book.id, { status: 0 });
+                      } catch (e) {
+                        console.error('Activate book failed', e);
+                      }
+                    }}
+                  >
+                    <Text style={styles.activateText}>次に学ぶ</Text>
+                  </TouchableOpacity>
+                )}
   const { bookRepo } = useServices();
   
   const [activeTab, setActiveTab] = useState<TabType>('myRoute');
@@ -475,6 +493,21 @@ export default function RouteScreen() {
 }
 
 const styles = StyleSheet.create({
+    activateButton: {
+      marginTop: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      alignSelf: 'flex-start',
+    },
+    activateText: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+    },
   container: {
     flex: 1,
   },

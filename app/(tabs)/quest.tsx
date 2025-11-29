@@ -19,6 +19,8 @@ import { SkeletonQuestHeader } from '@core/components/Skeleton';
 import i18n from '@core/i18n';
 import { getModeLabel, getModeColor } from '@core/utils/uiHelpers';
 import type { InventoryPreset } from '@core/types';
+import { getVelocityData } from '@core/services/velocityService';
+import { getLexConfig } from '@core/services/configService';
 
 export default function QuestScreen() {
   console.log('[QuestScreen] Component rendering');
@@ -61,11 +63,41 @@ export default function QuestScreen() {
   const [showActionsModal, setShowActionsModal] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [showCompletionToast, setShowCompletionToast] = useState(false);
+  const [avgVelocityLexPerMin, setAvgVelocityLexPerMin] = useState<number | null>(null);
+  const [minutesPerDayEstimate, setMinutesPerDayEstimate] = useState<number | null>(null);
+  const [completionDaysEstimate, setCompletionDaysEstimate] = useState<number | null>(null);
 
   // 画面フォーカス時に自動更新
   useFocusEffect(
     useCallback(() => {
       refreshAll();
+      // 速度情報の取得
+      (async () => {
+        try {
+          const vd = await getVelocityData();
+          setAvgVelocityLexPerMin(vd.averageVelocity);
+          // 書籍完了予測（日数）
+          if (globalNextBook) {
+            const lexCfg = await getLexConfig();
+            const baseLex = globalNextBook.mode === 1 ? lexCfg.solve : (globalNextBook.mode === 2 ? lexCfg.memo : lexCfg.read);
+            const total = globalNextBook.totalUnit;
+            const completed = globalNextBook.completedUnit ?? 0;
+            const chunk = globalNextBook.chunkSize ?? 1;
+            const remainingUnits = Math.max(0, total - completed);
+            const cardsLeft = Math.ceil(remainingUnits / chunk);
+            const totalLexLeft = cardsLeft * baseLex;
+            if (dailyTargetLex && dailyTargetLex > 0) {
+              setCompletionDaysEstimate(Math.max(1, Math.ceil(totalLexLeft / dailyTargetLex)));
+            } else {
+              setCompletionDaysEstimate(null);
+            }
+          } else {
+            setCompletionDaysEstimate(null);
+          }
+        } catch (e) {
+          console.warn('Failed to load velocity data', e);
+        }
+      })();
     }, [refreshAll])
   );
 
@@ -104,6 +136,18 @@ export default function QuestScreen() {
     }
     prevDueCountRef.current = dueCards.length;
   }, [dueCards.length]);
+
+  // 目標Lexを分換算（Lex/分の速度が取得できる場合）
+  useEffect(() => {
+    if (dailyTargetLex && avgVelocityLexPerMin && avgVelocityLexPerMin > 0) {
+      setMinutesPerDayEstimate(Math.round(dailyTargetLex / avgVelocityLexPerMin));
+    } else if (dailyTargetLex) {
+      // 速度計測未完了時の暫定換算: 10 Lex ≈ 1分
+      setMinutesPerDayEstimate(Math.round(dailyTargetLex / 10));
+    } else {
+      setMinutesPerDayEstimate(null);
+    }
+  }, [dailyTargetLex, avgVelocityLexPerMin]);
 
   if (isLoading) {
     return (
@@ -147,12 +191,33 @@ export default function QuestScreen() {
             combinedLex={combinedLex}
           />
 
+          {/* Velocity概要表示 */}
+          <View style={styles.banner}>
+            <Text style={styles.bannerTitle}>⏱ 学習速度</Text>
+            {avgVelocityLexPerMin ? (
+              <Text style={styles.bannerText}>平均 {avgVelocityLexPerMin.toFixed(1)} Lex/分 ・ 今日の目安 約{minutesPerDayEstimate ?? Math.round(dailyTargetLex / 10)}分</Text>
+            ) : (
+              <>
+                <Text style={styles.bannerText}>速度計測中です。目安 約{Math.round(dailyTargetLex / 10)}分</Text>
+                <TouchableOpacity onPress={() => router.push('/velocity-settings' as any)} style={{ marginTop: 8 }}>
+                  <Text style={[styles.bannerText, { color: colors.primary, fontWeight: '700' }]}>速度計測ガイドを開く →</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {globalNextBook && completionDaysEstimate && (
+              <Text style={styles.bannerText}>この書籍の完了予測：約{completionDaysEstimate}日</Text>
+            )}
+          </View>
+
           {/* Global Next Action - 迷わせない単一アクション */}
           <View style={styles.emptyState}>
             {hasReviewPending ? (
               <>
                 <Text style={styles.emptyIcon}>🔔</Text>
                 <Text style={styles.emptyText}>まずは復習を片付けましょう</Text>
+                {globalNextBook && (
+                  <Text style={styles.emptySubtext}>対象書籍：{globalNextBook.title}（ルート最上位の進行中）</Text>
+                )}
                 <TouchableOpacity
                   style={styles.primaryActionButton}
                   onPress={() => {
@@ -170,6 +235,9 @@ export default function QuestScreen() {
               <>
                 <Text style={styles.emptyIcon}>🎯</Text>
                 <Text style={styles.emptyText}>目標に向けて新規を追加しましょう</Text>
+                {globalNextBook && (
+                  <Text style={styles.emptySubtext}>対象書籍：{globalNextBook.title}（ルート最上位の進行中）</Text>
+                )}
                 <TouchableOpacity
                   style={styles.primaryActionButton}
                   onPress={async () => {

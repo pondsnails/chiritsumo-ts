@@ -124,15 +124,78 @@ export class QuestService {
     presets: InventoryPreset[], 
     activePresetId: number | null
   ): string[] {
-    if (!activePresetId) {
+    // プリセット指定がある場合は従来通り
+    if (activePresetId) {
+      const preset = presets.find(p => p.id === activePresetId);
+      if (!preset) return books.map(b => b.id);
+      const bookIds = preset.bookIds.filter(Boolean);
+      return bookIds.length > 0 ? bookIds : books.map(b => b.id);
+    }
+
+    // プリセット未選択: ルート最上位の進行中1冊のみを対象
+    // priority=1 をメインルートとみなし previous_book_id チェーンを辿る
+    try {
+      const mainLine = books.filter(b => b.priority === 1);
+      if (mainLine.length === 0) return books.map(b => b.id);
+      const idSet = new Set(mainLine.map(b => b.id));
+      const roots = mainLine.filter(b => !b.previousBookId || !idSet.has(b.previousBookId));
+      if (roots.length === 0) return books.map(b => b.id);
+      roots.sort((a, b) => a.createdAt - b.createdAt);
+      const root = roots[0];
+      const nextMap = new Map<string, Book>();
+      for (const b of mainLine) if (b.previousBookId) nextMap.set(b.previousBookId, b);
+      const chain: Book[] = [];
+      const guard = new Set<string>();
+      let cursor: Book | undefined = root;
+      while (cursor && !guard.has(cursor.id)) {
+        chain.push(cursor);
+        guard.add(cursor.id);
+        cursor = nextMap.get(cursor.id);
+      }
+      const active = chain.find(b => b.status === BookStatus.ACTIVE);
+      if (active) return [active.id];
+      if (chain.length > 0) return [chain[chain.length - 1].id];
+    } catch (e) {
+      console.warn('[QuestService] Route resolution failed, fallback to all:', e);
       return books.map(b => b.id);
     }
-    
-    const preset = presets.find(p => p.id === activePresetId);
-    if (!preset) return books.map(b => b.id);
-    
-    const bookIds = preset.bookIds.filter(Boolean);
-    return bookIds.length > 0 ? bookIds : books.map(b => b.id);
+    return books.map(b => b.id);
+  }
+
+  /**
+   * ルート（priority=1 チェーン）上で進行中書籍を自動アクティブ化
+   * 要件: ルート先頭が完了済みなら次の未完了書籍を ACTIVE に昇格
+   */
+  async autoActivateRoute(): Promise<void> {
+    try {
+      const all = await this.bookRepo.findAll();
+      const mainLine = all.filter(b => b.priority === 1);
+      if (mainLine.length === 0) return;
+      const idSet = new Set(mainLine.map(b => b.id));
+      const roots = mainLine.filter(b => !b.previousBookId || !idSet.has(b.previousBookId));
+      if (roots.length === 0) return;
+      roots.sort((a, b) => a.createdAt - b.createdAt);
+      const root = roots[0];
+      const nextMap = new Map<string, Book>();
+      for (const b of mainLine) if (b.previousBookId) nextMap.set(b.previousBookId, b);
+      const chain: Book[] = [];
+      const guard = new Set<string>();
+      let cursor: Book | undefined = root;
+      while (cursor && !guard.has(cursor.id)) {
+        chain.push(cursor);
+        guard.add(cursor.id);
+        cursor = nextMap.get(cursor.id);
+      }
+      // 既にACTIVEが存在すれば何もしない
+      if (chain.some(b => b.status === BookStatus.ACTIVE)) return;
+      // 最初に未完了(COMPLETEDでない)な書籍をACTIVE化
+      const target = chain.find(b => b.status !== BookStatus.COMPLETED);
+      if (target && target.status !== BookStatus.ACTIVE) {
+        await this.bookRepo.update(target.id, { status: BookStatus.ACTIVE });
+      }
+    } catch (e) {
+      console.warn('[QuestService] autoActivateRoute failed:', e);
+    }
   }
 
   /**

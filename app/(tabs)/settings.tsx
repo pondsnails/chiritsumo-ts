@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
@@ -27,6 +28,7 @@ import {
 } from '@core/services/lexSettingsService';
 import { LEX_PROFILES } from '@core/types/lexProfile';
 import i18n from '@core/i18n';
+import { DrizzleSystemSettingsRepository } from '@core/repository/SystemSettingsRepository';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -42,12 +44,21 @@ export default function SettingsScreen() {
   const [dailyLexTarget, setDailyLexTarget] = useState(200);
   const [forceUpdate, setForceUpdate] = useState(0); // 強制再レンダリング用
   const [showDevTools, setShowDevTools] = useState(false);
+  const [lastBackupEpoch, setLastBackupEpoch] = useState<number | null>(null);
+  const settingsRepo = new DrizzleSystemSettingsRepository();
 
   // 開発モードチェック
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     loadLexSettings();
+    // 最終バックアップ日時の読込
+    (async () => {
+      try {
+        const v = await settingsRepo.get('last_backup_epoch');
+        setLastBackupEpoch(v ? Number(v) : null);
+      } catch {}
+    })();
   }, []);
 
   // Pro版ステータス変更時にLex設定を再読み込み
@@ -70,11 +81,40 @@ export default function SettingsScreen() {
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      await exportBackup();
+      const result = await exportBackup();
+      // 最終バックアップ日時を保存
+      try { await settingsRepo.set('last_backup_epoch', String(Math.floor(Date.now() / 1000))); } catch {}
+      // 共有導線：可能ならそのまま共有パネルを開く
+      try {
+        if (Sharing.isAvailableAsync && (await Sharing.isAvailableAsync()) && result?.fileUri) {
+          await Sharing.shareAsync(result.fileUri);
+        }
+      } catch (shareErr) {
+        console.warn('Sharing not available or failed', shareErr);
+      }
       Alert.alert(i18n.t('common.success'), i18n.t('settings.exportSuccess'));
     } catch (error) {
       console.error('Export failed:', error);
       Alert.alert(i18n.t('common.error'), i18n.t('settings.exportError'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleShareToCloud = async () => {
+    try {
+      setIsExporting(true);
+      const result = await exportBackup();
+      // 最終バックアップ日時を保存
+      try { await settingsRepo.set('last_backup_epoch', String(Math.floor(Date.now() / 1000))); } catch {}
+      if (Sharing.isAvailableAsync && (await Sharing.isAvailableAsync()) && result?.fileUri) {
+        await Sharing.shareAsync(result.fileUri);
+      } else {
+        Alert.alert('共有不可', 'この端末では共有がサポートされていません。エクスポートしたファイルを手動でクラウドに保存してください。');
+      }
+    } catch (error) {
+      console.error('Share failed:', error);
+      Alert.alert(i18n.t('common.error'), '共有に失敗しました。エクスポートからお試しください。');
     } finally {
       setIsExporting(false);
     }
@@ -466,6 +506,26 @@ export default function SettingsScreen() {
           {/* データ管理セクション */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>データ管理</Text>
+            {/* 最終バックアップ情報 */}
+            {lastBackupEpoch && (
+              <View style={[glassEffect.card, styles.policyCard]}>
+                <Text style={styles.policyText}>最終バックアップ: {new Date(lastBackupEpoch * 1000).toLocaleDateString()}</Text>
+              </View>
+            )}
+            {/* 30日以上未実施の場合の警告 */}
+            {(() => {
+              const now = Math.floor(Date.now() / 1000);
+              const stale = lastBackupEpoch ? (now - lastBackupEpoch) > (30 * 24 * 60 * 60) : true;
+              if (stale) {
+                return (
+                  <View style={[glassEffect.card, styles.policyCard, styles.warningCard]}>
+                    <Text style={[styles.policyText, styles.warningTitle]}>⚠️ バックアップがしばらく行われていません</Text>
+                    <Text style={[styles.policyText, styles.warningBody]}>30日以上バックアップ未実施です。エクスポートしてクラウドに共有しましょう。</Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
             
             {/* バックアップ方針の説明（強調版） */}
             <View style={[glassEffect.card, styles.policyCard, styles.warningCard]}>
@@ -490,6 +550,18 @@ export default function SettingsScreen() {
               </View>
               {isExporting && <ActivityIndicator color={colors.primary} />}
             </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[glassEffect.card, styles.menuItem]}
+                onPress={handleShareToCloud}
+                disabled={isExporting}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Upload color={colors.primary} size={20} strokeWidth={2} />
+                  <Text style={styles.menuItemText}>クラウドに共有</Text>
+                </View>
+                {isExporting && <ActivityIndicator color={colors.primary} />}
+              </TouchableOpacity>
 
             <TouchableOpacity
               style={[glassEffect.card, styles.menuItem]}
