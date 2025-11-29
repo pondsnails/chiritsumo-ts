@@ -2,7 +2,7 @@
 
 **脱・時間管理。成果主義のデジタル学習台帳**
 
-Version: 7.2.1 (Local-First + Zero-Operation Cost + Cloud Sync)
+Version: 7.2.2 (Local-First + Zero-Operation Cost + Cloud Sync + Preset Routes)
 
 ## 🎯 コンセプト
 
@@ -16,7 +16,7 @@ Version: 7.2.1 (Local-First + Zero-Operation Cost + Cloud Sync)
 - **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
 
-### ✅ 実装済み（Phase 1-5 完了 / v7.2.1）
+### ✅ 実装済み（Phase 1-6 完了 / v7.2.2）
 
 #### データベース & コアロジック
 - [x] **SQLite (Drizzle ORM)** - Web版廃止、Native専用に統一
@@ -28,7 +28,7 @@ Version: 7.2.1 (Local-First + Zero-Operation Cost + Cloud Sync)
 - [x] Lex残高管理
 - [x] 地下鉄路線図風のグラフ描画（マイルート）
 - [x] **Metroレイアウト非同期キャッシュ** - UI blocking回避、高速レンダリング
-- [x] ルートプリセット（厳選書籍の静的リンク集）
+- [x] **プリセットルート展開システム** - TOEIC/簿記/基本情報/React入門の4ルート実装
 - [x] JSONバックアップ機能（Export/Import）
 - [x] **自動バックアップ（iOS/Android）** - Google Console不要、OS標準API活用
 - [x] 設定画面（手動バックアップのみ）
@@ -62,15 +62,18 @@ Version: 7.2.1 (Local-First + Zero-Operation Cost + Cloud Sync)
 - [x] **Metroレイアウト非同期キャッシュ** - `computeMetroLayoutCached()`で差分検出＋キャッシュヒット、UI blocking回避
 - [x] **Zodスキーマアダプタ** - DB row → domain正規化の統一レイヤー、バリデーション・型安全性向上
 
-#### データ安全性強化（v7.2.1新規）- **評価フィードバック対応**
+#### データ安全性強化（v7.2.1-7.2.2）- **評価フィードバック対応**
 - [x] **クラウド自動同期（iCloud/Google Drive）** - ユーザー意識不要の裏側バックアップ
   - iOS: iCloud Container統合（Info.plist設定で完全動作）
   - Android: Google Drive App Data folder統合（実装中）
   - 起動・復帰時に`performCloudBackup()`自動実行、データロスト防止
-- [x] **プリセットルートのワンタップ展開** - 導入障壁の完全排除
-  - TOEIC 800点/簿記3級/基本情報技術者/React入門の4ルート実装
-  - 依存関係・推定日数・Amazonアフィリエイトリンク完備
-  - Onboarding完了時に選択→即スタート可能
+- [x] **プリセットルートのワンタップ展開（v7.2.2新機能）** - 導入障壁の完全排除
+  - `/preset-routes` 画面でカテゴリ別フィルタ（資格試験/プログラミング/語学）
+  - TOEIC 800点/簿記3級/基本情報技術者/React入門の4ルート完全実装
+  - 依存関係（previousBookId）・推定日数・Amazonアフィリエイトリンク完備
+  - 初回起動時にOnboarding完了→バックアップ設定→プリセット選択→即スタート可能
+  - Books画面から「厳選ルートマップ」ボタンで再アクセス可能
+  - 選択/スキップ後は`@chiritsumo_preset_route_selected`フラグで次回表示スキップ
 - [x] **ローエンド端末対応** - Android 8以下/RAM 2GB未満で自動最適化
   - BlurView完全無効化、ソリッドカラーに自動切替
   - `shouldUseBlurView()`でコンポーネント側から判定可能
@@ -187,8 +190,12 @@ app/
 │   ├── books.tsx        # 書籍一覧
 │   └── edit.tsx         # 書籍編集
 ├── paywall.tsx          # Paywallスクリーン
+├── backup-setup.tsx     # ✅ v7.2.1: 初回起動バックアップ設定促進
+├── recovery.tsx         # ✅ v7.2.1: DB破損復旧UI
+├── preset-routes.tsx    # ✅ v7.2.2新規: プリセットルート選択画面
 
 core/                    # アプリケーションコア（app外に配置）
+├── components/
 │   ├── BankruptcyWarning.tsx
 │   ├── BookNode.tsx
 │   └── ...
@@ -223,11 +230,11 @@ core/                    # アプリケーションコア（app外に配置）
 │   └── subscriptionStore.ts
 ├── theme/
 │   ├── colors.ts
-│   └── glassEffect.ts
+│   └── glassEffect.ts  # ✅ v7.2.1拡張: shouldUseBlurView()でローエンド対応
 ├── types/
 │   └── index.ts
-├── presets/                 # ✅ v7.2.1新規: プリセットルートテンプレート
-│   └── presetRouteTemplates.ts  # TOEIC/簿記/情報処理/React入門
+├── presets/                 # ✅ v7.2.1-7.2.2: プリセットルートテンプレート
+│   └── presetRouteTemplates.ts  # TOEIC/簿記/情報処理/React入門 完全実装
 └── utils/
     ├── bookLogic.ts
     ├── dailyRollover.ts
@@ -398,7 +405,8 @@ const db = drizzle(sqlite);
 **Phase 2（完了）**: UI層の残存レガシー参照を段階排除  
 **Phase 3（完了）**: `db.native.ts`削除、完全Drizzle化達成（v7.1.0）  
 **Phase 4（完了）**: Zodアダプタ導入、自動バックアップ統合、UX最適化（v7.2.0）  
-**Phase 5（完了）**: データ安全性強化、クラウド同期、プリセットルート、DB復旧（v7.2.1）
+**Phase 5（完了）**: データ安全性強化、クラウド同期、プリセットルート、DB復旧（v7.2.1）  
+**Phase 6（完了）**: プリセットルート展開UI完全実装、Books画面統合（v7.2.2）
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
@@ -409,13 +417,40 @@ const db = drizzle(sqlite);
   - Fail/Debt: Plasma Red (#FF416C)
   - Route/Link: Electric Blue (#2980B9)
 
-## 🧠 使い方のヒント（v7.1.0）
+## 🧠 使い方のヒント（v7.2.2）
 
 ### 基本的な使い方
 - 日次Lex目標は時間で考える（例: 1800 Lex ≒ 3時間）
 - Solve/Read/Memoのどれを選んでも、時間あたりの報酬は公平（1分=10 Lex）
 - 少しずつ貯金して、Time Freeze（休暇）を買うのがおすすめ
 - 実績カードを定期的にSNSでシェアして、習慣化とモチベ維持
+
+### クイックスタート（プリセットルート活用）
+
+**v7.2.2の最大の改善点：「何を勉強すればいいかわからない」を完全解決**
+
+#### 初回起動フロー
+1. Onboarding完了（ペルソナ選択）
+2. バックアップ設定（クラウド推奨、スキップ可）
+3. **プリセットルート選択（NEW!）**
+   - カテゴリフィルタで目的別に絞り込み
+   - 資格試験: TOEIC 800点、簿記3級、基本情報技術者
+   - プログラミング: React入門（JS基礎→React→TS→Next.js）
+   - ワンタップで全書籍一括登録（依存関係も自動設定）
+4. そのまま学習開始（Quest画面へ）
+
+#### 既存ユーザー向け
+- Books画面の「厳選ルートマップ」ボタンからいつでもアクセス可能
+- 新しい目標ができたら追加でプリセット展開OK
+- 自分で書籍登録するのと併用可能
+
+#### プリセットの特徴
+- **依存関係完備**: 「基礎文法→問題集→実践」の最適順序を自動設定
+- **推定日数表示**: 完走までの目安が事前にわかる
+- **難易度ラベル**: 初級/中級/上級で自分のレベルに合ったルートを選択
+- **Amazonアフィリエイト**: 気になる書籍をすぐ購入可能（開発者支援も兼ねる）
+
+**もう「何から始めればいいの？」で迷わない。**
 
 ### 受験生向けメンタル支柱機能
 
