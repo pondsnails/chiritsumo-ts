@@ -81,17 +81,9 @@ export default function SettingsScreen() {
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      const result = await exportBackup();
+      await exportBackup();
       // 最終バックアップ日時を保存
       try { await settingsRepo.set('last_backup_epoch', String(Math.floor(Date.now() / 1000))); } catch {}
-      // 共有導線：可能ならそのまま共有パネルを開く
-      try {
-        if (Sharing.isAvailableAsync && (await Sharing.isAvailableAsync()) && result?.fileUri) {
-          await Sharing.shareAsync(result.fileUri);
-        }
-      } catch (shareErr) {
-        console.warn('Sharing not available or failed', shareErr);
-      }
       Alert.alert(i18n.t('common.success'), i18n.t('settings.exportSuccess'));
     } catch (error) {
       console.error('Export failed:', error);
@@ -104,14 +96,11 @@ export default function SettingsScreen() {
   const handleShareToCloud = async () => {
     try {
       setIsExporting(true);
-      const result = await exportBackup();
+      await exportBackup();
       // 最終バックアップ日時を保存
       try { await settingsRepo.set('last_backup_epoch', String(Math.floor(Date.now() / 1000))); } catch {}
-      if (Sharing.isAvailableAsync && (await Sharing.isAvailableAsync()) && result?.fileUri) {
-        await Sharing.shareAsync(result.fileUri);
-      } else {
-        Alert.alert('共有不可', 'この端末では共有がサポートされていません。エクスポートしたファイルを手動でクラウドに保存してください。');
-      }
+      // 共有はexportBackup内部で実行済み。追加導線が必要なら今後拡張。
+      Alert.alert('共有完了', 'バックアップを作成し、共有ダイアログを開きました。必要なクラウドへ保存してください。');
     } catch (error) {
       console.error('Share failed:', error);
       Alert.alert(i18n.t('common.error'), '共有に失敗しました。エクスポートからお試しください。');

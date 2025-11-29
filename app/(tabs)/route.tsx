@@ -39,21 +39,6 @@ export default function RouteScreen() {
   const router = useRouter();
   const { useBookStore } = useServices();
   const { updateBook } = useBookStore();
-                <Text style={styles.bookTitle}>{book.title}</Text>
-                {book.status !== 0 && (
-                  <TouchableOpacity
-                    style={styles.activateButton}
-                    onPress={async () => {
-                      try {
-                        await updateBook(book.id, { status: 0 });
-                      } catch (e) {
-                        console.error('Activate book failed', e);
-                      }
-                    }}
-                  >
-                    <Text style={styles.activateText}>次に学ぶ</Text>
-                  </TouchableOpacity>
-                )}
   const { bookRepo } = useServices();
   
   const [activeTab, setActiveTab] = useState<TabType>('myRoute');
@@ -342,12 +327,6 @@ export default function RouteScreen() {
             <ScrollView
               style={styles.scrollView}
               showsVerticalScrollIndicator={false}
-              onLayout={(e) => {
-                // 画面表示時にアクティブ書籍の近辺へ自動スクロール
-                // Timelineは縦方向に約72px/アイテムの見積りでスクロール
-                const anchorOffset = Math.max(0, activeAnchorIndex.idx * 72);
-                (e.nativeEvent.target as any)?.scrollTo?.({ y: anchorOffset, animated: false });
-              }}
             >
               {/* 循環参照警告 */}
               {circularRefs.length > 0 && (

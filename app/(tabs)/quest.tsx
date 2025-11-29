@@ -496,6 +496,11 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
     paddingHorizontal: 32,
   },
+  heroSection: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 16,
+  },
   emptyIcon: {
     fontSize: 64,
     marginBottom: 16,

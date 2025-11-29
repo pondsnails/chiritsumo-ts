@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useServices } from '@core/di/ServicesProvider';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
-import { checkBankruptcyStatus } from '@core/logic/bankruptcyLogic';
+import { checkBankruptcyStatus, getDebtBonusMultiplier } from '@core/logic/bankruptcyLogic';
 import { BrainAnalyticsDashboard } from '@core/components/BrainAnalyticsDashboard';
 import { ShareableStats } from '@core/components/ShareableStats';
 import { calculateCurrentStreak } from '@core/utils/streakCalculator';
@@ -107,7 +107,7 @@ export default function BankScreen() {
                 </Text>
 
                 {/* リベンジモード演出（マイナス時） */}
-                {bankruptcyStatus.isInDebt && bankruptcyStatus.bonusMultiplier > 1 && (
+                {bankruptcyStatus.isInDebt && getDebtBonusMultiplier(bankruptcyStatus.warningLevel) > 1 && (
                   <View style={[styles.revengeBox, { 
                     backgroundColor: colors.warning + '20',
                     borderColor: colors.warning,
@@ -115,11 +115,11 @@ export default function BankScreen() {
                     <View style={styles.revengeHeader}>
                       <Text style={styles.revengeIcon}>🔥</Text>
                       <Text style={styles.revengeTitle}>REVENGE MODE</Text>
-                      <Text style={styles.revengeMultiplier}>{bankruptcyStatus.bonusMultiplier.toFixed(1)}x</Text>
+                      <Text style={styles.revengeMultiplier}>{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}x</Text>
                     </View>
                     <View style={styles.revengeTextContainer}>
                       <Text style={styles.revengeMessage}>
-                        今なら獲得XPが{bankruptcyStatus.bonusMultiplier.toFixed(1)}倍！効率よく追い上げましょう
+                        今なら獲得XPが{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}倍！効率よく追い上げましょう
                       </Text>
                       <Text style={styles.revengeHint}>
                         💡 ゾーン発動中！学習を開始してボーナスを獲得
