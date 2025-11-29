@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,10 +36,39 @@ export default function BankScreen() {
   const [todayTarget, setTodayTarget] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
+  
+  // リベンジモード脈動アニメーション
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     fetchLedger();
   }, []);
+  
+  // 破産時の脈動エフェクト
+  useEffect(() => {
+    const bankruptcyStatus = checkBankruptcyStatus(balance, isProUser);
+    if (bankruptcyStatus.isInDebt && getDebtBonusMultiplier(bankruptcyStatus.warningLevel) > 1) {
+      // 脈打つアニメーション（ループ）
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [balance, isProUser]);
 
   const fetchLedger = async () => {
     try {
@@ -108,24 +138,37 @@ export default function BankScreen() {
 
                 {/* リベンジモード演出（マイナス時） */}
                 {bankruptcyStatus.isInDebt && getDebtBonusMultiplier(bankruptcyStatus.warningLevel) > 1 && (
-                  <View style={[styles.revengeBox, { 
-                    backgroundColor: colors.warning + '20',
-                    borderColor: colors.warning,
-                  }]}>
-                    <View style={styles.revengeHeader}>
-                      <Text style={styles.revengeIcon}>🔥</Text>
-                      <Text style={styles.revengeTitle}>REVENGE MODE</Text>
-                      <Text style={styles.revengeMultiplier}>{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}x</Text>
-                    </View>
-                    <View style={styles.revengeTextContainer}>
-                      <Text style={styles.revengeMessage}>
-                        今なら獲得XPが{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}倍！効率よく追い上げましょう
-                      </Text>
-                      <Text style={styles.revengeHint}>
-                        💡 ゾーン発動中！学習を開始してボーナスを獲得
-                      </Text>
-                    </View>
-                  </View>
+                  <Animated.View style={[
+                    styles.revengeBox, 
+                    { 
+                      backgroundColor: colors.warning + '20',
+                      borderColor: colors.warning,
+                      transform: [{ scale: pulseAnim }],
+                    }
+                  ]}>
+                    <LinearGradient
+                      colors={[colors.warning + '30', colors.error + '20', colors.warning + '30']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.revengeGradient}
+                    >
+                      <View style={styles.revengeHeader}>
+                        <Text style={styles.revengeIcon}>🔥</Text>
+                        <Text style={styles.revengeTitle}>FEVER TIME</Text>
+                        <View style={styles.revengeMultiplierBadge}>
+                          <Text style={styles.revengeMultiplier}>{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}x</Text>
+                        </View>
+                      </View>
+                      <View style={styles.revengeTextContainer}>
+                        <Text style={styles.revengeMessage}>
+                          🎰 リベンジボーナス発生中！獲得XPが{getDebtBonusMultiplier(bankruptcyStatus.warningLevel).toFixed(1)}倍
+                        </Text>
+                        <Text style={styles.revengeHint}>
+                          💡 今がチャンス！学習を開始して一気に逆転
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </Animated.View>
                 )}
               </View>
 
@@ -375,43 +418,65 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   revengeBox: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 16,
+    borderWidth: 3,
     width: '100%',
     marginTop: 16,
+    overflow: 'hidden',
+    shadowColor: colors.warning,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  revengeGradient: {
+    padding: 20,
   },
   revengeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   revengeIcon: {
-    fontSize: 24,
+    fontSize: 32,
   },
   revengeTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: colors.warning,
+    color: colors.text,
     flex: 1,
+    textShadowColor: colors.warning,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  revengeMultiplierBadge: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: colors.warning,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
   },
   revengeMultiplier: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.warning,
+    color: colors.background,
   },
   revengeTextContainer: {
     gap: 8,
   },
   revengeMessage: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.text,
-    fontWeight: '600',
-    lineHeight: 20,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   revengeHint: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.warning,
     fontWeight: '600',
   },

@@ -269,19 +269,57 @@ export default function RouteScreen() {
           {/* Exam GPS表示 */}
           {examGPS && examGPS.targetDate && (
             <View style={[glassEffect.card, styles.examGPSCard, examGPS.daysAhead < 0 && styles.examGPSWarning]}>
-              <View style={styles.examGPSRow}>
-                <Text style={styles.examGPSLabel}>目標日:</Text>
-                <Text style={styles.examGPSValue}>{new Date(examGPS.targetDate * 1000).toLocaleDateString()}</Text>
+              <Text style={styles.examGPSTitle}>🎯 合格ナビ（Exam GPS）</Text>
+              
+              {/* 2本バー比較 */}
+              <View style={styles.examGPSBars}>
+                <View style={styles.examGPSBarRow}>
+                  <Text style={styles.examGPSBarLabel}>目標</Text>
+                  <View style={styles.examGPSBarContainer}>
+                    <View style={[styles.examGPSBar, styles.examGPSBarTarget, { width: '100%' }]} />
+                  </View>
+                  <Text style={styles.examGPSBarDate}>{new Date(examGPS.targetDate * 1000).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</Text>
+                </View>
+                
+                <View style={styles.examGPSBarRow}>
+                  <Text style={styles.examGPSBarLabel}>予測</Text>
+                  <View style={styles.examGPSBarContainer}>
+                    <View style={[
+                      styles.examGPSBar,
+                      examGPS.daysAhead >= 0 ? styles.examGPSBarAhead : styles.examGPSBarBehind,
+                      { width: examGPS.predictedDate ? `${Math.min(100, Math.max(50, 100 * (examGPS.targetDate / examGPS.predictedDate)))}%` : '100%' }
+                    ]} />
+                  </View>
+                  <Text style={[styles.examGPSBarDate, examGPS.daysAhead < 0 && styles.examGPSValueWarning]}>
+                    {new Date(examGPS.predictedDate! * 1000).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.examGPSRow}>
-                <Text style={styles.examGPSLabel}>予想到着:</Text>
-                <Text style={[styles.examGPSValue, examGPS.daysAhead < 0 && styles.examGPSValueWarning]}>
-                  {new Date(examGPS.predictedDate! * 1000).toLocaleDateString()}
-                  {examGPS.daysAhead >= 0 ? ` (${examGPS.daysAhead}日余裕)` : ` (${Math.abs(examGPS.daysAhead)}日遅れ)`}
-                </Text>
+              
+              {/* ステータスメッセージ */}
+              <View style={styles.examGPSStatus}>
+                {examGPS.daysAhead >= 0 ? (
+                  <>
+                    <Text style={styles.examGPSStatusIcon}>✅</Text>
+                    <Text style={styles.examGPSStatusText}>
+                      現在のペースで <Text style={{ fontWeight: '700', color: colors.success }}>{examGPS.daysAhead}日前</Text> に到達予定
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.examGPSStatusIcon}>⚠️</Text>
+                    <Text style={styles.examGPSStatusText}>
+                      目標より <Text style={{ fontWeight: '700', color: colors.error }}>{Math.abs(examGPS.daysAhead)}日遅れ</Text> の見込み
+                    </Text>
+                  </>
+                )}
               </View>
+              
               {examGPS.velocityAdvice && (
-                <Text style={styles.examGPSAdvice}>💡 {examGPS.velocityAdvice}</Text>
+                <View style={styles.examGPSAdviceBox}>
+                  <Text style={styles.examGPSAdvice}>💡 {examGPS.velocityAdvice}</Text>
+                  <Text style={styles.examGPSAdviceSubtext}>今日のノルマさえやれば、未来は明るい</Text>
+                </View>
               )}
             </View>
           )}
@@ -592,14 +630,97 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   examGPSCard: {
-    padding: 12,
+    padding: 16,
     marginBottom: 12,
     backgroundColor: colors.surface + '40',
+    borderWidth: 2,
+    borderColor: colors.primary + '20',
   },
   examGPSWarning: {
     backgroundColor: colors.error + '10',
     borderLeftWidth: 4,
     borderLeftColor: colors.error,
+  },
+  examGPSTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  examGPSBars: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  examGPSBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  examGPSBarLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    width: 40,
+    fontWeight: '600',
+  },
+  examGPSBarContainer: {
+    flex: 1,
+    height: 24,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  examGPSBar: {
+    height: '100%',
+    borderRadius: 12,
+  },
+  examGPSBarTarget: {
+    backgroundColor: colors.primary + '60',
+  },
+  examGPSBarAhead: {
+    backgroundColor: colors.success,
+  },
+  examGPSBarBehind: {
+    backgroundColor: colors.error,
+  },
+  examGPSBarDate: {
+    fontSize: 11,
+    color: colors.text,
+    fontWeight: '600',
+    width: 50,
+  },
+  examGPSStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  examGPSStatusIcon: {
+    fontSize: 18,
+  },
+  examGPSStatusText: {
+    fontSize: 13,
+    color: colors.text,
+    flex: 1,
+  },
+  examGPSAdviceBox: {
+    backgroundColor: colors.primary + '15',
+    padding: 12,
+    borderRadius: 8,
+  },
+  examGPSAdvice: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  examGPSAdviceSubtext: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   examGPSRow: {
     flexDirection: 'row',
@@ -620,12 +741,6 @@ const styles = StyleSheet.create({
   examGPSValueWarning: {
     color: colors.error,
     fontWeight: '700',
-  },
-  examGPSAdvice: {
-    fontSize: 12,
-    color: colors.primary,
-    marginTop: 8,
-    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
