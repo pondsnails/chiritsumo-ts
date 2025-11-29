@@ -83,6 +83,7 @@ export default function QuestScreen() {
 
   const newDeemphasized = combinedLex >= targetLex;
   const hasReviewPending = dueCards.length > 0;
+  const [showDetails, setShowDetails] = useState(false);
 
   // 全復習完了検知（前フレーム >0 -> 現在 0）
   const prevDueCountRef = React.useRef<number>(0);
@@ -140,37 +141,65 @@ export default function QuestScreen() {
             combinedLex={combinedLex}
           />
 
-          {groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📚</Text>
-              <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
-              <Text style={styles.emptySubtext}>
-                {activePresetId
-                  ? i18n.t('quest.noCardsInFilter')
-                  : i18n.t('quest.addBooksPrompt')}
-              </Text>
-              <TouchableOpacity
-                style={styles.primaryActionButton}
-                onPress={async () => {
-                  try {
-                    const created = await learningSessionService.distributeNewCards(
-                      activePresetId,
-                      presets,
-                      10
-                    );
-                    
-                    if (created > 0) {
-                      await refreshAll();
+          {/* Global Next Action - 迷わせない単一アクション */}
+          <View style={styles.emptyState}>
+            {hasReviewPending ? (
+              <>
+                <Text style={styles.emptyIcon}>🔔</Text>
+                <Text style={styles.emptyText}>まずは復習を片付けましょう</Text>
+                <TouchableOpacity
+                  style={styles.primaryActionButton}
+                  onPress={() => {
+                    if (globalNextBook?.id) {
+                      router.push(`/study?bookId=${globalNextBook.id}` as any);
+                    } else if (dueCards[0]?.bookId) {
+                      router.push(`/study?bookId=${dueCards[0].bookId}` as any);
                     }
-                  } catch (e) {
-                    console.error('Quick start failed', e);
-                  }
-                }}
-              >
-                <Text style={styles.primaryActionText}>学習を開始</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+                  }}
+                >
+                  <Text style={styles.primaryActionText}>復習を開始</Text>
+                </TouchableOpacity>
+              </>
+            ) : combinedLex < targetLex ? (
+              <>
+                <Text style={styles.emptyIcon}>🎯</Text>
+                <Text style={styles.emptyText}>目標に向けて新規を追加しましょう</Text>
+                <TouchableOpacity
+                  style={styles.primaryActionButton}
+                  onPress={async () => {
+                    try {
+                      const created = await learningSessionService.distributeNewCardsByAllocation(recommended.perBook);
+                      if (created > 0) {
+                        await refreshAll();
+                        const firstBook = Object.keys(recommended.perBook)[0];
+                        if (firstBook) router.push(`/study?bookId=${firstBook}` as any);
+                      }
+                    } catch (e) {
+                      console.error('Global next (new) failed', e);
+                    }
+                  }}
+                >
+                  <Text style={styles.primaryActionText}>新規学習を開始</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyIcon}>🌿</Text>
+                <Text style={styles.emptyText}>今日の目標は達成済みです</Text>
+                <TouchableOpacity
+                  style={styles.primaryActionButton}
+                  onPress={() => router.push('/study' as any)}
+                >
+                  <Text style={styles.primaryActionText}>自由学習へ</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity onPress={() => setShowDetails(s => !s)} style={[styles.quickStartButton, { marginTop: 16 }]}> 
+              <Text style={styles.quickStartText}>{showDetails ? '詳細を隠す' : '詳細を見る'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showDetails ? (
             <>
               {groupedReviewCards.length > 0 && (
                 <ReviewSection
@@ -203,6 +232,38 @@ export default function QuestScreen() {
                 }}
               />
             </>
+          ) : groupedReviewCards.length === 0 && groupedNewCards.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>📚</Text>
+              <Text style={styles.emptyText}>{i18n.t('quest.noDueCards')}</Text>
+              <Text style={styles.emptySubtext}>
+                {activePresetId
+                  ? i18n.t('quest.noCardsInFilter')
+                  : i18n.t('quest.addBooksPrompt')}
+              </Text>
+              <TouchableOpacity
+                style={styles.primaryActionButton}
+                onPress={async () => {
+                  try {
+                    const created = await learningSessionService.distributeNewCards(
+                      activePresetId,
+                      presets,
+                      10
+                    );
+                    
+                    if (created > 0) {
+                      await refreshAll();
+                    }
+                  } catch (e) {
+                    console.error('Quick start failed', e);
+                  }
+                }}
+              >
+                <Text style={styles.primaryActionText}>学習を開始</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ height: 8 }} />
           )}
         </ScrollView>
       </SafeAreaView>
