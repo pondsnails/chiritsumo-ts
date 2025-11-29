@@ -63,6 +63,14 @@ export function useQuestData(): QuestData {
     try {
       console.log('[useQuestData] Fetching books...');
       await fetchBooks();
+      // ルート自動アクティブ化（完了後の次書籍をACTIVEへ）
+      try {
+        await questService.autoActivateRoute();
+        // 状態変更を反映するため再取得
+        await fetchBooks();
+      } catch (e) {
+        console.warn('[useQuestData] autoActivateRoute failed:', e);
+      }
       console.log('[useQuestData] Refreshing presets...');
       await filters.refreshPresets();
       
