@@ -6,7 +6,8 @@
  * 
  * @requirements
  * - iOS: expo-file-system + iCloud Container (Info.plist設定必須)
- * - Android: expo-google-drive (または react-native-google-drive-api-wrapper)
+ * - Android: Storage Access Framework (SAF) でGoogle Driveフォルダ選択
+ *   → ユーザーが一度選択すれば以降は自動バックアップ（API認証不要）
  */
 
 // Use legacy typings for documentDirectory/cacheDirectory
@@ -18,6 +19,7 @@ import { books, cards, ledger, systemSettings, presetBooks } from '../database/s
 export const CLOUD_BACKUP_ENABLED_KEY = 'cloud_backup_enabled';
 export const LAST_CLOUD_BACKUP_AT_KEY = 'last_cloud_backup_at';
 export const CLOUD_BACKUP_FILE_NAME = 'chiritsumo_cloud_backup.json';
+export const ANDROID_CLOUD_FOLDER_URI_KEY = 'android_cloud_folder_uri'; // SAF永続URI保存用
 
 /**
  * iCloud Container Path (iOS)
@@ -33,18 +35,110 @@ function getICloudDocumentsPath(): string | null {
 }
 
 /**
- * Google Drive App Data Folder (Android)
- * expo-google-driveやreact-native-google-drive-api-wrapperで実装
- * ⚠️ 現時点ではプレースホルダー（将来実装）
+ * Google Drive フォルダ選択（Android）
+ * SAFでユーザーにGoogle Driveフォルダを選択してもらい、URIを永続保存
+ * 以降は自動バックアップが可能になる
  */
-async function uploadToGoogleDrive(fileUri: string): Promise<boolean> {
+export async function requestAndroidCloudFolder(): Promise<{ success: boolean; error?: string }> {
+  if (Platform.OS !== 'android') {
+    return { success: false, error: 'Android only' };
+  }
+
+  try {
+    // StorageAccessFrameworkの取得
+    const StorageAccessFramework = (FileSystem as any).StorageAccessFramework;
+    if (!StorageAccessFramework) {
+      return { success: false, error: 'SAF not available (Expo Go does not support SAF)' };
+    }
+
+    // ユーザーにフォルダ選択を促す
+    const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!permissions.granted) {
+      return { success: false, error: 'Folder selection cancelled by user' };
+    }
+
+    // 取得したURI（永続化可能）を保存
+    const folderUri = permissions.directoryUri;
+    const db = await getDrizzleDb();
+    await db
+      .insert(systemSettings)
+      .values({
+        key: ANDROID_CLOUD_FOLDER_URI_KEY,
+        value: folderUri,
+        updated_at: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: systemSettings.key,
+        set: { value: folderUri, updated_at: new Date().toISOString() },
+      })
+      .run();
+
+    return { success: true };
+  } catch (e: any) {
+    console.error('[CloudBackup] Android folder selection failed:', e);
+    return { success: false, error: e?.message ?? 'Unknown error' };
+  }
+}
+
+/**
+ * Android SAF経由でGoogle Driveにバックアップ
+ * ユーザーが事前にフォルダを選択していれば自動バックアップ可能
+ */
+async function uploadToAndroidCloud(backupJson: string): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
-  // TODO: expo-google-drive統合
-  // 1. GoogleSignIn認証
-  // 2. Drive API: files.create (appDataFolder)
-  // 3. メタデータ保存 (modifiedTime)
-  console.warn('[CloudBackup] Google Drive統合は未実装 (TODO)');
-  return false;
+
+  try {
+    const StorageAccessFramework = (FileSystem as any).StorageAccessFramework;
+    if (!StorageAccessFramework) {
+      console.warn('[CloudBackup] SAF not available');
+      return false;
+    }
+
+    // 保存済みフォルダURIを取得
+    const db = await getDrizzleDb();
+    const { eq } = await import('drizzle-orm');
+    const result = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, ANDROID_CLOUD_FOLDER_URI_KEY))
+      .limit(1);
+
+    if (result.length === 0) {
+      console.warn('[CloudBackup] No folder URI saved. User needs to select folder first.');
+      return false;
+    }
+
+    const folderUri = result[0].value;
+
+    // 既存ファイルを削除（上書き処理）
+    try {
+      const existingFiles = await StorageAccessFramework.readDirectoryAsync(folderUri);
+      const existingBackup = existingFiles.find((f: string) =>
+        f.endsWith(CLOUD_BACKUP_FILE_NAME)
+      );
+      if (existingBackup) {
+        await StorageAccessFramework.deleteAsync(existingBackup, { idempotent: true });
+      }
+    } catch (e) {
+      // ファイルが存在しない場合はエラーになるが無視
+      console.log('[CloudBackup] No existing backup file to delete');
+    }
+
+    // 新規ファイル作成
+    const fileUri = await StorageAccessFramework.createFileAsync(
+      folderUri,
+      CLOUD_BACKUP_FILE_NAME,
+      'application/json'
+    );
+
+    await FileSystem.writeAsStringAsync(fileUri, backupJson, { encoding: 'utf8' });
+
+    console.log('[CloudBackup] Android backup successful:', fileUri);
+    return true;
+  } catch (e: any) {
+    console.error('[CloudBackup] Android upload failed:', e);
+    return false;
+  }
 }
 
 /**
@@ -128,10 +222,8 @@ export async function performCloudBackup(): Promise<{ success: boolean; error?: 
 
       return { success: true };
     } else if (Platform.OS === 'android') {
-      // Android: Google Drive (TODO)
-      const tempUri = `${FileSystem.cacheDirectory}${CLOUD_BACKUP_FILE_NAME}`;
-      await FileSystem.writeAsStringAsync(tempUri, backupJson, { encoding: 'utf8' });
-      const uploaded = await uploadToGoogleDrive(tempUri);
+      // Android: SAF経由でGoogle Driveフォルダに自動保存
+      const uploaded = await uploadToAndroidCloud(backupJson);
 
       if (uploaded) {
         await db
@@ -148,7 +240,7 @@ export async function performCloudBackup(): Promise<{ success: boolean; error?: 
           .run();
         return { success: true };
       } else {
-        return { success: false, error: 'Google Drive upload not implemented' };
+        return { success: false, error: 'Android cloud folder not configured. User needs to select Google Drive folder in backup settings.' };
       }
     }
 
@@ -185,6 +277,7 @@ export async function setCloudBackupEnabled(enabled: boolean): Promise<void> {
 export async function restoreFromCloudBackup(): Promise<{ success: boolean; error?: string }> {
   try {
     let fileUri: string | null = null;
+    let backupContent: string | null = null;
 
     if (Platform.OS === 'ios') {
       const iCloudPath = getICloudDocumentsPath();
@@ -195,15 +288,44 @@ export async function restoreFromCloudBackup(): Promise<{ success: boolean; erro
       if (!fileInfo.exists) {
         return { success: false, error: 'No cloud backup found' };
       }
+
+      backupContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
     } else if (Platform.OS === 'android') {
-      // TODO: Google Driveからダウンロード
-      return { success: false, error: 'Google Drive restore not implemented' };
+      // Android: SAF経由でバックアップファイル読み込み
+      const StorageAccessFramework = (FileSystem as any).StorageAccessFramework;
+      if (!StorageAccessFramework) {
+        return { success: false, error: 'SAF not available' };
+      }
+
+      // 保存済みフォルダURIを取得
+      const db = await getDrizzleDb();
+      const { eq } = await import('drizzle-orm');
+      const result = await db
+        .select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, ANDROID_CLOUD_FOLDER_URI_KEY))
+        .limit(1);
+
+      if (result.length === 0) {
+        return { success: false, error: 'No cloud folder configured' };
+      }
+
+      const folderUri = result[0].value;
+
+      // フォルダ内のバックアップファイルを探す
+      const files = await StorageAccessFramework.readDirectoryAsync(folderUri);
+      const backupFile = files.find((f: string) => f.endsWith(CLOUD_BACKUP_FILE_NAME));
+
+      if (!backupFile) {
+        return { success: false, error: 'No backup file found in cloud folder' };
+      }
+
+      backupContent = await FileSystem.readAsStringAsync(backupFile, { encoding: 'utf8' });
     }
 
-    if (!fileUri) return { success: false, error: 'No backup file' };
+    if (!backupContent) return { success: false, error: 'No backup content' };
 
-    // バックアップファイル読み込み
-    const backupContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
+    // バックアップデータ復元
     const backupData = JSON.parse(backupContent);
 
     // DB復元（replace mode）

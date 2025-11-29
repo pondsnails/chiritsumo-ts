@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { AlertCircle, Cloud, HardDrive } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { setCloudBackupEnabled } from '@core/services/cloudBackupService';
+import { setCloudBackupEnabled, requestAndroidCloudFolder } from '@core/services/cloudBackupService';
 import { requestSafBackupFolder } from '@core/services/safBackupService';
 import { colors } from '@core/theme/colors';
 import { useServices } from '@core/di/ServicesProvider';
@@ -16,7 +16,9 @@ import { useServices } from '@core/di/ServicesProvider';
  * データロスト低評価爆撃を防ぐための必須ステップ
  * 
  * 選択肢:
- * 1. クラウド自動バックアップ（iCloud/Google Drive）
+ * 1. クラウド自動バックアップ
+ *    - iOS: iCloud Container（Info.plist設定済み前提）
+ *    - Android: SAF経由でGoogle Driveフォルダ選択（API認証不要）
  * 2. 手動バックアップ（後で設定）
  * 3. スキップ（警告表示）
  */
@@ -29,15 +31,32 @@ export default function BackupSetupPrompt() {
   const handleCloudBackup = async () => {
     setIsLoading(true);
     try {
-      await setCloudBackupEnabled(true);
-      // TODO: iCloud/Google Drive認証フロー
-      // iOS: Info.plistにiCloudコンテナID追加後、自動有効化
-      // Android: Google Sign-In → Drive API権限取得
-      await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
-      alert('クラウドバックアップを有効化しました！');
-      router.replace('/(tabs)/quest');
-    } catch (e) {
-      alert('エラーが発生しました。後で設定から有効化できます。');
+      if (Platform.OS === 'android') {
+        // Android: SAF経由でGoogle Driveフォルダ選択
+        const result = await requestAndroidCloudFolder();
+        if (result.success) {
+          await setCloudBackupEnabled(true);
+          await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
+          alert('✅ Google Driveフォルダを設定しました！\n\n以降、自動でバックアップされます。');
+          router.replace('/(tabs)/quest');
+        } else {
+          if (result.error?.includes('Expo Go')) {
+            alert('⚠️ Expo Goでは SAF が利用できません。\n\nスタンドアロンビルド（EAS Build）で再度お試しください。\n現在は設定画面から手動エクスポートできます。');
+            await settingsRepo.set('@chiritsumo_backup_setup_done', 'skip');
+            router.replace('/(tabs)/quest');
+          } else {
+            alert('フォルダ選択がキャンセルされました。\n後で設定から有効化できます。');
+          }
+        }
+      } else {
+        // iOS: iCloud自動有効化（Info.plist設定済み前提）
+        await setCloudBackupEnabled(true);
+        await settingsRepo.set('@chiritsumo_backup_setup_done', 'true');
+        alert('✅ iCloudバックアップを有効化しました！');
+        router.replace('/(tabs)/quest');
+      }
+    } catch (e: any) {
+      alert(`エラーが発生しました: ${e?.message ?? '不明なエラー'}\n後で設定から有効化できます。`);
     } finally {
       setIsLoading(false);
     }
