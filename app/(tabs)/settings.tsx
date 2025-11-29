@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import { Download, Upload, Trash2, Info, CreditCard, ListChecks } from 'lucide-react-native';
+import { Download, Upload, Trash2, Info, CreditCard, ListChecks, Share2 } from 'lucide-react-native';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import { useBackupService } from '@core/services/backupService';
@@ -29,6 +29,7 @@ import {
 import { LEX_PROFILES } from '@core/types/lexProfile';
 import i18n from '@core/i18n';
 import { DrizzleSystemSettingsRepository } from '@core/repository/SystemSettingsRepository';
+import { shareRouteAsFile, copyRouteToClipboard } from '@core/services/routeSharingService';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -263,6 +264,50 @@ export default function SettingsScreen() {
     router.push('/paywall');
   };
 
+  // ルート共有ハンドラー
+  const handleShareRoute = async () => {
+    Alert.alert(
+      'ルート共有方法を選択',
+      'あなたの学習ルートを共有しましょう。\n個人の進捗データは含まれません。',
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: 'ファイルで共有',
+          onPress: async () => {
+            try {
+              const routeName = `マイルート_${new Date().toLocaleDateString()}`;
+              await shareRouteAsFile(routeName, 'Chiritsumoで作成した学習ルート');
+            } catch (error) {
+              console.error('Route sharing failed:', error);
+              Alert.alert('エラー', 'ルートの共有に失敗しました');
+            }
+          },
+        },
+        {
+          text: 'クリップボードにコピー',
+          onPress: async () => {
+            try {
+              const routeName = `マイルート_${new Date().toLocaleDateString()}`;
+              await copyRouteToClipboard(routeName, 'Chiritsumoで作成した学習ルート');
+              Alert.alert('成功', 'ルートをクリップボードにコピーしました。\nSNSやメモアプリに貼り付けて共有できます。');
+            } catch (error) {
+              console.error('Route copy failed:', error);
+              Alert.alert('エラー', 'ルートのコピーに失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleImportRoute = () => {
+    Alert.alert(
+      'ルートインポート',
+      '将来実装予定の機能です。\n\nクリップボードやQRコードから他のユーザーの学習ルートをインポートできます。',
+      [{ text: 'OK' }]
+    );
+  };
+
   // 開発用: Pro版トグル
   const handleDevTogglePro = () => {
     devToggleProStatus();
@@ -490,6 +535,37 @@ export default function SettingsScreen() {
                 </View>
               )}
             </View>
+          </View>
+
+          {/* ルート共有セクション */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>ルート共有</Text>
+            <View style={[glassEffect.card, styles.policyCard]}>
+              <Text style={styles.policyText}>
+                💡 あなたの学習計画を共有して、他の受験生を助けましょう。{' \n'}
+                個人の進捗データは含まれず、参考書リストと依存関係のみが共有されます。
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              style={[glassEffect.card, styles.menuItem]}
+              onPress={handleShareRoute}
+            >
+              <View style={styles.menuItemLeft}>
+                <Share2 color={colors.primary} size={20} strokeWidth={2} />
+                <Text style={styles.menuItemText}>マイルートを共有</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[glassEffect.card, styles.menuItem]}
+              onPress={handleImportRoute}
+            >
+              <View style={styles.menuItemLeft}>
+                <Download color={colors.primary} size={20} strokeWidth={2} />
+                <Text style={styles.menuItemText}>ルートをインポート</Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* データ管理セクション */}
