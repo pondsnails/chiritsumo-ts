@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { RotateCcw, AlertTriangle, CheckCircle } from 'lucide-react-native';
+import { RotateCcw, AlertTriangle, CheckCircle, List } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { colors } from '@core/theme/colors';
 import { glassEffect } from '@core/theme/glassEffect';
 import type { Card, Book } from '@core/types';
@@ -21,6 +22,7 @@ export function GlobalNextCard({
   dueCount,
   onReviewComplete,
 }: GlobalNextCardProps) {
+  const router = useRouter();
   const cardRepo = new DrizzleCardRepository();
 
   const handleReview = async (rating: 'again' | 'hard' | 'good') => {
@@ -73,7 +75,26 @@ export function GlobalNextCard({
           })()}
           <Text style={styles.hint}>学習単位＝書籍を chunkSize({globalNextBook.chunkSize || 1}) ごとに区切ったまとまり</Text>
           <View style={styles.buttons}>
-            {globalNextBook.mode === 1 ? (
+            {globalNext.state === 0 ? (
+              // 新規カード: Read/Memoなら一括検品へ、Solveなら学習開始
+              globalNextBook.mode === 0 || globalNextBook.mode === 2 ? (
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonBulk]}
+                  onPress={() => router.push(`/study-memo?bookId=${globalNextBook.id}` as any)}
+                >
+                  <List size={18} color={colors.text} />
+                  <Text style={styles.buttonText}>一括検品へ</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonStart]}
+                  onPress={() => handleReview('good')}
+                >
+                  <CheckCircle size={18} color={colors.text} />
+                  <Text style={styles.buttonText}>学習を開始</Text>
+                </TouchableOpacity>
+              )
+            ) : globalNextBook.mode === 1 ? (
               // Solveモードは従来の3ボタン（again/hard/good）
               <>
                 <TouchableOpacity
@@ -171,6 +192,14 @@ const styles = StyleSheet.create({
   },
   buttonGood: {
     backgroundColor: '#225522',
+  },
+  buttonStart: {
+    backgroundColor: '#224455',
+    flex: 1,
+  },
+  buttonBulk: {
+    backgroundColor: '#445522',
+    flex: 1,
   },
   buttonText: {
     fontSize: 13,

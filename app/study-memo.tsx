@@ -84,7 +84,7 @@ export default function StudyMemoScreen() {
 
       Alert.alert(
         i18n.t('study.completed'),
-        `${i18n.t('common.success')}: ${passedCount}枚\n${i18n.t('common.error')}: ${failedCount}枚`,
+        `定着: ${passedCount}枚\n付箋: ${failedCount}枚`,
         [
           {
             text: 'OK',
@@ -128,16 +128,19 @@ export default function StudyMemoScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
           <Text style={styles.bookTitle}>{currentBook?.title}</Text>
-          <Text style={styles.instruction}>{i18n.t('study.instruction')}</Text>
+          <Text style={styles.instruction}>
+            わからなかった / 忘れた箇所だけタップ（付箋）してください{'\n'}
+            他は自動的に「定着」として記録されます
+          </Text>
           <View style={styles.stats}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>{i18n.t('study.correct')}</Text>
+              <Text style={styles.statLabel}>定着</Text>
               <Text style={[styles.statValue, { color: colors.success }]}>
                 {cards.length - failedIndices.size}
               </Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>{i18n.t('study.incorrect')}</Text>
+              <Text style={styles.statLabel}>付箋</Text>
               <Text style={[styles.statValue, { color: colors.error }]}>{failedIndices.size}</Text>
             </View>
           </View>

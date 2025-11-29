@@ -70,7 +70,13 @@ export default function QuestScreen() {
   );
 
   const startStudy = (bookId: string) => {
-    router.push(`/study?bookId=${bookId}`);
+    const book = books.find(b => b.id === bookId);
+    // Read/Memoモードは一括検品画面へ、Solveは従来通り
+    if (book && (book.mode === 0 || book.mode === 2)) {
+      router.push(`/study-memo?bookId=${bookId}` as any);
+    } else {
+      router.push(`/study?bookId=${bookId}` as any);
+    }
   };
 
   const handleFilterPress = (presetId: number) => {
@@ -151,9 +157,9 @@ export default function QuestScreen() {
                   style={styles.primaryActionButton}
                   onPress={() => {
                     if (globalNextBook?.id) {
-                      router.push(`/study?bookId=${globalNextBook.id}` as any);
+                      startStudy(globalNextBook.id);
                     } else if (dueCards[0]?.bookId) {
-                      router.push(`/study?bookId=${dueCards[0].bookId}` as any);
+                      startStudy(dueCards[0].bookId);
                     }
                   }}
                 >
@@ -172,7 +178,7 @@ export default function QuestScreen() {
                       if (created > 0) {
                         await refreshAll();
                         const firstBook = Object.keys(recommended.perBook)[0];
-                        if (firstBook) router.push(`/study?bookId=${firstBook}` as any);
+                        if (firstBook) startStudy(firstBook);
                       }
                     } catch (e) {
                       console.error('Global next (new) failed', e);

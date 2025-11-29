@@ -138,6 +138,51 @@ async function runMigrations(db: ExpoSQLiteDatabase): Promise<void> {
 
     _initialized = true;
     console.log('[Migration] Migrations completed successfully');
+
+    // --- Post-migration sanity fix for missing cards.created_at (new DB path) ---
+    try {
+      const cardColumns = _sqlite.getAllSync<{ name: string }>('PRAGMA table_info(cards)');
+      const hasCreatedAt = cardColumns.some(c => c.name === 'created_at');
+      if (!hasCreatedAt) {
+        console.log('[Migration] ⚠️ cards.created_at missing. Applying one-time column add fix...');
+        _sqlite.execSync('BEGIN TRANSACTION');
+        try {
+          // Rebuild cards table with created_at column; preserve existing data
+          _sqlite.execSync(`
+            CREATE TABLE __new_cards (
+              id text PRIMARY KEY NOT NULL,
+              book_id text NOT NULL,
+              unit_index integer NOT NULL,
+              state integer DEFAULT 0 NOT NULL,
+              stability real DEFAULT 0 NOT NULL,
+              difficulty real DEFAULT 0 NOT NULL,
+              elapsed_days integer DEFAULT 0 NOT NULL,
+              scheduled_days integer DEFAULT 0 NOT NULL,
+              reps integer DEFAULT 0 NOT NULL,
+              lapses integer DEFAULT 0 NOT NULL,
+              due integer DEFAULT (strftime('%s','now')) NOT NULL,
+              last_review integer,
+              created_at integer DEFAULT (strftime('%s','now')) NOT NULL,
+              photo_path text,
+              FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+          `);
+          _sqlite.execSync(`
+            INSERT INTO __new_cards (id, book_id, unit_index, state, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, due, last_review, created_at, photo_path)
+            SELECT id, book_id, unit_index, state, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, due, last_review, strftime('%s','now') AS created_at, photo_path FROM cards;
+          `);
+          _sqlite.execSync('DROP TABLE cards');
+          _sqlite.execSync('ALTER TABLE __new_cards RENAME TO cards');
+          _sqlite.execSync('COMMIT');
+          console.log('[Migration] ✅ Added cards.created_at successfully');
+        } catch (rebuildErr) {
+          console.error('[Migration] ❌ Failed adding cards.created_at:', rebuildErr);
+          _sqlite.execSync('ROLLBACK');
+        }
+      }
+    } catch (postErr) {
+      console.warn('[Migration] Post-migration check failed:', postErr);
+    }
   } catch (e) {
       reportError(e);
     throw e;
