@@ -147,6 +147,68 @@ export default function BankScreen() {
                 </View>
               </View>
 
+              {/* 積み上げタワー可視化 */}
+              {(() => {
+                // 過去全ての獲得Lexを合計（累積報酬）
+                const totalEarned = ledger.reduce((sum, entry) => sum + entry.earnedLex, 0);
+                
+                // 100 Lex = 1cm のスケールで物理的な高さに変換
+                const heightCm = totalEarned / 100;
+                const heightM = heightCm / 100;
+                
+                // 比喩を選択
+                let metaphor = '';
+                let icon = '📚';
+                if (heightM >= 100) {
+                  metaphor = `東京タワー ${(heightM / 333).toFixed(1)}個分`;
+                  icon = '🗼';
+                } else if (heightM >= 30) {
+                  metaphor = `ビル ${Math.floor(heightM / 3)}階相当`;
+                  icon = '🏢';
+                } else if (heightM >= 1) {
+                  metaphor = `人の身長 ${(heightM / 1.7).toFixed(1)}人分`;
+                  icon = '🧍';
+                } else if (heightCm >= 15) {
+                  metaphor = `文庫本 ${Math.floor(heightCm / 1.5)}冊分`;
+                  icon = '📚';
+                } else if (heightCm >= 0.3) {
+                  metaphor = `紙 ${Math.floor(heightCm / 0.01)}枚分`;
+                  icon = '📄';
+                } else {
+                  metaphor = '学習を始めたばかり';
+                  icon = '🌱';
+                }
+                
+                return (
+                  <View style={[glassEffect.container, styles.towerCard]}>
+                    <Text style={styles.towerTitle}>{icon} 積み上げタワー</Text>
+                    <Text style={styles.towerSubtitle}>あなたの努力を可視化</Text>
+                    
+                    <View style={styles.towerStats}>
+                      <View style={styles.towerStatItem}>
+                        <Text style={styles.towerStatLabel}>累計獲得</Text>
+                        <Text style={styles.towerStatValue}>{totalEarned.toLocaleString()} XP</Text>
+                      </View>
+                      <View style={styles.towerDivider} />
+                      <View style={styles.towerStatItem}>
+                        <Text style={styles.towerStatLabel}>積み上げ高さ</Text>
+                        <Text style={styles.towerStatValue}>
+                          {heightM >= 1 ? `${heightM.toFixed(1)} m` : `${heightCm.toFixed(1)} cm`}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.towerMetaphor}>
+                      <Text style={styles.towerMetaphorText}>{metaphor}</Text>
+                    </View>
+                    
+                    <Text style={styles.towerHint}>
+                      💡 学習を続けるほど、タワーは高く積み上がります
+                    </Text>
+                  </View>
+                );
+              })()}
+
               {/* シェア機能 */}
               <ShareableStats
                 todayLex={todayEarned}
@@ -458,6 +520,67 @@ const styles = StyleSheet.create({
   ledgerValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  towerCard: {
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primary + '08',
+  },
+  towerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  towerSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  towerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  towerStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  towerDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.textTertiary + '40',
+  },
+  towerStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  towerStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  towerMetaphor: {
+    backgroundColor: colors.primary + '15',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  towerMetaphorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  towerHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   proUpgradeCard: {
     padding: 24,

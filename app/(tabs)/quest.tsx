@@ -177,40 +177,8 @@ export default function QuestScreen() {
             </View>
           )}
 
-          <View style={styles.banner}>
-            <Text style={styles.bannerTitle}>📚 今日のクエスト</Text>
-            <Text style={styles.bannerText}>復習を優先 → 目標Lexまで新規追加</Text>
-          </View>
-
-          <SummaryCards
-            dueCount={dueCards.length}
-            reviewLex={reviewLex}
-            newCount={newCards.length}
-            newLex={newLexCurrent}
-            targetLex={targetLex}
-            combinedLex={combinedLex}
-          />
-
-          {/* Velocity概要表示 */}
-          <View style={styles.banner}>
-            <Text style={styles.bannerTitle}>⏱ 学習速度</Text>
-            {avgVelocityLexPerMin ? (
-              <Text style={styles.bannerText}>平均 {avgVelocityLexPerMin.toFixed(1)} Lex/分 ・ 今日の目安 約{minutesPerDayEstimate ?? Math.round(dailyTargetLex / 10)}分</Text>
-            ) : (
-              <>
-                <Text style={styles.bannerText}>速度計測中です。目安 約{Math.round(dailyTargetLex / 10)}分</Text>
-                <TouchableOpacity onPress={() => router.push('/velocity-settings' as any)} style={{ marginTop: 8 }}>
-                  <Text style={[styles.bannerText, { color: colors.primary, fontWeight: '700' }]}>速度計測ガイドを開く →</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {globalNextBook && completionDaysEstimate && (
-              <Text style={styles.bannerText}>この書籍の完了予測：約{completionDaysEstimate}日</Text>
-            )}
-          </View>
-
-          {/* Global Next Action - 迷わせない単一アクション */}
-          <View style={styles.emptyState}>
+          {/* Hero Section - 巨大な単一アクションボタン */}
+          <View style={styles.heroSection}>
             {hasReviewPending ? (
               <>
                 <Text style={styles.emptyIcon}>🔔</Text>
