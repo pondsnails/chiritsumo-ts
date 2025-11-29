@@ -51,6 +51,17 @@ export default function RouteScreen() {
   const routeProgress = useMemo(() => {
     return bookRoutes.map(r => calculateRouteProgress(r));
   }, [bookRoutes]);
+  // フォーカスモード: 現在進行中（status===0/1）を強調し、それ以外を減光
+  const isActiveBook = useCallback((book: Book) => book.status !== 2, []);
+  const activeAnchorIndex = useMemo(() => {
+    // 最初に見つかった進行中の書籍のインデックスを返す（なければ0）
+    for (let r = 0; r < bookRoutes.length; r++) {
+      const route = bookRoutes[r];
+      const idx = route.findIndex(b => isActiveBook(b));
+      if (idx >= 0) return { r, idx };
+    }
+    return { r: 0, idx: 0 };
+  }, [bookRoutes, isActiveBook]);
 
   // 重い依存関係ソートは描画後に遅延実行
   useEffect(() => {
@@ -225,7 +236,16 @@ export default function RouteScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              onLayout={(e) => {
+                // 画面表示時にアクティブ書籍の近辺へ自動スクロール
+                // Timelineは縦方向に約72px/アイテムの見積りでスクロール
+                const anchorOffset = Math.max(0, activeAnchorIndex.idx * 72);
+                (e.nativeEvent.target as any)?.scrollTo?.({ y: anchorOffset, animated: false });
+              }}
+            >
               {/* 循環参照警告 */}
               {circularRefs.length > 0 && (
                 <View style={[glassEffect.card, styles.warningCard]}>
@@ -270,7 +290,11 @@ export default function RouteScreen() {
                         )}
                         
                         <TouchableOpacity
-                          style={[glassEffect.card, styles.presetBookCard]}
+                          style={[
+                            glassEffect.card,
+                            styles.presetBookCard,
+                            !isActiveBook(book) && { opacity: 0.35 }
+                          ]}
                           onPress={() => router.push(`/books/edit?id=${book.id}`)}
                         >
                           <View style={styles.bookOrder}>
