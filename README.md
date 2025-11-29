@@ -2,7 +2,7 @@
 
 **脱・時間管理。成果主義のデジタル学習台帳**
 
-Version: 7.1.0 (Local-First + Zero-Operation Cost)
+Version: 7.2.0 (Local-First + Zero-Operation Cost + Auto-Backup)
 
 ## 🎯 コンセプト
 
@@ -16,18 +16,21 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 - **Runtime**: React Native (Expo SDK 54+)
 - **Language**: TypeScript
 
-### ✅ 実装済み（Phase 1-3 完了 / v7.1.0）
+### ✅ 実装済み（Phase 1-4 完了 / v7.2.0）
 
 #### データベース & コアロジック
 - [x] **SQLite (Drizzle ORM)** - Web版廃止、Native専用に統一
 - [x] **Repository Pattern移行完了** - Books/Cards/Ledger/InventoryPresetsをDrizzle化
+- [x] **Zod Schema Adapters** - DB正規化・バリデーション統一レイヤー追加
 - [x] Read/Solve/Memoの3モード対応
 - [x] モード別Retention設定（0.85/0.90/0.80）
 - [x] 日次Rollover処理
 - [x] Lex残高管理
 - [x] 地下鉄路線図風のグラフ描画（マイルート）
+- [x] **Metroレイアウト非同期キャッシュ** - UI blocking回避、高速レンダリング
 - [x] ルートプリセット（厳選書籍の静的リンク集）
 - [x] JSONバックアップ機能（Export/Import）
+- [x] **自動バックアップ（iOS/Android）** - Google Console不要、OS標準API活用
 - [x] 設定画面（手動バックアップのみ）
 - [x] RevenueCat統合
 - [x] Paywallスクリーン（買い切り¥3,600優先／年額¥1,500は補助表示）
@@ -43,6 +46,21 @@ Version: 7.1.0 (Local-First + Zero-Operation Cost)
 - [x] **用語ポジティブ化** - ネガティブ用語を励まし言葉に全面変換
 - [x] **絶対的ネクストアクション最大化** - 巨大アクションボタン、詳細デフォルト非表示で決断疲れ排除
 - [x] **積み上げタワー可視化** - 累計XPを物理的高さ（cm/m）に変換、承認欲求・孤独感を充足
+
+#### UX最適化・データ保護（v7.2.0新規）
+- [x] **自動バックアップ（iOS/Android）** - アプリ起動・復帰時に自動でバックアップ実行（Google Console不要）
+  - Android: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存
+  - iOS: ドキュメントディレクトリ生成 + 共有ダイアログ表示
+  - 最終バックアップ時刻をSystemSettingsに記録
+- [x] **Progressive機能解放（タブゲート）** - 初心者の認知負荷軽減
+  - Quest: 常時表示（最優先アクション）
+  - Route: 書籍1冊以上で解放
+  - Bank: LEX発生または稼働中書籍で解放
+  - Settings: 書籍2冊以上で解放
+- [x] **Onboardingペルソナ拡張** - A（効率派）/B（習慣派）に加え、C（超シンプル）を追加
+  - ペルソナCはオンボーディング最速スキップ、即Quest画面遷移
+- [x] **Metroレイアウト非同期キャッシュ** - `computeMetroLayoutCached()`で差分検出＋キャッシュヒット、UI blocking回避
+- [x] **Zodスキーマアダプタ** - DB row → domain正規化の統一レイヤー、バリデーション・型安全性向上
 
 #### ストア対応
 - [x] app.jsonにカメラ権限説明追加
@@ -94,7 +112,13 @@ npm run dev
 
 #### 2. バックアップ方針（ゼロ運用コスト）
 
-本アプリは「手動バックアップ（JSON）」のみに対応します。OS標準の共有シートでエクスポート/インポートでき、壊れにくく維持費ゼロです。
+**v7.2.0より自動バックアップに対応（Google Console不要）:**
+- **Android**: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存
+- **iOS**: ドキュメントディレクトリ生成後、共有ダイアログで保存先選択可能
+- **トリガー**: アプリ起動時・バックグラウンド復帰時に自動実行
+- **手動バックアップ**: 引き続き設定画面からJSON Export/Import可能
+
+OS標準の共有シートでエクスポート/インポートでき、壊れにくく維持費ゼロです。
 
 ### RevenueCat設定（本番環境）
 
@@ -146,11 +170,14 @@ core/                    # アプリケーションコア（app外に配置）
 │   ├── BookNode.tsx
 │   └── ...
 ├── database/
+│   ├── schema.ts
+│   └── zodAdapters.ts  # ✅ v7.2.0新規: Zod正規化レイヤー
 ├── repository/         # Repository Pattern（Drizzle移行完了）
 │   ├── BookRepository.ts
 │   └── InventoryPresetRepository.ts
 ├── fsrs/               # FSRS v5スケジューラ
-│   └── metroLayout.ts
+├── layout/
+│   └── metroLayout.ts  # ✅ v7.2.0拡張: 非同期キャッシュ関数追加
 ├── logic/              # ビジネスロジック
 │   ├── bankruptcyLogic.ts
 │   ├── lexCalculator.ts
@@ -158,7 +185,9 @@ core/                    # アプリケーションコア（app外に配置）
 ├── services/
 │   ├── bookDataService.ts  # OpenBD + Google Books統合
 │   ├── BookService.ts
-│   ├── backupService.ts
+│   ├── backupService.ts    # 手動バックアップ（JSON）
+│   ├── safBackupService.ts # ✅ v7.2.0新規: Android SAF自動バックアップ
+│   ├── iosBackupService.ts # ✅ v7.2.0新規: iOS自動バックアップ
 │   └── aiAffiliate.ts
 ├── servicesV2/         # 次世代サービス層（設計中）
 │   ├── CardQueryService.ts
@@ -226,8 +255,16 @@ hooks/
 - 認証/クラウドストレージ非対応（手動バックアップ）
 - 維持コストゼロを最優先
 
-## 💾 Backup（手動のみ）
+## 💾 Backup（自動 + 手動）
 
+### 自動バックアップ（v7.2.0新規）
+- **Android**: Storage Access Framework (SAF) でユーザー指定フォルダに自動保存
+- **iOS**: ドキュメントディレクトリ生成後、共有ダイアログで保存先選択
+- **トリガー**: アプリ起動時・バックグラウンド復帰時に自動実行
+- **最終バックアップ時刻**: SystemSettingsに記録、Toast通知で確認可能
+- **Google Console不要**: OS標準APIのみ使用、ゼロ運用コスト維持
+
+### 手動バックアップ
 - Settings画面から JSON形式でエクスポート/インポート可能
 - 全データ（Books, Cards, Ledger）を含む完全バックアップ
 - OS標準の共有シートを利用（壊れにくく、維持費ゼロ）
@@ -326,7 +363,8 @@ const db = drizzle(sqlite);
 
 **Phase 1（完了）**: Repository実装 + Store層統合  
 **Phase 2（完了）**: UI層の残存レガシー参照を段階排除  
-**Phase 3（完了）**: `db.native.ts`削除、完全Drizzle化達成（v7.1.0）
+**Phase 3（完了）**: `db.native.ts`削除、完全Drizzle化達成（v7.1.0）  
+**Phase 4（完了）**: Zodアダプタ導入、自動バックアップ統合、UX最適化（v7.2.0）
 
 ## 🎨 デザインシステム: "Aurora Glass"
 
