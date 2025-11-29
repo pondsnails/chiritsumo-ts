@@ -49,6 +49,7 @@ function AppContent() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="backup-setup" options={{ headerShown: false }} />
       <Stack.Screen name="recovery" options={{ headerShown: false }} />
+      <Stack.Screen name="preset-routes" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

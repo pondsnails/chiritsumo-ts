@@ -60,7 +60,7 @@ export default function Index() {
           console.warn('[Index] Integrity check failed, proceeding to quest:', e);
         }
 
-        // 初回起動時のバックアップ設定促進（必須ステップ・スキップ可）
+        // 初回起動時のバックアップ設定促進(必須ステップ・スキップ可)
         try {
           const setupDone = await settingsRepo.get('@chiritsumo_backup_setup_done');
           if (setupDone !== 'true') {
@@ -72,6 +72,20 @@ export default function Index() {
           }
         } catch (e) {
           console.warn('[Index] backup setup check error, proceeding:', e);
+        }
+
+        // プリセットルート選択（初回起動時のみ表示）
+        try {
+          const presetSelected = await settingsRepo.get('@chiritsumo_preset_route_selected');
+          if (!presetSelected) {
+            if (mounted) {
+              setDestination('/preset-routes' as Href);
+              setReady(true);
+            }
+            return;
+          }
+        } catch (e) {
+          console.warn('[Index] preset route check error, proceeding:', e);
         }
 
         console.log('[Index] Setting destination to /(tabs)/quest');

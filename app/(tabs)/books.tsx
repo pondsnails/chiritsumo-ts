@@ -75,7 +75,7 @@ export default function BooksScreen() {
           {/* 厳選ルートマップへのリンク（検索ではなく提案） */}
           <TouchableOpacity
             style={[glassEffect.card, styles.searchCard]}
-            onPress={() => router.push('/recommended-routes')}
+            onPress={() => router.push('/preset-routes')}
           >
             <Sparkles color={colors.primary} size={24} />
             <View style={styles.searchCardContent}>
