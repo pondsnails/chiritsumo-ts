@@ -73,27 +73,50 @@ export function GlobalNextCard({
           })()}
           <Text style={styles.hint}>学習単位＝書籍を chunkSize({globalNextBook.chunkSize || 1}) ごとに区切ったまとまり</Text>
           <View style={styles.buttons}>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonAgain]}
-              onPress={() => handleReview('again')}
-            >
-              <RotateCcw size={16} color={colors.text} />
-              <Text style={styles.buttonText}>もう一度</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonHard]}
-              onPress={() => handleReview('hard')}
-            >
-              <AlertTriangle size={16} color={colors.text} />
-              <Text style={styles.buttonText}>難しい</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonGood]}
-              onPress={() => handleReview('good')}
-            >
-              <CheckCircle size={16} color={colors.text} />
-              <Text style={styles.buttonText}>できた</Text>
-            </TouchableOpacity>
+            {globalNextBook.mode === 1 ? (
+              // Solveモードは従来の3ボタン（again/hard/good）
+              <>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonAgain]}
+                  onPress={() => handleReview('again')}
+                >
+                  <RotateCcw size={16} color={colors.text} />
+                  <Text style={styles.buttonText}>もう一度</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonHard]}
+                  onPress={() => handleReview('hard')}
+                >
+                  <AlertTriangle size={16} color={colors.text} />
+                  <Text style={styles.buttonText}>難しい</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonGood]}
+                  onPress={() => handleReview('good')}
+                >
+                  <CheckCircle size={16} color={colors.text} />
+                  <Text style={styles.buttonText}>できた</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Read/Memoは2ボタン（again/good）
+              <>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonAgain, { flex: 1 }]}
+                  onPress={() => handleReview('again')}
+                >
+                  <RotateCcw size={18} color={colors.text} />
+                  <Text style={styles.buttonText}>忘れた</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonGood, { flex: 1 }]}
+                  onPress={() => handleReview('good')}
+                >
+                  <CheckCircle size={18} color={colors.text} />
+                  <Text style={styles.buttonText}>覚えてる</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       ) : (
